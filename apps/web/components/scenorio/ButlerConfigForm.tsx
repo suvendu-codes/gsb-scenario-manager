@@ -25,7 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import { ButlerSchema } from "@/schemas/buttler.schema";
+import { ButlerSchema } from "@/lib/schemas/buttler.schema";
 type butlerValues = z.infer<typeof ButlerSchema>;
 
 export function ButlerConfigForm() {

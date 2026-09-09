@@ -3,16 +3,14 @@
 import { useState } from "react";
 import { accentColor, accentFill } from "@/components/shared/accent";
 import { GROUP_HEADER_HEIGHT } from "@/components/shared/constants";
-import { quickInterventions } from "@/components/shared/data";
-import type { LaneAccent } from "@/components/shared/data";
+import { quickInterventions } from "@/lib/data";
+
 import { Slider } from "@/components/ui/slider";
 import { Square } from "lucide-react";
 import { FaSquare } from "react-icons/fa";
+import { LaneAccent, MetricsProps, } from "@/lib/types";
 
-interface MetricsProps {
-  visible: boolean;
-  accent?: LaneAccent;
-}
+
 
 export function Metrics({ visible, accent = "amber" }: MetricsProps) {
   const [orders, setOrders] = useState([50]);

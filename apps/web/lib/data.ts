@@ -1,17 +1,5 @@
-export type LaneAccent = "amber" | "blue" | "coral" | "teal";
-
-export interface Lane {
-  id: string;
-  label: string;
-  count: number;
-}
-
-export interface LaneGroup {
-  id: string;
-  label: string;
-  accent: LaneAccent;
-  lanes: Lane[];
-}
+import { LaneGroup, TimelineEvent, Metric } from "./types";
+export * from "./types";
 
 export const laneGroups: LaneGroup[] = [
   {
@@ -61,11 +49,7 @@ export function groupTotal(group: LaneGroup): number {
   return group.lanes.reduce((sum, lane) => sum + lane.count, 0);
 }
 
-export interface Metric {
-  label: string;
-  value: string;
-  unit: string;
-}
+
 
 export const metrics: Metric[] = [
   { label: "Arrival rate", value: "1", unit: "ord/min" },
@@ -75,11 +59,6 @@ export const metrics: Metric[] = [
   { label: "SLA at risk", value: "0", unit: "cumulative" },
 ];
 
-export interface TimelineEvent {
-  /** seconds from scenario start */
-  time: number;
-  count?: number;
-}
 
 export const laneEvents: Record<string, TimelineEvent[]> = {
   "zone-reallocation": [],

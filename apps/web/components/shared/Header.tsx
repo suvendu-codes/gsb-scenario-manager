@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { accentColor, accentFill, ACCENTS } from "@/components/shared/accent";
 import { KEYFRAME_SECONDS } from "@/components/shared/constants";
-import type { LaneAccent } from "@/components/shared/data";
+import type { LaneAccent } from "@/lib/data";
 import {
   PLAYBACK_SPEEDS,
   usePlayback,
   type PlaybackSpeed,
-} from "@/components/shared/playback-context";
+} from "@/components/scenorio-timeline/playback-context";
 import { formatClock } from "@/components/shared/time";
 
 interface HeaderProps {
@@ -86,16 +86,15 @@ export function Header({
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
-                isActive
-                  ? "bg-[var(--st-panel)] text-[var(--st-text)] font-semibold shadow-xs"
-                  : "text-[var(--st-text-dim)] hover:text-[var(--st-text)] hover:bg-white/5"
-              }`}
+              className={`rounded px-2.5 py-1 text-[11px] font-medium transition-all ${isActive
+                ? "bg-[var(--st-panel)] text-[var(--st-text)] font-semibold shadow-xs"
+                : "text-[var(--st-text-dim)] hover:text-[var(--st-text)] hover:bg-white/5"
+                }`}
               style={
                 isActive
                   ? {
-                      color: activeAccent.color,
-                    }
+                    color: activeAccent.color,
+                  }
                   : undefined
               }
             >
@@ -151,17 +150,16 @@ export function Header({
               title={accent}
               aria-label={`${accent} accent`}
               onClick={() => onSelectAccent(accent)}
-              className={`flex h-6 w-6 items-center justify-center rounded border transition-all ${
-                isSelected
-                  ? "shadow-xs"
-                  : "border-transparent opacity-70 hover:opacity-100 hover:bg-white/5"
-              }`}
+              className={`flex h-6 w-6 items-center justify-center rounded border transition-all ${isSelected
+                ? "shadow-xs"
+                : "border-transparent opacity-70 hover:opacity-100 hover:bg-white/5"
+                }`}
               style={
                 isSelected
                   ? {
-                      backgroundColor: accentFill[accent],
-                      borderColor: accentColor[accent],
-                    }
+                    backgroundColor: accentFill[accent],
+                    borderColor: accentColor[accent],
+                  }
                   : undefined
               }
             >
@@ -181,11 +179,10 @@ export function Header({
             key={s}
             type="button"
             onClick={() => setSpeed(s as PlaybackSpeed)}
-            className={`rounded px-2 py-1 font-mono text-[12px] ${
-              speed === s
-                ? "bg-[var(--st-text)] text-black"
-                : "text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
-            }`}
+            className={`rounded px-2 py-1 font-mono text-[12px] ${speed === s
+              ? "bg-[var(--st-text)] text-black"
+              : "text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
+              }`}
           >
             {s}
           </button>

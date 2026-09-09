@@ -14,7 +14,7 @@
 //     teal: "var(--st-teal-fill, rgba(45, 212, 191, 0.2))",
 // };
 
-import type { LaneAccent } from "./data";
+import type { LaneAccent } from "@/lib/types";
 
 export const accentColor: Record<LaneAccent, string> = {
     amber: "var(--st-amber)",

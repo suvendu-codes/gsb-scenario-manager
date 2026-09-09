@@ -35,6 +35,7 @@ interface PlaybackContextValue {
   skipToEnd: () => void;
   replay: () => void;
   reset: () => void;
+  seek: (time: number) => void;
 }
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null);
@@ -71,6 +72,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     setCurrentTime(0);
     setPlaying(false);
   }, []);
+  const seek = useCallback((time: number) => {
+    setCurrentTime(Math.max(0, Math.min(duration, time)));
+  }, [duration]);
 
   const value = useMemo<PlaybackContextValue>(
     () => ({
@@ -84,8 +88,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       skipToEnd,
       replay,
       reset,
+      seek,
     }),
-    [playing, speed, currentTime, duration, togglePlaying, stepForward, skipToEnd, replay, reset]
+    [playing, speed, currentTime, duration, togglePlaying, stepForward, skipToEnd, replay, reset, seek]
   );
 
   return <PlaybackContext.Provider value={value}>{children}</PlaybackContext.Provider>;

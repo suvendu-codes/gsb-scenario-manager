@@ -44,3 +44,29 @@ body {
   --st-teal: #3f9b7d;
   --st-teal-fill: rgba(63, 155, 125, 0.16);
 }
+
+/* Custom timeline horizontal and vertical scrollbar */
+.timeline-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #373b47 #14161c;
+}
+
+.timeline-scrollbar::-webkit-scrollbar {
+  height: 10px;
+  width: 8px;
+}
+
+.timeline-scrollbar::-webkit-scrollbar-track {
+  background: #14161c;
+  border-top: 1px solid var(--st-border);
+}
+
+.timeline-scrollbar::-webkit-scrollbar-thumb {
+  background: #373b47;
+  border-radius: 5px;
+  border: 2px solid #14161c;
+}
+
+.timeline-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555b6d;
+}

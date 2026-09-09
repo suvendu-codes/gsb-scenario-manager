@@ -2,7 +2,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { accentColor, accentFill } from "@/components/shared/accent";
 import { GROUP_GAP, GROUP_HEADER_HEIGHT, LANE_ROW_HEIGHT } from "@/components/shared/constants";
-import { groupTotal, laneGroups } from "@/components/shared/data";
+import { groupTotal, laneGroups } from "@/lib/data";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { useState } from "react";
 export function Sidebar() {
