@@ -6,6 +6,8 @@ import { GROUP_HEADER_HEIGHT } from "@/components/shared/constants";
 import { quickInterventions } from "@/components/shared/data";
 import type { LaneAccent } from "@/components/shared/data";
 import { Slider } from "@/components/ui/slider";
+import { Square } from "lucide-react";
+import { FaSquare } from "react-icons/fa";
 
 interface MetricsProps {
   visible: boolean;
@@ -45,7 +47,9 @@ export function Metrics({ visible, accent = "amber" }: MetricsProps) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-[#8b8f99]">Orders</span>
-            <span className="font-mono text-[#fff]">{orders[0]}</span>
+            <span className="font-mono font-medium transition-colors" style={{ color: activeColor }}>
+              {orders[0]}
+            </span>
           </div>
           <Slider
             value={orders}
@@ -60,7 +64,9 @@ export function Metrics({ visible, accent = "amber" }: MetricsProps) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-[#8b8f99]">Window</span>
-            <span className="font-mono text-[#fff]">{windowDuration[0]}s</span>
+            <span className="font-mono font-medium transition-colors" style={{ color: activeColor }}>
+              {windowDuration[0]}s
+            </span>
           </div>
           <Slider
             value={windowDuration}
@@ -96,9 +102,18 @@ export function Metrics({ visible, accent = "amber" }: MetricsProps) {
           <button
             key={intervention}
             type="button"
-            className="rounded-md border border-[var(--st-border)] px-2.5 py-1.5 text-left text-[12px] text-[var(--st-text-dim)] hover:text-[var(--st-text)] hover:bg-white/10"
+            className="group flex items-center gap-2.5 rounded-md border border-[var(--st-border)] px-2.5 py-1.5 text-left text-[12px] text-[var(--st-text-dim)] transition-all hover:text-[var(--st-text)] hover:bg-white/10 hover:border-white/20 active:scale-[0.99]"
           >
-            {intervention}
+            <FaSquare
+              className="size-3.5 shrink-0 transition-colors"
+              style={{
+                color: activeColor,
+                fill: activeFill,
+              }}
+            />
+            <span className="flex-1 truncate transition-colors group-hover:text-[var(--st-text)]">
+              {intervention}
+            </span>
           </button>
         ))}
       </div>
