@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+:root {
+  --st-bg: #0b0c10;
+  --st-panel: #14161c;
+  --st-panel-2: #191b22;
+  --st-border: #24262e;
+  --st-border-soft: #1d1f26;
+  --st-text: #e7e8ea;
+  --st-text-dim: #8b8f99;
+  --st-text-mute: #55585f;
+
+  --st-amber: #d9a441;
+  --st-amber-fill: rgba(217, 164, 65, 0.16);
+  --st-blue: #6c7fe0;
+  --st-blue-fill: rgba(108, 127, 224, 0.16);
+  --st-coral: #cf7267;
+  --st-coral-fill: rgba(207, 114, 103, 0.16);
+  --st-teal: #3f9b7d;
+  --st-teal-fill: rgba(63, 155, 125, 0.16);
+}
