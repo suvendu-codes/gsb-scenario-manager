@@ -29,3 +29,5 @@ export const accentFill: Record<LaneAccent, string> = {
     coral: "var(--st-coral-fill)",
     teal: "var(--st-teal-fill)",
 };
+
+export const ACCENTS: LaneAccent[] = ["amber", "blue", "coral", "teal"];
