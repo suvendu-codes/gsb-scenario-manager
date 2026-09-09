@@ -1,0 +1,100 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { KEYFRAME_SECONDS, SCENARIO_DURATION } from "@/components/shared/constants";
+
+export const PLAYBACK_SPEEDS = ["0.5x", "1x", "2x", "4x"] as const;
+export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
+
+const SPEED_MULTIPLIER: Record<PlaybackSpeed, number> = {
+  "0.5x": 0.5,
+  "1x": 1,
+  "2x": 2,
+  "4x": 4,
+};
+
+const TICK_MS = 200;
+
+interface PlaybackContextValue {
+  playing: boolean;
+  speed: PlaybackSpeed;
+  currentTime: number;
+  duration: number;
+  togglePlaying: () => void;
+  setSpeed: (speed: PlaybackSpeed) => void;
+  stepForward: () => void;
+  skipToEnd: () => void;
+  replay: () => void;
+  reset: () => void;
+}
+
+const PlaybackContext = createContext<PlaybackContextValue | null>(null);
+
+export function PlaybackProvider({ children }: { children: ReactNode }) {
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<PlaybackSpeed>("1x");
+  const [currentTime, setCurrentTime] = useState(0);
+  const duration = SCENARIO_DURATION;
+
+  useEffect(() => {
+    if (!playing) return;
+    const multiplier = SPEED_MULTIPLIER[speed];
+    const id = setInterval(() => {
+      setCurrentTime((time) => Math.min(duration, time + (TICK_MS / 1000) * multiplier));
+    }, TICK_MS);
+    return () => clearInterval(id);
+  }, [playing, speed, duration]);
+
+  useEffect(() => {
+    if (currentTime >= duration) setPlaying(false);
+  }, [currentTime, duration]);
+
+  const togglePlaying = useCallback(() => setPlaying((v) => !v), []);
+  const stepForward = useCallback(() => {
+    setCurrentTime((time) => Math.min(duration, time + KEYFRAME_SECONDS));
+  }, [duration]);
+  const skipToEnd = useCallback(() => setCurrentTime(duration), [duration]);
+  const replay = useCallback(() => {
+    setCurrentTime(0);
+    setPlaying(true);
+  }, []);
+  const reset = useCallback(() => {
+    setCurrentTime(0);
+    setPlaying(false);
+  }, []);
+
+  const value = useMemo<PlaybackContextValue>(
+    () => ({
+      playing,
+      speed,
+      currentTime,
+      duration,
+      togglePlaying,
+      setSpeed,
+      stepForward,
+      skipToEnd,
+      replay,
+      reset,
+    }),
+    [playing, speed, currentTime, duration, togglePlaying, stepForward, skipToEnd, replay, reset]
+  );
+
+  return <PlaybackContext.Provider value={value}>{children}</PlaybackContext.Provider>;
+}
+
+export function usePlayback() {
+  const ctx = useContext(PlaybackContext);
+  if (!ctx) {
+    throw new Error("usePlayback must be used within a PlaybackProvider");
+  }
+  return ctx;
+}

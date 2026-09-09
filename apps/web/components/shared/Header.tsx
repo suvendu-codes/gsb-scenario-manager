@@ -1,17 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { accentColor, accentFill, ACCENTS } from "@/components/shared/accent";
+import { KEYFRAME_SECONDS } from "@/components/shared/constants";
 import type { LaneAccent } from "@/components/shared/data";
-
-const SPEEDS = ["0.5x", "1x", "2x", "4x"];
+import {
+  PLAYBACK_SPEEDS,
+  usePlayback,
+  type PlaybackSpeed,
+} from "@/components/shared/playback-context";
+import { formatClock } from "@/components/shared/time";
 
 interface HeaderProps {
-  playing: boolean;
-  onTogglePlay: () => void;
+  playing?: boolean;
+  onTogglePlay?: () => void;
   selectedAccent?: LaneAccent;
   onSelectAccent?: (accent: LaneAccent) => void;
 }
+
+const NAV_ITEMS = [
+  { label: "Dashboard", href: "/" },
+  { label: "DES", href: "/des" },
+  { label: "Emulator", href: "/emulator" },
+];
 
 export function Header({
   playing,
@@ -19,7 +32,20 @@ export function Header({
   selectedAccent = "amber",
   onSelectAccent = () => { },
 }: HeaderProps) {
-  const [speed, setSpeed] = useState("1x");
+  const pathname = usePathname();
+  const playback = usePlayback();
+
+  const isPlaying = playing ?? playback.playing;
+  const togglePlay = onTogglePlay ?? playback.togglePlaying;
+  const speed = playback.speed;
+  const setSpeed = playback.setSpeed;
+  const currentTime = playback.currentTime;
+  const duration = playback.duration;
+  const stepForward = playback.stepForward;
+  const skipToEnd = playback.skipToEnd;
+  const replay = playback.replay;
+  const reset = playback.reset;
+
   const accents = useMemo(() => ACCENTS, []);
   const activeAccent = useMemo(
     () => ({
@@ -47,39 +73,68 @@ export function Header({
             Peak Wave — DC-04 Sortation
           </div>
           <div className="text-[11px] text-[var(--st-text-mute)]">
-            scenario · 20:00 · 2s keyframes
+            scenario · {formatClock(duration)} · {KEYFRAME_SECONDS}s keyframes
           </div>
         </div>
       </div>
 
+      {/* Navigation tabs between Dashboard, DES, and Emulator */}
+      <nav className="flex items-center gap-1 rounded-md border border-[var(--st-border)] bg-[var(--st-panel-2)] p-0.5">
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
+                isActive
+                  ? "bg-[var(--st-panel)] text-[var(--st-text)] font-semibold shadow-xs"
+                  : "text-[var(--st-text-dim)] hover:text-[var(--st-text)] hover:bg-white/5"
+              }`}
+              style={
+                isActive
+                  ? {
+                      color: activeAccent.color,
+                    }
+                  : undefined
+              }
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
       <button
         type="button"
-        onClick={onTogglePlay}
+        onClick={togglePlay}
         className="rounded-md px-4 py-1.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90"
         style={{ backgroundColor: activeAccent.color }}
       >
-        {playing ? "Pause" : "Play"}
+        {isPlaying ? "Pause" : "Play"}
       </button>
       <button
         type="button"
+        onClick={stepForward}
         aria-label="Step forward"
-        className="rounded-md border border-[var(--st-border)] px-2.5 py-1.5 text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
+        className="rounded-md border border-[var(--st-border)] px-2.5 py-1.5 text-[var(--st-text-dim)] hover:text-[var(--st-text)] active:bg-white/5"
       >
         &rsaquo;
       </button>
       <button
         type="button"
+        onClick={skipToEnd}
         aria-label="Skip to end"
-        className="rounded-md border border-[var(--st-border)] px-2.5 py-1.5 text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
+        className="rounded-md border border-[var(--st-border)] px-2.5 py-1.5 text-[var(--st-text-dim)] hover:text-[var(--st-text)] active:bg-white/5"
       >
         &raquo;
       </button>
 
       <div className="flex items-center gap-2 font-mono text-[15px] text-[var(--st-text)]">
-        <span>00:00</span>
-        <span className="text-[var(--st-text-mute)]">/ 20:00</span>
+        <span>{formatClock(currentTime)}</span>
+        <span className="text-[var(--st-text-mute)]">/ {formatClock(duration)}</span>
         <span className="rounded bg-[var(--st-panel-2)] px-1.5 py-0.5 text-[11px] text-[var(--st-text-dim)]">
-          kf 0
+          kf {Math.floor(currentTime / KEYFRAME_SECONDS)}
         </span>
       </div>
 
@@ -96,16 +151,17 @@ export function Header({
               title={accent}
               aria-label={`${accent} accent`}
               onClick={() => onSelectAccent(accent)}
-              className={`flex h-6 w-6 items-center justify-center rounded border transition-all ${isSelected
-                ? "shadow-xs"
-                : "border-transparent opacity-70 hover:opacity-100 hover:bg-white/5"
-                }`}
+              className={`flex h-6 w-6 items-center justify-center rounded border transition-all ${
+                isSelected
+                  ? "shadow-xs"
+                  : "border-transparent opacity-70 hover:opacity-100 hover:bg-white/5"
+              }`}
               style={
                 isSelected
                   ? {
-                    backgroundColor: accentFill[accent],
-                    borderColor: accentColor[accent],
-                  }
+                      backgroundColor: accentFill[accent],
+                      borderColor: accentColor[accent],
+                    }
                   : undefined
               }
             >
@@ -118,16 +174,18 @@ export function Header({
         })}
       </div>
 
+      {/* Speed Controls */}
       <div className="flex items-center gap-1 rounded-md border border-[var(--st-border)] p-0.5">
-        {SPEEDS.map((s) => (
+        {PLAYBACK_SPEEDS.map((s) => (
           <button
             key={s}
             type="button"
-            onClick={() => setSpeed(s)}
-            className={`rounded px-2 py-1 font-mono text-[12px] ${speed === s
-              ? "bg-[var(--st-text)] text-black"
-              : "text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
-              }`}
+            onClick={() => setSpeed(s as PlaybackSpeed)}
+            className={`rounded px-2 py-1 font-mono text-[12px] ${
+              speed === s
+                ? "bg-[var(--st-text)] text-black"
+                : "text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
+            }`}
           >
             {s}
           </button>
@@ -136,13 +194,15 @@ export function Header({
 
       <button
         type="button"
-        className="rounded-md border border-[var(--st-border)] px-3 py-1.5 text-[12px] text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
+        onClick={replay}
+        className="rounded-md border border-[var(--st-border)] px-3 py-1.5 text-[12px] text-[var(--st-text-dim)] hover:text-[var(--st-text)] active:bg-white/5"
       >
         ↺ Replay
       </button>
       <button
         type="button"
-        className="rounded-md border border-[var(--st-border)] px-3 py-1.5 text-[12px] text-[var(--st-text-dim)] hover:text-[var(--st-text)]"
+        onClick={reset}
+        className="rounded-md border border-[var(--st-border)] px-3 py-1.5 text-[12px] text-[var(--st-text-dim)] hover:text-[var(--st-text)] active:bg-white/5"
       >
         Reset scenario
       </button>
