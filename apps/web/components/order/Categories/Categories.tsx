@@ -30,30 +30,48 @@ function makeCategory(name: string): CategoryProfile {
     };
 }
 
-export function Categories({ }) {
-    const [categories, setCategories] = useState<CategoryProfile[]>(DEFAULT_CATEGORIES);
+interface CategoriesProps {
+    categories?: CategoryProfile[];
+    onChange?: (categories: CategoryProfile[]) => void;
+}
+
+export function Categories({
+    categories: controlledCategories,
+    onChange,
+}: CategoriesProps = {}) {
+    const [internalCategories, setInternalCategories] = useState<CategoryProfile[]>(DEFAULT_CATEGORIES);
+    const categories = controlledCategories ?? internalCategories;
     const [activeCategoryId, setActiveCategoryId] = useState("category2");
 
+    function updateCategories(updater: (prev: CategoryProfile[]) => CategoryProfile[]) {
+        const next = updater(categories);
+        console.log("Order Categories Value:", next);
+        if (onChange) {
+            onChange(next);
+        } else {
+            setInternalCategories(next);
+        }
+    }
 
     function addCategory() {
         const category = makeCategory(`category${categories.length + 1}`);
-        setCategories((prev) => [...prev, category]);
+        updateCategories((prev) => [...prev, category]);
         setActiveCategoryId(category.id);
     }
     function updateActiveCategory(patch: Partial<CategoryProfile>) {
-        setCategories((prev) =>
+        updateCategories((prev) =>
             prev.map((c) => (c.id === activeCategoryId ? { ...c, ...patch } : c))
         );
     }
     function removeCategory(id: string) {
         const remaining = categories.filter((c) => c.id !== id);
         if (remaining.length === 0) return;
-        setCategories(remaining);
+        updateCategories(() => remaining);
         if (activeCategoryId === id) setActiveCategoryId(remaining[0].id);
     }
     const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? categories[0];
     function updateBand(index: number, field: keyof ParetoBand, value: string) {
-        setCategories((prev) =>
+        updateCategories((prev) =>
             prev.map((c) =>
                 c.id === activeCategoryId
                     ? {
@@ -68,7 +86,7 @@ export function Categories({ }) {
     }
 
     function addBand() {
-        setCategories((prev) =>
+        updateCategories((prev) =>
             prev.map((c) =>
                 c.id === activeCategoryId
                     ? { ...c, paretoBands: [...c.paretoBands, { skuPct: 0, orderPct: 0, inventoryPct: 0 }] }
@@ -78,7 +96,7 @@ export function Categories({ }) {
     }
 
     function removeBand(index: number) {
-        setCategories((prev) =>
+        updateCategories((prev) =>
             prev.map((c) =>
                 c.id === activeCategoryId
                     ? { ...c, paretoBands: c.paretoBands.filter((_, i) => i !== index) }
@@ -132,12 +150,12 @@ export function Categories({ }) {
                 <Input
                     value={activeCategory.name}
                     onChange={(e) => updateActiveCategory({ name: e.target.value })}
-                    className="mt-2 h-11 max-w-md border-white/10 bg-white/[0.02] text-[15px] text-white"
+                    className="mt-2 h-11 w-full sm:max-w-md border-white/10 bg-white/[0.02] text-[15px] text-white"
                 />
             </div>
 
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-                <div className="grid grid-cols-3 gap-x-6 gap-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
                     {CATEGORY_NUMBER_FIELDS.map((field) => (
                         <NumberField
                             key={field.key}

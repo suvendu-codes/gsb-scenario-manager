@@ -34,7 +34,7 @@ export function ParentSku({
                 </span>
             </div>
 
-            <div className="mt-5 grid grid-cols-[1fr_1fr_1fr_44px] gap-3">
+            <div className="mt-5 hidden sm:grid sm:grid-cols-[1fr_1fr_1fr_44px] gap-3">
                 <span className="text-[11px] font-semibold tracking-widest text-white/40">
                     SKU %
                 </span>
@@ -48,31 +48,50 @@ export function ParentSku({
             </div>
             <div className="mt-2 flex flex-col gap-3">
                 {paretoBands.map((band, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_1fr_1fr_44px] gap-3">
-                        <Input
-                            type="number"
-                            value={band.skuPct}
-                            onChange={(e) => onUpdateBand(i, "skuPct", e.target.value)}
-                            className="h-11 border-white/10 bg-white/[0.02] text-[15px] text-white"
-                        />
-                        <Input
-                            type="number"
-                            value={band.orderPct}
-                            onChange={(e) => onUpdateBand(i, "orderPct", e.target.value)}
-                            className="h-11 border-white/10 bg-white/[0.02] text-[15px] text-white"
-                        />
-                        <Input
-                            type="number"
-                            value={band.inventoryPct}
-                            onChange={(e) => onUpdateBand(i, "inventoryPct", e.target.value)}
-                            className="h-11 border-white/10 bg-white/[0.02] text-[15px] text-white"
-                        />
+                    <div
+                        key={i}
+                        className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_1fr_44px] gap-3 rounded-lg border border-white/5 bg-white/[0.01] p-3 sm:border-0 sm:bg-transparent sm:p-0"
+                    >
+                        <div className="flex flex-col gap-1 sm:block">
+                            <span className="text-[11px] font-semibold tracking-widest text-white/40 sm:hidden">
+                                SKU %
+                            </span>
+                            <Input
+                                type="number"
+                                value={band.skuPct}
+                                onChange={(e) => onUpdateBand(i, "skuPct", e.target.value)}
+                                className="h-11 w-full border-white/10 bg-white/[0.02] text-[15px] text-white"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1 sm:block">
+                            <span className="text-[11px] font-semibold tracking-widest text-white/40 sm:hidden">
+                                ORDER %
+                            </span>
+                            <Input
+                                type="number"
+                                value={band.orderPct}
+                                onChange={(e) => onUpdateBand(i, "orderPct", e.target.value)}
+                                className="h-11 w-full border-white/10 bg-white/[0.02] text-[15px] text-white"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1 sm:block">
+                            <span className="text-[11px] font-semibold tracking-widest text-white/40 sm:hidden">
+                                INVENTORY %
+                            </span>
+                            <Input
+                                type="number"
+                                value={band.inventoryPct}
+                                onChange={(e) => onUpdateBand(i, "inventoryPct", e.target.value)}
+                                className="h-11 w-full border-white/10 bg-white/[0.02] text-[15px] text-white"
+                            />
+                        </div>
                         <button
                             type="button"
                             aria-label="Remove band"
                             onClick={() => onRemoveBand(i)}
-                            className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white"
+                            className="flex h-11 w-full sm:w-11 items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
                         >
+                            <span className="sm:hidden text-xs text-red-400 mr-1">Remove band</span>
                             &times;
                         </button>
                     </div>

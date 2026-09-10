@@ -29,7 +29,7 @@ export function OrderHeader({
 
     return (
         <header
-            className={`flex items-center justify-between border-b border-[var(--st-border)] bg-[var(--st-panel)] px-4 py-2.5 font-sans text-[var(--st-text)] ${className}`}
+            className={`hidden sm:flex items-center justify-between border-b border-[var(--st-border)] bg-[var(--st-panel)] px-4 py-2.5 font-sans text-[var(--st-text)] ${className}`}
         >
             {/* Left branding section */}
             <div className="flex items-center gap-3">

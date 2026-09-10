@@ -11,7 +11,7 @@ import { MetricsProps } from "@/lib/types";
 
 export function Metrics({ visible = true, accent = "amber" }: MetricsProps) {
   const pathname = usePathname();
-  const isOrderManagement = pathname?.includes("order-management");
+  const isOrderManagement = pathname?.includes("order");
 
   const [orders, setOrders] = useState([50]);
   const [windowDuration, setWindowDuration] = useState([30]);
@@ -25,7 +25,7 @@ export function Metrics({ visible = true, accent = "amber" }: MetricsProps) {
   // If order-management route, show WAVE PLAN PREVIEW
   if (isOrderManagement) {
     return (
-      <aside className="flex w-64 shrink-0 flex-col min-h-screen border-l border-white/10 bg-[#161A20] text-[#fff] px-3 pt-3 overflow-y-auto">
+      <aside className="hidden lg:flex w-64 shrink-0 flex-col min-h-screen border-l border-white/10 bg-[#161A20] text-[#fff] px-3 pt-3 overflow-y-auto">
         <div
           className="flex items-center justify-between px-1"
           style={{ height: GROUP_HEADER_HEIGHT }}
@@ -98,7 +98,7 @@ export function Metrics({ visible = true, accent = "amber" }: MetricsProps) {
 
   // Else show existing Inspector Metrics
   return (
-    <aside className="flex w-64 shrink-0 flex-col min-h-screen border-l border-white/10 bg-[#161A20] text-[#fff] px-3 pt-3 overflow-y-auto">
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col min-h-screen border-l border-white/10 bg-[#161A20] text-[#fff] px-3 pt-3 overflow-y-auto">
       <h2
         className="flex items-center px-1 text-[11px] font-semibold tracking-widest text-[#fff]"
         style={{ height: GROUP_HEADER_HEIGHT }}

@@ -1,15 +1,27 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import OrderHeader from "@/components/shared/OrderHeader";
 import OrderSider from "@/components/shared/OrderSidebar";
 import Metrics from "@/components/shared/Metrics";
 import OrderGeneratorWizard from "@/components/order/OrderGenerator";
 
-export default function OrderManagementPage() {
+export default function OrderGeneratorPage() {
+  const [activeStep, setActiveStep] = useState(1);
+  const [isPending, startTransition] = useTransition();
+
+  const handleStepChange = (step: number) => {
+    startTransition(() => {
+      setActiveStep(step);
+    });
+  };
 
   const handleResetAll = () => {
     // Reset all form/payload states when triggered
     console.log("Reset all order payload parameters");
+    startTransition(() => {
+      setActiveStep(1);
+    });
   };
 
   return (
@@ -18,10 +30,10 @@ export default function OrderManagementPage() {
         onReset={handleResetAll}
       />
       <div className="flex flex-1 overflow-hidden">
-        <OrderSider />
-        <main className="min-w-0 min-h-0 flex-1 flex flex-col overflow-y-auto p-6">
+        <OrderSider activeStep={activeStep} onStepChange={handleStepChange} onReset={handleResetAll} />
+        <main className={`min-w-0 min-h-0 flex-1 flex flex-col overflow-y-auto p-6 transition-opacity duration-200 ${isPending ? "opacity-70" : "opacity-100"}`}>
           {/* Order management main content area */}
-          <OrderGeneratorWizard />
+          <OrderGeneratorWizard activeStep={activeStep} onStepChange={handleStepChange} />
         </main>
         <Metrics />
       </div>

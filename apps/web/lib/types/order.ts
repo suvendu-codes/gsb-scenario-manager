@@ -32,13 +32,6 @@ export interface Step {
     subtitle: string;
 }
 
-export const STEPS: Step[] = [
-    { id: 1, title: "Bootstrap", subtitle: "profile & environment" },
-    { id: 2, title: "Categories", subtitle: "1 category" },
-    { id: 3, title: "Mock Inventory", subtitle: "3 SKUs" },
-    { id: 4, title: "JSON Templates", subtitle: "order / orderline" },
-    { id: 5, title: "Generate & Preview", subtitle: "not yet run" },
-];
 
 export interface BootstrapState {
     profileName: string;

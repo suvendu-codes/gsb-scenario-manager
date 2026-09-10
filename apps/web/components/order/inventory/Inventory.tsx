@@ -21,8 +21,10 @@ export function Inventory({ rows: controlledRows, onRowsChange }: InventoryProps
     const rows = controlledRows ?? internalRows;
 
     function updateRows(updater: (prev: InventoryRow[]) => InventoryRow[]) {
+        const next = updater(rows);
+        console.log("Order Inventory Value:", next);
         if (onRowsChange) {
-            onRowsChange(updater(rows));
+            onRowsChange(next);
         } else {
             setInternalRows(updater);
         }
@@ -34,6 +36,7 @@ export function Inventory({ rows: controlledRows, onRowsChange }: InventoryProps
             sku: `SKU${1001 + i}`,
             quantity: Math.floor(Math.random() * 100) + 1,
         })).sort((a, b) => b.quantity - a.quantity);
+        console.log("Order Inventory Value (Random Generated):", generated);
         if (onRowsChange) {
             onRowsChange(generated);
         } else {

@@ -13,8 +13,10 @@ export function Template({ templates: controlledTemplates, onChange }: TemplateP
     const [internalTemplates, setInternalTemplates] = useState<TemplateItem[]>(TEMPLATES);
     const templates = controlledTemplates ?? internalTemplates;
     function updateTemplates(updater: (prev: TemplateItem[]) => TemplateItem[]) {
+        const next = updater(templates);
+        console.log("Order Templates Value:", next);
         if (onChange) {
-            onChange(updater(templates));
+            onChange(next);
         } else {
             setInternalTemplates(updater);
         }
