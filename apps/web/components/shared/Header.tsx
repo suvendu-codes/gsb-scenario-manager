@@ -5,19 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { accentColor, accentFill, ACCENTS } from "@/components/shared/accent";
 import { KEYFRAME_SECONDS } from "@/components/shared/constants";
-import type { LaneAccent } from "@/lib/data";
+
 import {
   PLAYBACK_SPEEDS,
   usePlayback,
   type PlaybackSpeed,
 } from "@/components/scenorio-timeline/playback-context";
 import { formatClock } from "@/components/shared/time";
+import { LaneAccent } from "@/lib/types";
 
 interface HeaderProps {
   playing?: boolean;
   onTogglePlay?: () => void;
   selectedAccent?: LaneAccent;
   onSelectAccent?: (accent: LaneAccent) => void;
+  className?: string;
 }
 
 const NAV_ITEMS = [
@@ -31,6 +33,7 @@ export function Header({
   onTogglePlay,
   selectedAccent = "amber",
   onSelectAccent = () => { },
+  className = "",
 }: HeaderProps) {
   const pathname = usePathname();
   const playback = usePlayback();
@@ -56,7 +59,7 @@ export function Header({
   );
 
   return (
-    <div className="flex items-center gap-4 border-b border-[var(--st-border)] px-4 py-2.5">
+    <div className={`hidden sm:flex items-center gap-4 border-b border-[var(--st-border)] px-4 py-2.5 ${className}`}>
       <div className="flex items-center gap-2.5">
         <span
           className="flex h-6 w-6 items-center justify-center rounded-md text-[12px] font-bold border transition-colors"

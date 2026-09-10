@@ -25,6 +25,6 @@ export interface Metric {
 }
 
 export interface MetricsProps {
-    visible: boolean;
+    visible?: boolean;
     accent?: LaneAccent;
 }

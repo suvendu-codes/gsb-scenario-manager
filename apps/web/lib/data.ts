@@ -1,4 +1,4 @@
-import { LaneGroup, TimelineEvent, Metric } from "./types";
+import { LaneGroup, TimelineEvent, Metric, Step, CategoryProfile, CategoryNumberFieldConfig, TemplateItem } from "./types";
 export * from "./types";
 
 export const laneGroups: LaneGroup[] = [
@@ -87,4 +87,155 @@ export const quickInterventions = [
   "Throttle induction to 60%",
   "Open overflow aisle",
   "Escalate SLA batch",
+];
+
+export const STEPS: Step[] = [
+  { id: 1, title: "Bootstrap", subtitle: "profile & environment" },
+  { id: 2, title: "Categories", subtitle: "1 category" },
+  { id: 3, title: "Mock Inventory", subtitle: "3 SKUs" },
+  { id: 4, title: "JSON Templates", subtitle: "order / orderline" },
+  { id: 5, title: "Generate & Preview", subtitle: "not yet run" },
+];
+
+
+export const DEFAULT_CATEGORIES: CategoryProfile[] = [
+  {
+    id: "online",
+    name: "online",
+    avgOlPerOrder: 1,
+    minOlCount: 1,
+    maxOlCount: 1,
+    minQtyPerOl: 1,
+    maxQtyPerOl: 1,
+    avgUnitsPerOrder: 1,
+    singleLineOrdersPct: 100,
+    olInWave: 100,
+    wavesPerDay: 100,
+    waveIntervalS: 1500,
+    orderPoolSize: 0,
+    flatShape: false,
+    paretoBands: [{ skuPct: 20, orderPct: 80, inventoryPct: 30 }],
+  },
+  {
+    id: "category2",
+    name: "category2",
+    avgOlPerOrder: 4.2,
+    minOlCount: 4,
+    maxOlCount: 5,
+    minQtyPerOl: 1,
+    maxQtyPerOl: 1,
+    avgUnitsPerOrder: 4.2,
+    singleLineOrdersPct: 0,
+    olInWave: 100,
+    wavesPerDay: 100,
+    waveIntervalS: 1500,
+    orderPoolSize: 0,
+    flatShape: false,
+    paretoBands: [{ skuPct: 60, orderPct: 100, inventoryPct: 70 }],
+  },
+];
+
+export const CATEGORY_NUMBER_FIELDS: CategoryNumberFieldConfig[] = [
+  { key: "avgOlPerOrder", label: "AVG OL / ORDER" },
+  { key: "minOlCount", label: "MIN OL COUNT" },
+  { key: "maxOlCount", label: "MAX OL COUNT" },
+  { key: "minQtyPerOl", label: "MIN QTY / OL" },
+  { key: "maxQtyPerOl", label: "MAX QTY / OL" },
+  { key: "avgUnitsPerOrder", label: "AVG UNITS / ORDER" },
+  { key: "singleLineOrdersPct", label: "SINGLE-LINE ORDERS", suffix: "%" },
+  { key: "olInWave", label: "OL IN WAVE" },
+  { key: "wavesPerDay", label: "WAVES / DAY" },
+  { key: "waveIntervalS", label: "WAVE INTERVAL (S)" },
+  { key: "orderPoolSize", label: "ORDER POOL SIZE" },
+];
+export const TEMPLATES: TemplateItem[] = [
+  {
+    id: "template-1",
+    title: "Order Template (Pick)",
+    content: JSON.stringify(
+      {
+        externalServiceRequestId: "{{orderId}}",
+        type: "PICK",
+        attributes: {
+          pick_before_time: "{{pickBeforeTime}}",
+          order_options: {
+            priority: 0,
+            bintags: ["ecom"],
+          },
+        },
+      },
+      null,
+      2
+    ),
+  },
+  {
+    id: "template-2",
+    title: "Orderline Template (Pick Line)",
+    content: JSON.stringify(
+      {
+        externalServiceRequestId: "{{orderLineId}}",
+        type: "PICK_LINE",
+        expectations: {
+          containers: [
+            {
+              products: [
+                {
+                  productQuantity: "{{quantity}}",
+                  productAttributes: {
+                    filter_parameters: ["product_sku = '{{sku}}'"],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      null,
+      2
+    ),
+  },
+  {
+    id: "template-3",
+    title: "Order Template (Put)",
+    content: JSON.stringify(
+      {
+        externalServiceRequestId: "{{orderId}}",
+        type: "PUT",
+        attributes: {
+          put_before_time: "{{putBeforeTime}}",
+          order_options: {
+            priority: 0,
+          },
+        },
+      },
+      null,
+      2
+    ),
+  },
+  {
+    id: "template-4",
+    title: "Orderline Template (Put Line)",
+    content: JSON.stringify(
+      {
+        externalServiceRequestId: "{{orderLineId}}",
+        type: "PUT_LINE",
+        expectations: {
+          containers: [
+            {
+              products: [
+                {
+                  productQuantity: "{{quantity}}",
+                  productAttributes: {
+                    filter_parameters: ["product_sku = '{{sku}}'"],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      null,
+      2
+    ),
+  },
 ];
