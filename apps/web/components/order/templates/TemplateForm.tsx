@@ -5,15 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, AlertCircle, Trash2 } from "lucide-react";
-import { TemplateItem } from "@/lib/types";
-
-interface TemplateFormProps {
-    templates: TemplateItem[];
-    onTitleChange: (id: string, newTitle: string) => void;
-    onContentChange: (id: string, newContent: string) => void;
-    onFormatJson: (id: string) => void;
-    onRemoveTextArea: (id: string) => void;
-}
+import { TemplateFormProps } from "@/lib/types";
 
 export function TemplateForm({
     templates,

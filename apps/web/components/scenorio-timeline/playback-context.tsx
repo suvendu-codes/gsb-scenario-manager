@@ -11,9 +11,10 @@ import {
 } from "react";
 
 import { KEYFRAME_SECONDS, SCENARIO_DURATION } from "@/components/shared/constants";
+import { PlaybackSpeed, PlaybackContextValue } from "@/lib/types";
 
-export const PLAYBACK_SPEEDS = ["0.5x", "1x", "2x", "4x"] as const;
-export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
+export const PLAYBACK_SPEEDS: readonly PlaybackSpeed[] = ["0.5x", "1x", "2x", "4x"] as const;
+export type { PlaybackSpeed, PlaybackContextValue };
 
 const SPEED_MULTIPLIER: Record<PlaybackSpeed, number> = {
   "0.5x": 0.5,
@@ -23,20 +24,6 @@ const SPEED_MULTIPLIER: Record<PlaybackSpeed, number> = {
 };
 
 const TICK_MS = 200;
-
-interface PlaybackContextValue {
-  playing: boolean;
-  speed: PlaybackSpeed;
-  currentTime: number;
-  duration: number;
-  togglePlaying: () => void;
-  setSpeed: (speed: PlaybackSpeed) => void;
-  stepForward: () => void;
-  skipToEnd: () => void;
-  replay: () => void;
-  reset: () => void;
-  seek: (time: number) => void;
-}
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null);
 
@@ -50,14 +37,17 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     if (!playing) return;
     const multiplier = SPEED_MULTIPLIER[speed];
     const id = setInterval(() => {
-      setCurrentTime((time) => Math.min(duration, time + (TICK_MS / 1000) * multiplier));
+      setCurrentTime((time) => {
+        const nextTime = time + (TICK_MS / 1000) * multiplier;
+        if (nextTime >= duration) {
+          setPlaying(false);
+          return duration;
+        }
+        return nextTime;
+      });
     }, TICK_MS);
     return () => clearInterval(id);
   }, [playing, speed, duration]);
-
-  useEffect(() => {
-    if (currentTime >= duration) setPlaying(false);
-  }, [currentTime, duration]);
 
   const togglePlaying = useCallback(() => setPlaying((v) => !v), []);
   const stepForward = useCallback(() => {

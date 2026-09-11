@@ -3,15 +3,9 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { BootstrapState } from "@/lib/types";
+import { BootstrapState, ProfileProps } from "@/lib/types";
 import { ProfileSchema } from "@/lib/schemas/buttler.schema";
 import { PROFILE_PRESETS } from "../steps";
-
-interface ProfileProps {
-    bootstrap?: BootstrapState;
-    onChange?: (bootstrap: BootstrapState) => void;
-    setBootstrap?: React.Dispatch<React.SetStateAction<BootstrapState>>;
-}
 
 export function Profile({
     bootstrap: controlledBootstrap,

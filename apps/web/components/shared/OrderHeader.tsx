@@ -2,23 +2,16 @@
 
 import * as React from "react";
 import { useMemo } from "react";
-import { accentColor, accentFill, ACCENTS } from "@/components/shared/accent";
-import { LaneAccent } from "@/lib/types";
+import { accentColor, accentFill } from "@/components/shared/accent";
+import { OrderHeaderProps } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
-
-interface OrderHeaderProps {
-    selectedAccent?: LaneAccent;
-    onReset?: () => void;
-    className?: string;
-}
 
 export function OrderHeader({
     selectedAccent = "amber",
     onReset,
     className = "",
 }: OrderHeaderProps) {
-    const accents = useMemo(() => ACCENTS, []);
     const activeAccent = useMemo(
         () => ({
             color: accentColor[selectedAccent],

@@ -12,15 +12,7 @@ import {
   type PlaybackSpeed,
 } from "@/components/scenorio-timeline/playback-context";
 import { formatClock } from "@/components/shared/time";
-import { LaneAccent } from "@/lib/types";
-
-interface HeaderProps {
-  playing?: boolean;
-  onTogglePlay?: () => void;
-  selectedAccent?: LaneAccent;
-  onSelectAccent?: (accent: LaneAccent) => void;
-  className?: string;
-}
+import { HeaderProps } from "@/lib/types";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/" },

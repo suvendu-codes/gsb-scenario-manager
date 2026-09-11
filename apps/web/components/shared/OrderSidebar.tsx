@@ -1,15 +1,10 @@
 "use client";
 
-import { STEPS, Step } from "@/lib/data";
+import { STEPS } from "@/lib/data";
+import { Step, OrderSidebarProps } from "@/lib/types";
 import { useState } from "react";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { RotateCcw } from "lucide-react";
-
-interface OrderSidebarProps {
-    activeStep?: number;
-    onStepChange?: (step: number) => void;
-    onReset?: () => void;
-}
 
 export function OrderSidebar({
     activeStep: controlledActiveStep,

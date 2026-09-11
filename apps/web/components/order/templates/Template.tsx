@@ -1,14 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { TemplateItem } from "@/lib/types";
+import { TemplateItem, TemplateProps } from "@/lib/types";
 import { TEMPLATES } from "@/lib/data";
 import { TemplateForm } from "./TemplateForm";
 
-interface TemplateProps {
-    templates?: TemplateItem[];
-    onChange?: (templates: TemplateItem[]) => void;
-}
 export function Template({ templates: controlledTemplates, onChange }: TemplateProps = {}) {
     const [internalTemplates, setInternalTemplates] = useState<TemplateItem[]>(TEMPLATES);
     const templates = controlledTemplates ?? internalTemplates;

@@ -17,14 +17,7 @@ import {
 } from "@/lib/data";
 import { usePlayback } from "@/components/scenorio-timeline/playback-context";
 import { formatClock } from "@/components/shared/time";
-import { LaneAccent, TimelineEvent, Lane } from "@/lib/types";
-
-interface SelectedEvent {
-  event: TimelineEvent;
-  lane: Lane;
-  groupLabel: string;
-  accent: LaneAccent;
-}
+import { LaneAccent, TimelineEvent, SelectedEvent } from "@/lib/types";
 
 const TIMELINE_WIDTH = SCENARIO_DURATION * PX_PER_SECOND;
 const MARKER_SIZE = 18;

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -15,22 +14,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 import { ButlerSchema } from "@/lib/schemas/buttler.schema";
 type butlerValues = z.infer<typeof ButlerSchema>;
 
 export function ButlerConfigForm() {
-  const [submittedData, setSubmittedData] = useState<butlerValues | null>(null);
-
-
   const form = useForm<butlerValues>({
     resolver: zodResolver(ButlerSchema),
     defaultValues: {
@@ -40,7 +28,6 @@ export function ButlerConfigForm() {
   });
 
   function onSubmit(values: butlerValues) {
-    setSubmittedData(values);
     console.log("Submitted Configuration:", values);
   }
 

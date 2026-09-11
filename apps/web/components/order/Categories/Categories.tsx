@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { CategoryProfile, ParetoBand } from "@/lib/types";
+import { CategoryProfile, ParetoBand, CategoriesProps } from "@/lib/types";
 import NumberField from "../../shared/NumberField";
 import { DEFAULT_CATEGORIES, CATEGORY_NUMBER_FIELDS } from "@/lib/data";
 import ParentSku from "./ParentSku";
@@ -28,11 +28,6 @@ function makeCategory(name: string): CategoryProfile {
         flatShape: false,
         paretoBands: [{ skuPct: 20, orderPct: 80, inventoryPct: 30 }],
     };
-}
-
-interface CategoriesProps {
-    categories?: CategoryProfile[];
-    onChange?: (categories: CategoryProfile[]) => void;
 }
 
 export function Categories({

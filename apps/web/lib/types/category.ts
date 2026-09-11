@@ -3,6 +3,7 @@ export interface ParetoBand {
     orderPct: number;
     inventoryPct: number;
 }
+
 export interface CategoryProfile {
     id: string;
     name: string;
@@ -27,4 +28,16 @@ export interface CategoryNumberFieldConfig {
     key: CategoryNumberFieldKey;
     label: string;
     suffix?: string;
+}
+
+export interface CategoriesProps {
+    categories?: CategoryProfile[];
+    onChange?: (categories: CategoryProfile[]) => void;
+}
+
+export interface ParentSkuProps {
+    paretoBands: ParetoBand[];
+    onUpdateBand: (index: number, field: keyof ParetoBand, value: string) => void;
+    onAddBand: () => void;
+    onRemoveBand: (index: number) => void;
 }

@@ -1,16 +1,12 @@
 import { Input } from "../ui/input";
+import { NumberFieldProps } from "@/lib/types";
 
 function NumberField({
     label,
     value,
     onChange,
     suffix,
-}: {
-    label: string;
-    value: number;
-    onChange: (value: number) => void;
-    suffix?: string;
-}) {
+}: NumberFieldProps) {
     return (
         <div>
             <label className="text-[11px] font-semibold tracking-widest text-white/40">{label}</label>

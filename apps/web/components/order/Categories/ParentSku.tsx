@@ -1,14 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { ParetoBand } from "@/lib/types";
-
-interface ParentSkuProps {
-    paretoBands: ParetoBand[];
-    onUpdateBand: (index: number, field: keyof ParetoBand, value: string) => void;
-    onAddBand: () => void;
-    onRemoveBand: (index: number) => void;
-}
+import { ParentSkuProps } from "@/lib/types";
 
 export function ParentSku({
     paretoBands,

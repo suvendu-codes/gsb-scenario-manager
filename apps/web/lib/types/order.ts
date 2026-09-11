@@ -1,4 +1,7 @@
+import type React from "react";
 import type { LaneAccent } from "./metrics";
+import type { CategoryProfile } from "./category";
+import type { TemplateItem } from "./template";
 
 export interface PayloadSectionItem {
     id: string;
@@ -26,12 +29,12 @@ export interface PayloadSidebarProps {
     groups?: PayloadGroup[];
     className?: string;
 }
+
 export interface Step {
     id: number;
     title: string;
     subtitle: string;
 }
-
 
 export interface BootstrapState {
     profileName: string;
@@ -43,4 +46,65 @@ export interface BootstrapState {
 export interface InventoryRow {
     sku: string;
     quantity: number;
+}
+
+export interface InventoryProps {
+    rows?: InventoryRow[];
+    onRowsChange?: (rows: InventoryRow[]) => void;
+}
+
+export interface ProfileProps {
+    bootstrap?: BootstrapState;
+    onChange?: (bootstrap: BootstrapState) => void;
+    setBootstrap?: React.Dispatch<React.SetStateAction<BootstrapState>>;
+}
+
+export interface OrderGeneratorWizardProps {
+    activeStep?: number;
+    onStepChange?: (step: number) => void;
+}
+
+export interface OrderSidebarProps {
+    activeStep?: number;
+    onStepChange?: (step: number) => void;
+    onReset?: () => void;
+}
+
+export interface OrderHeaderProps {
+    selectedAccent?: LaneAccent;
+    onReset?: () => void;
+    className?: string;
+}
+
+export interface GeneratedFormProps {
+    bootstrap?: BootstrapState;
+    categories?: CategoryProfile[];
+    inventory?: InventoryRow[];
+    templates?: TemplateItem[];
+}
+
+export interface OrderWizardState {
+    step: number;
+    bootstrap: BootstrapState;
+    categories: CategoryProfile[];
+    inventory: InventoryRow[];
+    templates: TemplateItem[];
+}
+
+export type OrderWizardAction =
+    | { type: "SET_STEP"; payload: number }
+    | { type: "PREV_STEP" }
+    | { type: "NEXT_STEP" }
+    | { type: "SET_BOOTSTRAP"; payload: BootstrapState }
+    | { type: "SET_CATEGORIES"; payload: CategoryProfile[] }
+    | { type: "SET_INVENTORY"; payload: InventoryRow[] }
+    | { type: "SET_TEMPLATES"; payload: TemplateItem[] }
+    | { type: "RESET" };
+
+export interface OrderNavigationProps {
+    currentIndex: number;
+    totalSteps: number;
+    onBack: () => void;
+    onNext: () => void;
+    onLogValues?: () => void;
 }
