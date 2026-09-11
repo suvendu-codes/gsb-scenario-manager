@@ -80,11 +80,10 @@ export function Sidebar() {
                                         key={item.href}
                                         href={item.href}
                                         onClick={() => setShow(false)}
-                                        className={`flex-1 text-center rounded px-2.5 py-1.5 text-xs font-medium transition-all ${
-                                            isActive
-                                                ? "bg-white/10 text-white font-semibold"
-                                                : "text-white/60 hover:text-white hover:bg-white/5"
-                                        }`}
+                                        className={`flex-1 text-center rounded px-2.5 py-1.5 text-xs font-medium transition-all ${isActive
+                                            ? "bg-white/10 text-white font-semibold"
+                                            : "text-white/60 hover:text-white hover:bg-white/5"
+                                            }`}
                                     >
                                         {item.label}
                                     </Link>
