@@ -9,7 +9,7 @@ import {
     GeneratedFormProps,
 } from "@/lib/types";
 
-const ProfileStep = React.lazy(() => import("./profile/profile"));
+const ProfileStep = React.lazy(() => import("./profile/ProfileContainer"));
 const CategoriesStep = React.lazy(() => import("./Categories/Categories"));
 const InventoryStep = React.lazy(() => import("./inventory/Inventory"));
 const TemplateStep = React.lazy(() => import("./templates/Template"));

@@ -7,6 +7,7 @@ import { CategoryProfile, ParetoBand, CategoriesProps } from "@/lib/types";
 import NumberField from "../../shared/NumberField";
 import { DEFAULT_CATEGORIES, CATEGORY_NUMBER_FIELDS } from "@/lib/data";
 import ParentSku from "./ParentSku";
+import { useApi } from "@/lib/hooks/useApi";
 
 
 
@@ -37,20 +38,25 @@ export function Categories({
     const [internalCategories, setInternalCategories] = useState<CategoryProfile[]>(DEFAULT_CATEGORIES);
     const categories = controlledCategories ?? internalCategories;
     const [activeCategoryId, setActiveCategoryId] = useState("category2");
+    const { request } = useApi<{ success: boolean; categories: CategoryProfile[] }>();
 
     function updateCategories(updater: (prev: CategoryProfile[]) => CategoryProfile[]) {
         const next = updater(categories);
-        console.log("Order Categories Value:", next);
         if (onChange) {
             onChange(next);
         } else {
             setInternalCategories(next);
         }
+        request({
+            method: "POST",
+            url: "/api/categories",
+            data: next,
+        }).catch(() => undefined);
     }
 
     function addCategory() {
         const category = makeCategory(`category${categories.length + 1}`);
-        updateCategories((prev) => [...prev, category]);
+        // updateCategories((prev) => [...prev, category]);
         setActiveCategoryId(category.id);
     }
     function updateActiveCategory(patch: Partial<CategoryProfile>) {
@@ -61,7 +67,7 @@ export function Categories({
     function removeCategory(id: string) {
         const remaining = categories.filter((c) => c.id !== id);
         if (remaining.length === 0) return;
-        updateCategories(() => remaining);
+        // updateCategories(() => remaining);
         if (activeCategoryId === id) setActiveCategoryId(remaining[0].id);
     }
     const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? categories[0];

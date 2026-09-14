@@ -35,6 +35,7 @@ export function TemplateForm({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {templates.map((template, index) => {
                 const validation = validateJson(template.content);
+                const isEditable = index === 0;
 
                 return (
                     <div
@@ -48,9 +49,10 @@ export function TemplateForm({
                                 </span>
                                 <Input
                                     value={template.title}
-                                    onChange={(e) => onTitleChange(template.id, e.target.value)}
+                                    onChange={(e) => isEditable && onTitleChange(template.id, e.target.value)}
                                     placeholder={`Template ${index + 1} Title`}
-                                    className="h-9 max-w-sm border-white/10 bg-white/[0.03] text-[13px] font-medium text-white placeholder:text-white/30"
+                                    disabled={!isEditable}
+                                    className="h-9 max-w-sm border-white/10 bg-white/[0.03] text-[13px] font-medium text-white placeholder:text-white/30 disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
 
@@ -71,8 +73,9 @@ export function TemplateForm({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => onFormatJson(template.id)}
-                                    className="h-8 border-white/10 bg-transparent px-2.5 text-[12px] text-white/60 hover:text-white"
+                                    onClick={() => isEditable && onFormatJson(template.id)}
+                                    disabled={!isEditable}
+                                    className="h-8 border-white/10 bg-transparent px-2.5 text-[12px] text-white/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                                     title="Format / Prettify JSON"
                                 >
                                     Prettify
@@ -98,8 +101,9 @@ export function TemplateForm({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => onRemoveTextArea(template.id)}
-                                        className="h-8 border-white/10 bg-transparent px-2.5 text-[12px] text-rose-400/70 hover:bg-rose-500/10 hover:text-rose-400"
+                                        onClick={() => isEditable && onRemoveTextArea(template.id)}
+                                        disabled={!isEditable}
+                                        className="h-8 border-white/10 bg-transparent px-2.5 text-[12px] text-rose-400/70 hover:bg-rose-500/10 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
                                         title="Delete Template"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -108,13 +112,13 @@ export function TemplateForm({
                             </div>
                         </div>
 
-                        {/* Shadcn Textarea in Loop */}
                         <Textarea
                             value={template.content}
-                            onChange={(e) => onContentChange(template.id, e.target.value)}
+                            onChange={(e) => isEditable && onContentChange(template.id, e.target.value)}
                             rows={8}
                             placeholder="Paste or edit raw JSON template here..."
-                            className="min-h-[160px] border-white/10 bg-black/40 font-mono text-[13px] leading-relaxed text-white/90 placeholder:text-white/20 focus-visible:border-[var(--st-amber)]/50 focus-visible:ring-1 focus-visible:ring-[var(--st-amber)]/20"
+                            disabled={!isEditable}
+                            className="min-h-[160px] border-white/10 bg-black/40 font-mono text-[13px] leading-relaxed text-white/90 placeholder:text-white/20 focus-visible:border-[var(--st-amber)]/50 focus-visible:ring-1 focus-visible:ring-[var(--st-amber)]/20 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                     </div>
                 );

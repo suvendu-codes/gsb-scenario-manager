@@ -53,6 +53,10 @@ export interface InventoryProps {
     onRowsChange?: (rows: InventoryRow[]) => void;
 }
 
+export interface InventoryResponse {
+    inventory: InventoryRow[];
+}
+
 export interface ProfileProps {
     bootstrap?: BootstrapState;
     onChange?: (bootstrap: BootstrapState) => void;
@@ -81,30 +85,4 @@ export interface GeneratedFormProps {
     categories?: CategoryProfile[];
     inventory?: InventoryRow[];
     templates?: TemplateItem[];
-}
-
-export interface OrderWizardState {
-    step: number;
-    bootstrap: BootstrapState;
-    categories: CategoryProfile[];
-    inventory: InventoryRow[];
-    templates: TemplateItem[];
-}
-
-export type OrderWizardAction =
-    | { type: "SET_STEP"; payload: number }
-    | { type: "PREV_STEP" }
-    | { type: "NEXT_STEP" }
-    | { type: "SET_BOOTSTRAP"; payload: BootstrapState }
-    | { type: "SET_CATEGORIES"; payload: CategoryProfile[] }
-    | { type: "SET_INVENTORY"; payload: InventoryRow[] }
-    | { type: "SET_TEMPLATES"; payload: TemplateItem[] }
-    | { type: "RESET" };
-
-export interface OrderNavigationProps {
-    currentIndex: number;
-    totalSteps: number;
-    onBack: () => void;
-    onNext: () => void;
-    onLogValues?: () => void;
 }

@@ -22,6 +22,9 @@ export function OrderSidebar({
             setInternalStep(stepId);
         }
         setShow(false);
+        document
+            .getElementById(`order-step-${stepId}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
     return (
@@ -45,8 +48,8 @@ export function OrderSidebar({
             )}
 
             <aside
-                className={`w-[100%] sm:w-[300px] lg:w-[300px] bg-[#161A20] min-h-screen fixed top-0 ${show ? "left-0" : "left-[-100%]"
-                    } transition-all duration-100 p-4 flex flex-col justify-between lg:static lg:left-0 border-r border-white/10 text-[#fff] z-50 overflow-y-auto shrink-0`}
+                className={`w-[100%] sm:w-[300px] lg:w-[300px] bg-[#161A20] h-screen fixed top-0 ${show ? "left-0" : "left-[-100%]"
+                    } transition-all duration-100 p-4 flex flex-col justify-between lg:sticky lg:top-0 lg:left-0 lg:h-screen border-r border-white/10 text-[#fff] z-50 overflow-y-auto shrink-0`}
             >
                 <div className="relative flex flex-col">
                     {/* Header in sidebar on sm screen */}
