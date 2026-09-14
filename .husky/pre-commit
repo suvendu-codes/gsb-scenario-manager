@@ -1,1 +1,2 @@
-pnpm build && pnpm lint && pnpm typecheck
+echo "Running pre-commit checks: build, lint, and typecheck"
+pnpm build && pnpm lint && pnpm --filter web exec tsc --noEmit
