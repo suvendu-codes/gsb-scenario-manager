@@ -6,30 +6,10 @@ import { Switch } from "@/components/ui/switch";
 import { CategoryProfile, ParetoBand, CategoriesProps } from "@/lib/types";
 import NumberField from "../../shared/NumberField";
 import { DEFAULT_CATEGORIES, CATEGORY_NUMBER_FIELDS } from "@/lib/data";
+import { makeCategory } from "@/lib/category";
 import ParentSku from "./ParentSku";
 import { useApi } from "@/lib/hooks/useApi";
 
-
-
-function makeCategory(name: string): CategoryProfile {
-    return {
-        id: `${name}-${Date.now()}`,
-        name,
-        avgOlPerOrder: 1,
-        minOlCount: 1,
-        maxOlCount: 1,
-        minQtyPerOl: 1,
-        maxQtyPerOl: 1,
-        avgUnitsPerOrder: 1,
-        singleLineOrdersPct: 0,
-        olInWave: 100,
-        wavesPerDay: 100,
-        waveIntervalS: 1500,
-        orderPoolSize: 0,
-        flatShape: false,
-        paretoBands: [{ skuPct: 20, orderPct: 80, inventoryPct: 30 }],
-    };
-}
 
 export function Categories({
     categories: controlledCategories,
@@ -56,7 +36,7 @@ export function Categories({
 
     function addCategory() {
         const category = makeCategory(`category${categories.length + 1}`);
-        // updateCategories((prev) => [...prev, category]);
+        updateCategories((prev) => [...prev, category]);
         setActiveCategoryId(category.id);
     }
     function updateActiveCategory(patch: Partial<CategoryProfile>) {
@@ -67,8 +47,10 @@ export function Categories({
     function removeCategory(id: string) {
         const remaining = categories.filter((c) => c.id !== id);
         if (remaining.length === 0) return;
-        // updateCategories(() => remaining);
-        if (activeCategoryId === id) setActiveCategoryId(remaining[0].id);
+        updateCategories(() => remaining);
+        if (activeCategoryId === id) {            
+            setActiveCategoryId(remaining[0].id);
+        }
     }
     const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? categories[0];
     function updateBand(index: number, field: keyof ParetoBand, value: string) {

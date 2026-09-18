@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "cn"
-import { Slider as SliderPrimitive } from "radix-ui"
+import * as SliderPrimitive from "@radix-ui/react-slider"
 
 interface SliderProps extends React.ComponentProps<typeof SliderPrimitive.Root> {
   accentColor?: string;

@@ -1,7 +1,10 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "api/*-service"
 allowBuilds:
+  '@parcel/watcher': true
+  msgpackr-extract: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - lucide-react@1.43.0

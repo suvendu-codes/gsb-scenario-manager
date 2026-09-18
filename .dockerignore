@@ -1,0 +1,9 @@
+.git
+.husky
+.turbo
+.pnpm-store
+*.log
+**/node_modules
+**/.next
+**/dist
+**/.turbo

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { DEFAULT_CATEGORIES, TEMPLATES } from "@/lib/data";
-import {useVirtualizer} from "@tanstack/react-virtual"
 import {
     BootstrapState,
     CategoryProfile,
     InventoryRow,
+    OrderGeneratorWizardProps,
     TemplateItem,
 } from "@/lib/types";
 import { useApi } from "@/lib/hooks/useApi";
@@ -42,7 +42,7 @@ const DEFAULT_INVENTORY: InventoryRow[] = [
     { sku: "SKU1003", quantity: 30 },
 ];
 
-export function OrderGeneratorWizard() {
+export function OrderGeneratorWizard({ onStepChange }: OrderGeneratorWizardProps = {}) {
     const [bootstrap, setBootstrap] = useState(DEFAULT_BOOTSTRAP);
     const [categories, setCategories] = useState<CategoryProfile[]>(DEFAULT_CATEGORIES);
     const [inventory, setInventory] = useState<InventoryRow[]>(DEFAULT_INVENTORY);
@@ -76,8 +76,9 @@ export function OrderGeneratorWizard() {
 
     return (
         <div className="w-full bg-[#0b0c10] px-10 py-8 text-white">
-            <div className="mx-auto flex w-full max-w-5xl flex-col gap-12">
-                <motion.section
+            <LazyMotion features={domAnimation}>
+                <div className="mx-auto flex w-full max-w-5xl flex-col gap-12">
+                <m.section
                     id="order-step-1"
                     whileInView={{ opacity: [0, 1] }}
                     transition={{ duration: 0.5 }}
@@ -87,9 +88,9 @@ export function OrderGeneratorWizard() {
                     <h1 className="mt-2 text-[28px] font-bold text-white">Pick the test profile</h1>
                     <p className="mt-3 text-[15px] text-white/50">Choose the named scenario for this order payload.</p>
                     <div className="mt-8"><Profile bootstrap={bootstrap} onChange={setBootstrap} /></div>
-                </motion.section>
+                </m.section>
 
-                <motion.section
+                <m.section
                     id="order-step-2"
                     whileInView={{ opacity: [0, 1] }}
                     transition={{ duration: 0.5 }}
@@ -98,9 +99,9 @@ export function OrderGeneratorWizard() {
                     <p className="text-[11px] font-semibold tracking-widest text-white/40">02 · CATEGORIES</p>
                     <h2 className="mt-2 text-[28px] font-bold text-white">Define demand per category</h2>
                     <div className="mt-8"><Categories categories={categories} onChange={setCategories} /></div>
-                </motion.section>
+                </m.section>
 
-                <motion.section
+                <m.section
                     id="order-step-3"
                     whileInView={{ opacity: [0, 1] }}
                     transition={{ duration: 0.5 }}
@@ -109,9 +110,9 @@ export function OrderGeneratorWizard() {
                     <p className="text-[11px] font-semibold tracking-widest text-white/40">03 · MOCK INVENTORY</p>
                     <h2 className="mt-2 text-[28px] font-bold text-white">Stand in for a live inventory snapshot</h2>
                     <div className="mt-8"><Inventory rows={inventory} onRowsChange={setInventory} /></div>
-                </motion.section>
+                </m.section>
 
-                <motion.section
+                <m.section
                     id="order-step-4"
                     whileInView={{ opacity: [0, 1] }}
                     transition={{ duration: 0.5 }}
@@ -120,9 +121,9 @@ export function OrderGeneratorWizard() {
                     <p className="text-[11px] font-semibold tracking-widest text-white/40">04 · JSON TEMPLATES</p>
                     <h2 className="mt-2 text-[28px] font-bold text-white">The skeleton to stamp values into</h2>
                     <div className="mt-8"><Template templates={templates} onChange={setTemplates} /></div>
-                </motion.section>
+                </m.section>
 
-                <motion.section
+                <m.section
                     id="order-step-5"
                     whileInView={{ opacity: [0, 1] }}
                     transition={{ duration: 0.5 }}
@@ -138,8 +139,9 @@ export function OrderGeneratorWizard() {
                             templates={templates}
                         />
                     </div>
-                </motion.section>
-            </div>
+                </m.section>
+                </div>
+            </LazyMotion>
         </div>
     );
 }

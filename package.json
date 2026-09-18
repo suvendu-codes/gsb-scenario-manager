@@ -5,9 +5,13 @@
   "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter web",
+    "dev:bff": "turbo run dev --filter bff-service",
+    "dev:core": "turbo run dev --filter core-service",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "pnpm --filter web exec tsc --noEmit",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "prepare": "husky"
   },
   "devDependencies": {

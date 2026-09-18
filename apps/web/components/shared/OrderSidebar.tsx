@@ -2,7 +2,7 @@
 
 import { STEPS } from "@/lib/data";
 import { Step, OrderSidebarProps } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { RotateCcw } from "lucide-react";
 
@@ -13,14 +13,50 @@ export function OrderSidebar({
 }: OrderSidebarProps = {}) {
     const [internalStep, setInternalStep] = useState(1);
     const [show, setShow] = useState(false);
+    const [, startTransition] = useTransition();
     const activeStep = controlledActiveStep ?? internalStep;
 
+    useEffect(() => {
+        const sections = STEPS.map((step) =>
+            document.getElementById(`order-step-${step.id}`)
+        ).filter((section): section is HTMLElement => section !== null);
+
+        if (sections.length === 0) return;
+
+        const scrollRoot = sections[0].closest(".overflow-y-auto");
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const visibleEntry = entries
+                    .filter((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.2)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+                if (!visibleEntry) return;
+
+                const stepId = Number(visibleEntry.target.id.replace("order-step-", ""));
+                startTransition(() => {
+                    if (onStepChange) {
+                        onStepChange(stepId);
+                    } else {
+                        setInternalStep(stepId);
+                    }
+                });
+            },
+            { root: scrollRoot, threshold: 0.2 }
+        );
+
+        sections.forEach((section) => observer.observe(section));
+
+        return () => observer.disconnect();
+    }, [onStepChange]);
+
     const handleStepClick = (stepId: number) => {
-        if (onStepChange) {
-            onStepChange(stepId);
-        } else {
-            setInternalStep(stepId);
-        }
+        startTransition(() => {
+            if (onStepChange) {
+                onStepChange(stepId);
+            } else {
+                setInternalStep(stepId);
+            }
+        });
         setShow(false);
         document
             .getElementById(`order-step-${stepId}`)

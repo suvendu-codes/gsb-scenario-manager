@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules
+.pnpm-store
 /.pnp
 .pnp.*
 .yarn/*
@@ -19,6 +20,8 @@ node_modules
 
 # production
 /build
+/dist
+dist
 
 # turborepo
 .turbo

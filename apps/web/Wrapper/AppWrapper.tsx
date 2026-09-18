@@ -3,14 +3,20 @@
 import { useState, type ComponentType } from 'react'
 import OrderSidebar from '@/components/shared/OrderSidebar'
 import OrderHeader from '@/components/shared/OrderHeader'
+import type { OrderGeneratorWizardProps } from '@/lib/types'
 
 const AppWrapper = <P extends object>(
   Component: ComponentType<P>,
   idName?: string,
   classNames?: string
 ) => {
+  const StepAwareComponent = Component as unknown as ComponentType<
+    P & Partial<OrderGeneratorWizardProps>
+  >;
+
   const HOC = (props: P) => {
     const [resetVersion, setResetVersion] = useState(0);
+    const [activeStep, setActiveStep] = useState(1);
 
     const handleReset = () => {
       setResetVersion((version) => version + 1);
@@ -23,9 +29,14 @@ const AppWrapper = <P extends object>(
       >
         <OrderHeader onReset={handleReset} />
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <OrderSidebar onReset={handleReset} />
+          <OrderSidebar activeStep={activeStep} onStepChange={setActiveStep} onReset={handleReset} />
           <div className="min-w-0 min-h-0 flex-1 flex flex-col overflow-y-auto p-6">
-            <Component {...props} key={resetVersion} />
+            <StepAwareComponent
+              {...props}
+              activeStep={activeStep}
+              onStepChange={setActiveStep}
+              key={resetVersion}
+            />
           </div>
         </div>
 

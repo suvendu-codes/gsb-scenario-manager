@@ -20,8 +20,6 @@ function getCombinedTemplates(templateList?: TemplateItem[]) {
 
 export default function Form({
     bootstrap,
-    categories,
-    inventory,
     templates,
 }: GeneratedFormProps = {}) {
     const [jsonContent, setJsonContent] = useState("");

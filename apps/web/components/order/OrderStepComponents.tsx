@@ -1,6 +1,7 @@
 "use client";
 
-import React, { Suspense } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import {
     ProfileProps,
     CategoriesProps,
@@ -8,12 +9,6 @@ import {
     TemplateProps,
     GeneratedFormProps,
 } from "@/lib/types";
-
-const ProfileStep = React.lazy(() => import("./profile/ProfileContainer"));
-const CategoriesStep = React.lazy(() => import("./Categories/Categories"));
-const InventoryStep = React.lazy(() => import("./inventory/Inventory"));
-const TemplateStep = React.lazy(() => import("./templates/Template"));
-const GeneratedFormStep = React.lazy(() => import("./generated/Form"));
 
 function LoadingFallback({ label }: { label: string }) {
     return (
@@ -23,34 +18,74 @@ function LoadingFallback({ label }: { label: string }) {
     );
 }
 
+const ProfileStep = dynamic(() => import("./profile/ProfileContainer"));
+const CategoriesStep = dynamic(() => import("./Categories/Categories"));
+const InventoryStep = dynamic(() => import("./inventory/Inventory"));
+const TemplateStep = dynamic(() => import("./templates/Template"));
+const GeneratedFormStep = dynamic(() => import("./generated/Form"));
+
+function DeferredStep({ label, children }: { label: string; children: ReactNode }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [shouldLoad, setShouldLoad] = useState(false);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        if (typeof IntersectionObserver === "undefined") {
+            const fallbackTimer = window.setTimeout(() => setShouldLoad(true), 0);
+            return () => window.clearTimeout(fallbackTimer);
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setShouldLoad(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: "400px 0px" }
+        );
+
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div ref={containerRef}>
+            {shouldLoad ? children : <LoadingFallback label={label} />}
+        </div>
+    );
+}
+
 export const Profile = (props: ProfileProps) => (
-    <Suspense fallback={<LoadingFallback label="profile" />}>
+    <DeferredStep label="profile">
         <ProfileStep {...props} />
-    </Suspense>
+    </DeferredStep>
 );
 
 export const Categories = (props: CategoriesProps) => (
-    <Suspense fallback={<LoadingFallback label="categories" />}>
+    <DeferredStep label="categories">
         <CategoriesStep {...props} />
-    </Suspense>
+    </DeferredStep>
 );
 
 export const Inventory = (props: InventoryProps) => (
-    <Suspense fallback={<LoadingFallback label="inventory" />}>
+    <DeferredStep label="inventory">
         <InventoryStep {...props} />
-    </Suspense>
+    </DeferredStep>
 );
 
 export const Template = (props: TemplateProps) => (
-    <Suspense fallback={<LoadingFallback label="templates" />}>
+    <DeferredStep label="templates">
         <TemplateStep {...props} />
-    </Suspense>
+    </DeferredStep>
 );
 
 export const GeneratedForm = (props: GeneratedFormProps) => (
-    <Suspense fallback={<LoadingFallback label="generator" />}>
+    <DeferredStep label="generator">
         <GeneratedFormStep {...props} />
-    </Suspense>
+    </DeferredStep>
 );
 
 export {
