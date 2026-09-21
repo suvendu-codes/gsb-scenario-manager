@@ -21,3 +21,5 @@ export interface LifecycleEvent {
   stage: OrderLifecycleStage;
   occurredAt: string;
 }
+
+export const ORDER_EVENTS_TOPIC = "order.events";

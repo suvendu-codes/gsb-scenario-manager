@@ -1,7 +1,7 @@
 packages:
   - "apps/*"
+  - "apps/api/*-service"
   - "packages/*"
-  - "api/*-service"
 allowBuilds:
   '@parcel/watcher': true
   msgpackr-extract: true
