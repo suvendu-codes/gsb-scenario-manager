@@ -7,3 +7,4 @@ export {
 } from "./resilience/retry.interceptor";
 export type { DlqPublisher } from "./resilience/retry.interceptor";
 export { ResilienceModule } from "./resilience/resilience.module";
+export { LoggingInterceptor } from "./logging/logging.interceptor";
