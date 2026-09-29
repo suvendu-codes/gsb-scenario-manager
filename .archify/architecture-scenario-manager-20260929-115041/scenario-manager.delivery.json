@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "e11588de-126e-40bc-ba07-34b5c3baa998",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/suvendu.k/Desktop/GO/gsb-scenario-manager/.claude/worktrees/archify-scenario-diagram/.archify/architecture-scenario-manager-20260929-115041/candidate.json",
+  "output": "/Users/suvendu.k/Desktop/GO/gsb-scenario-manager/.claude/worktrees/archify-scenario-diagram/.archify/architecture-scenario-manager-20260929-115041/scenario-manager.html",
+  "specification": {
+    "sha256": "deac16d71414c312a3941d86d54b0634b2e0873bcde7af3cbdbeb0f5d66d9f99",
+    "bytes": 6919
+  },
+  "artifact": {
+    "sha256": "7a91098deececb018d9d4b42482d2952773b5103882cc33db117d1f80ab577fd",
+    "bytes": 794080
+  }
+}

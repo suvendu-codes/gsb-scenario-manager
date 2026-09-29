@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Scenario Manager POC",
+    "subtitle": "Simplified from the working sketch",
+    "output": ".archify/architecture-scenario-manager-20260929-115041/scenario-manager.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "warehouse-orders", "type": "external", "label": "Warehouse Order Systems", "sublabel": "N live sites · ~1M events/day", "pos": [40, 60], "size": [170, 70] },
+    { "id": "solution-catalog", "type": "external", "label": "Solution Catalog", "sublabel": "Map / Sizer / BOM · GM version", "pos": [40, 240], "size": [170, 70] },
+    { "id": "client-ui", "type": "frontend", "label": "Client UI", "sublabel": "Next.js", "pos": [40, 420], "size": [170, 80] },
+    { "id": "third-party-config", "type": "external", "label": "Third-Party Config", "sublabel": "Emulator & station configs", "pos": [40, 620], "size": [170, 70] },
+
+    { "id": "ingestion", "type": "backend", "label": "Ingestion & Normalizer", "sublabel": "canonical event schema", "pos": [300, 60], "size": [190, 80] },
+    { "id": "nginx", "type": "backend", "label": "nginx", "sublabel": "API gateway · TLS", "pos": [300, 420], "size": [170, 70] },
+
+    { "id": "bullmq", "type": "messagebus", "label": "BullMQ", "sublabel": "start-run jobs", "pos": [560, 40], "size": [170, 64] },
+    { "id": "kafka", "type": "messagebus", "label": "Kafka", "sublabel": "order-events · 6 partitions", "tag": "GCP managed · Protobuf schema registry", "pos": [560, 160], "size": [190, 140] },
+    { "id": "bff", "type": "backend", "label": "BFF", "sublabel": "NestJS · WS fan-out", "pos": [560, 420], "size": [170, 80] },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "cache · pub/sub", "pos": [560, 620], "size": [160, 70] },
+
+    { "id": "gm-platform", "type": "external", "label": "GM Emulation Platform", "sublabel": "K8s job per run", "tag": "GreyMatter emulator", "pos": [820, 60], "size": [190, 80] },
+    { "id": "core", "type": "backend", "label": "Core", "sublabel": "NestJS · orchestration & replay API", "tag": "Order / Agent / Operator emulator services", "pos": [820, 420], "size": [190, 100] },
+
+    { "id": "des-simulator", "type": "external", "label": "DES Simulator", "sublabel": "Rust · discrete-event model", "pos": [1080, 160], "size": [180, 100] },
+    { "id": "archiver", "type": "backend", "label": "Event Archiver", "sublabel": "batch COPY → order_events", "tag": "ownership TBD", "pos": [1080, 420], "size": [170, 70] },
+
+    { "id": "influxdb", "type": "database", "label": "InfluxDB 2.x", "sublabel": "metrics · 90d retention", "pos": [1340, 40], "size": [170, 70] },
+    { "id": "grafana", "type": "cloud", "label": "Grafana", "sublabel": "ops dashboards", "pos": [1340, 170], "size": [170, 70] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "Timescale · replay store", "pos": [1340, 310], "size": [170, 90] },
+    { "id": "object-storage", "type": "cloud", "label": "Object Storage", "sublabel": "GCS · CSV, exports, HLS", "pos": [1340, 460], "size": [170, 70] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Scenario Manager Services", "wraps": ["client-ui", "nginx", "bff", "core", "redis", "ingestion"] },
+    { "kind": "region", "label": "Shared Platform Bus (GCP)", "wraps": ["bullmq", "kafka"] },
+    { "kind": "region", "label": "External Simulation Platforms", "wraps": ["gm-platform", "des-simulator"] },
+    { "kind": "region", "label": "Storage & Observability", "wraps": ["influxdb", "grafana", "postgres", "object-storage"] }
+  ],
+  "connections": [
+    { "id": "orders-to-ingestion", "from": "warehouse-orders", "to": "ingestion", "label": "live events", "fromSide": "right", "toSide": "left" },
+    { "id": "catalog-to-client", "from": "solution-catalog", "to": "client-ui", "label": "solution selected", "fromSide": "bottom", "toSide": "top" },
+    { "id": "thirdparty-to-redis", "from": "third-party-config", "to": "redis", "label": "pull config", "variant": "dashed", "fromSide": "right", "toSide": "left" },
+    { "id": "client-to-nginx", "from": "client-ui", "to": "nginx", "label": "REST + WS", "variant": "emphasis", "fromSide": "right", "toSide": "left" },
+    { "id": "nginx-to-bff", "from": "nginx", "to": "bff", "label": "/ws", "fromSide": "right", "toSide": "left" },
+    { "id": "nginx-to-core", "from": "nginx", "to": "core", "label": "/api" },
+    { "id": "bff-to-redis", "from": "bff", "to": "redis", "label": "pub/sub", "fromSide": "bottom", "toSide": "top" },
+    { "id": "redis-to-core", "from": "redis", "to": "core", "label": "cache" },
+
+    { "id": "ingestion-to-bullmq", "from": "ingestion", "to": "bullmq", "label": "enqueue start-run job", "fromSide": "right", "toSide": "left" },
+    { "id": "ingestion-to-kafka", "from": "ingestion", "to": "kafka", "label": "normalized (source=LIVE)" },
+    { "id": "bullmq-to-gm", "from": "bullmq", "to": "gm-platform", "label": "dispatch → launch job", "fromSide": "right", "toSide": "left" },
+    { "id": "gm-to-kafka", "from": "gm-platform", "to": "kafka", "label": "order-events" },
+    { "id": "kafka-to-bff", "from": "kafka", "to": "bff", "label": "bff-live", "fromSide": "bottom", "toSide": "top" },
+    { "id": "kafka-to-des", "from": "kafka", "to": "des-simulator", "label": "des", "fromSide": "right", "toSide": "left" },
+    { "id": "kafka-to-archiver", "from": "kafka", "to": "archiver", "label": "archiver" },
+
+    { "id": "archiver-to-postgres", "from": "archiver", "to": "postgres", "label": "COPY order_events" },
+    { "id": "des-to-storage", "from": "des-simulator", "to": "object-storage", "label": "HLS stream" },
+    { "id": "des-to-influx", "from": "des-simulator", "to": "influxdb", "label": "metrics" },
+    { "id": "gm-to-influx", "from": "gm-platform", "to": "influxdb", "label": "metrics", "fromSide": "right", "toSide": "left" },
+
+    { "id": "core-to-storage", "from": "core", "to": "object-storage", "label": "signed URLs" },
+    { "id": "core-to-postgres", "from": "core", "to": "postgres", "label": "config / runs / replay" },
+
+    { "id": "grafana-to-influx", "from": "grafana", "to": "influxdb", "label": "reads", "fromSide": "top", "toSide": "bottom" },
+    { "id": "grafana-to-postgres", "from": "grafana", "to": "postgres", "label": "reads", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "violet", "title": "Event fan-out", "items": ["Kafka order-events has independent consumer groups: bff-live, des, archiver", "Retention is 7 days for recovery, not for replay"] },
+    { "dot": "amber", "title": "Replay store", "items": ["PostgreSQL's order_events hypertable is the system of record for replay", "Kafka is transport only"] },
+    { "dot": "slate", "title": "Ownership TBD", "items": ["Event Archiver and DES Ops UI ownership is undecided between Scenario Manager and platform teams"] }
+  ]
+}
