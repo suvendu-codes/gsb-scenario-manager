@@ -6,6 +6,6 @@ export default defineConfig({
   schema: './src/db/schema/index.ts',
   dialect: 'postgresql',
   dbCredentials: {
-    url: String(appConfig.get('database_url')),
+    url: appConfig.db.url,
   },
 });

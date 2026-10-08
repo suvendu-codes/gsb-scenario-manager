@@ -1,11 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { appConfig } from '../config';
 import { Queue_Names } from './queue.constants';
 
-const redisConnection = {
-  host: process.env.REDIS_HOST ?? 'localhost',
-  port: Number(process.env.REDIS_PORT ?? 6379),
-};
+const redisConnection = appConfig.redis;
 
 @Module({
   imports: [

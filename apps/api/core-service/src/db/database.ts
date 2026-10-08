@@ -5,7 +5,7 @@ class Database {
   readonly db: NodePgDatabase;
 
   constructor() {
-    this.db = drizzle(String(appConfig.get('database_url')));
+    this.db = drizzle(appConfig.db.url);
   }
 }
 
