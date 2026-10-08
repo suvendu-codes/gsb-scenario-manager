@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/shared/Header";
-import Sidebar from "@/components/shared/Sidebar";
+import Sidebar, { ScenarioSelectionProvider } from "@/components/shared/Sidebar";
 import Metrics from "@/components/shared/Metrics";
 import { PlaybackProvider, usePlayback } from "@/components/scenorio-timeline/playback-context";
 import { LaneAccent } from "@/lib/types";
@@ -44,9 +44,11 @@ export default function MainLayout({
 
     return (
         <PlaybackProvider>
-            <MainLayoutContent accent={accent} setAccent={setAccent}>
-                {children}
-            </MainLayoutContent>
+            <ScenarioSelectionProvider>
+                <MainLayoutContent accent={accent} setAccent={setAccent}>
+                    {children}
+                </MainLayoutContent>
+            </ScenarioSelectionProvider>
         </PlaybackProvider>
     );
 }

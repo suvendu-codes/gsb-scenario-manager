@@ -1,164 +1,140 @@
 "use client"
-import { Checkbox } from "@/components/ui/checkbox";
-import { accentColor, accentFill } from "@/components/shared/accent";
-import { GROUP_GAP, GROUP_HEADER_HEIGHT, LANE_ROW_HEIGHT } from "@/components/shared/constants";
-import { groupTotal, laneGroups } from "@/lib/data";
 import { GiHamburgerMenu } from "react-icons/gi";
-import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Search } from "lucide-react";
+import { createContext, useContext, useState } from "react";
+import type { ScenarioRow } from "@/lib/types";
 
-const NAV_ITEMS = [
-    { label: "Dashboard", href: "/" },
-    { label: "DES", href: "/des" },
-    { label: "Emulator", href: "/emulator" },
+type RecentProject = {
+    id: string;
+    name: string;
+    meta: string;
+    title: string;
+    subtitle: string;
+};
+
+export const RECENT_PROJECTS: RecentProject[] = [
+    { id: "coupang", name: "Coupang", meta: "Daegu · 2 maps · 1 running", title: "Coupang Daegu", subtitle: "Daegu · 2 maps" },
+    { id: "hm-canada", name: "H&M", meta: "Canada · 2 scenarios · 1 running", title: "H&M Canada", subtitle: "Canada · 2 scenarios" },
+    { id: "dillards-dc", name: "Dillard", meta: "Dallas · 2 scenarios", title: "Dillard's DC", subtitle: "Dallas · 2 scenarios" },
+    { id: "sams-atl", name: "Sam's", meta: "Atlanta · 1 scenario", title: "Sam's Club ATL", subtitle: "Atlanta · 1 scenario" },
 ];
+
+const ScenarioSelectionContext = createContext<{
+    selectedId: string;
+    setSelectedId: (id: string) => void;
+    project: RecentProject;
+    created: Record<string, ScenarioRow[]>;
+    addScenario: (projectId: string, row: ScenarioRow) => void;
+} | null>(null);
+
+export function ScenarioSelectionProvider({ children }: { children: React.ReactNode }) {
+    const [selectedId, setSelectedId] = useState("coupang");
+    const [created, setCreated] = useState<Record<string, ScenarioRow[]>>({});
+    const project = RECENT_PROJECTS.find((item) => item.id === selectedId) ?? RECENT_PROJECTS[0];
+
+    function addScenario(projectId: string, row: ScenarioRow) {
+        setCreated((current) => ({
+            ...current,
+            [projectId]: [...(current[projectId] ?? []), row],
+        }));
+        setSelectedId(projectId);
+    }
+
+    return (
+        <ScenarioSelectionContext.Provider value={{ selectedId, setSelectedId, project, created, addScenario }}>
+            {children}
+        </ScenarioSelectionContext.Provider>
+    );
+}
+
+export function useScenarioSelection() {
+    const value = useContext(ScenarioSelectionContext);
+    if (!value) {
+        throw new Error("useScenarioSelection must be used within ScenarioSelectionProvider");
+    }
+    return value;
+}
 
 export function Sidebar() {
     const [show, setShow] = useState(false);
-    const pathname = usePathname();
+    const [query, setQuery] = useState("");
+    const { selectedId, setSelectedId } = useScenarioSelection();
+    const projects = RECENT_PROJECTS.filter((project) => {
+        const haystack = `${project.name} ${project.meta}`.toLowerCase();
+        return haystack.includes(query.trim().toLowerCase());
+    });
 
     return (
-        <>
-            <div
-                onClick={() => setShow(!show)}
-                className="fixed right-5 top-5 z-50 bg-[#161A20] text-white text-3xl p-2 rounded-md hover:bg-[#b8381e] cursor-pointer lg:hidden shadow-lg transition-transform active:scale-95"
-                role="button"
-                aria-label="Toggle sidebar"
-            >
-                <GiHamburgerMenu />
-            </div>
-
-            {/* Mobile backdrop overlay */}
-            {show && (
+            <>
                 <div
-                    onClick={() => setShow(false)}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden "
-                    aria-hidden="true"
-                />
-            )}
-
-            <aside
-                className={`w-[100%] sm:w-[300px] lg:w-[300px] bg-[#161A20] min-h-screen fixed top-0 ${show ? "left-0" : "left-[-100%]"
-                    } transition-all duration-100 p-4 flex flex-col justify-between lg:static lg:left-0 border-r border-white/10 text-[#fff] z-50 overflow-y-auto shrink-0`}
-            >
-                <div className="relative flex flex-col">
-                    {/* Header in sidebar on sm screen */}
-                    <div className="flex flex-col gap-3 pb-3 mb-3 border-b border-white/10 sm:hidden">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <span
-                                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[13px] font-bold border border-[var(--st-amber)] bg-[rgba(217,164,65,0.16)] text-[var(--st-amber)]"
-                                >
-                                    S
-                                </span>
-                                <div className="leading-tight">
-                                    <div className="text-[13px] font-semibold text-white">
-                                        Peak Wave — DC-04 Sortation
-                                    </div>
-                                    <div className="text-[11px] text-white/50">
-                                        scenario simulation
-                                    </div>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShow(false)}
-                                className="text-white/40 hover:text-white p-1 rounded-md text-lg cursor-pointer"
-                                aria-label="Close sidebar"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Navigation tabs between Dashboard, DES, and Emulator */}
-                        <nav className="flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] p-1">
-                            {NAV_ITEMS.map((item) => {
-                                const isActive = pathname === item.href;
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={() => setShow(false)}
-                                        className={`flex-1 text-center rounded px-2.5 py-1.5 text-xs font-medium transition-all ${isActive
-                                            ? "bg-white/10 text-white font-semibold"
-                                            : "text-white/60 hover:text-white hover:bg-white/5"
-                                            }`}
-                                    >
-                                        {item.label}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
-                    </div>
-
-                    <div className="flex items-center justify-between mb-2">
-                        <h2
-                            className="flex items-center px-1 text-[11px] font-semibold tracking-widest text-white/70"
-                            style={{ height: GROUP_HEADER_HEIGHT }}
-                        >
-                            LANES
-                        </h2>
-                        <button
-                            type="button"
-                            onClick={() => setShow(false)}
-                            className="hidden sm:inline-block lg:hidden text-white/40 hover:text-white p-1 rounded-md text-lg cursor-pointer"
-                            aria-label="Close sidebar"
-                        >
-                            ✕
-                        </button>
-                    </div>
-
-                    <div className="flex flex-col" style={{ gap: GROUP_GAP }}>
-                        {laneGroups.map((group) => (
-                            <section key={group.id}>
-                                <div
-                                    className="flex items-center gap-2 px-1"
-                                    style={{ height: GROUP_HEADER_HEIGHT }}
-                                >
-                                    <h3 className="whitespace-nowrap text-[11px] font-semibold tracking-widest text-white/70">
-                                        {group.label.toUpperCase()}
-                                    </h3>
-                                    <span className="h-px flex-1 bg-white/10" />
-                                    <span className="font-mono text-[12px] text-white/50">
-                                        {groupTotal(group)}
-                                    </span>
-                                </div>
-
-                                <ul className="flex flex-col">
-                                    {group.lanes.map((lane) => (
-                                        <li
-                                            key={lane.id}
-                                            className="group flex items-center gap-2.5 rounded-md px-1.5 hover:bg-white/[0.04] transition-colors"
-                                            style={{ height: LANE_ROW_HEIGHT }}
-                                        >
-                                            <span
-                                                className="h-4 w-[3px] shrink-0 rounded-full"
-                                                style={{ backgroundColor: accentColor[group.accent] }}
-                                            />
-                                            <span className="flex-1 truncate text-[14px] text-white/90">
-                                                {lane.label}
-                                            </span>
-                                            <span className="font-mono text-[12px] text-white/50">
-                                                {lane.count}
-                                            </span>
-                                            <Checkbox
-                                                id={`lane-${lane.id}`}
-
-                                                className="h-5 w-5 shrink-0 rounded border cursor-pointer"
-                                                style={{
-                                                    borderColor: accentColor[group.accent],
-                                                    backgroundColor: accentFill[group.accent],
-                                                    color: accentColor[group.accent],
-                                                }}
-                                            />
-                                        </li>
-                                    ))}
-                                </ul>
-                            </section>
-                        ))}
-                    </div>
+                    onClick={() => setShow(!show)}
+                    className="fixed top-5 right-5 z-50 cursor-pointer rounded-md bg-orange-500 p-2 text-3xl text-white shadow-lg lg:hidden"
+                    role="button"
+                    aria-label="Toggle sidebar"
+                >
+                    <GiHamburgerMenu />
                 </div>
+                {show && (
+                    <div
+                        onClick={() => setShow(false)}
+                        className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+                        aria-hidden="true"
+                    />
+                )}
+            <aside
+                className={`fixed top-0 z-50 flex h-full w-[100%] flex-col overflow-y-auto border-r border-neutral-200 bg-[#f6f7f8] p-3 text-neutral-900 transition-all duration-100 sm:w-[300px] lg:static lg:left-0 lg:h-auto lg:w-60 lg:self-stretch ${
+                    show ? "left-0" : "left-[-100%] lg:left-0"
+                }`}
+            >
+                <label className="relative mb-3 block">
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-orange-500" />
+                    <input
+                        type="search"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search projects"
+                        aria-label="Search projects"
+                        className="h-9 w-full rounded-lg border border-neutral-200 bg-white pr-3 pl-8 text-sm outline-none placeholder:text-neutral-400 focus:border-orange-400"
+                    />
+                </label>
+                <div className="mb-2 flex items-center justify-between px-0.5 text-xs text-neutral-400">
+                    <span>Recent</span>
+                    <span>
+                        {projects.length} {projects.length === 1 ? "project" : "projects"}
+                    </span>
+                </div>
+                <ul className="flex flex-col gap-2">
+                    {projects.map((project) => {
+                        const selected = selectedId === project.id;
+                        return (
+                            <li key={project.id}>
+                                <button
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() => {
+                                        setSelectedId(project.id);
+                                        setShow(false);
+                                    }}
+                                    className={`flex h-14 w-full flex-col justify-center rounded-lg border bg-white px-3 text-left ${
+                                        selected
+                                            ? "border-orange-500"
+                                            : "border-neutral-200 hover:border-neutral-300"
+                                    }`}
+                                >
+                                    <span className="truncate text-sm font-medium text-neutral-900">
+                                        {project.name}
+                                    </span>
+                                    <span className="truncate text-xs text-neutral-500">
+                                        {project.meta}
+                                    </span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+                {projects.length === 0 && (
+                    <p className="px-1 text-sm text-neutral-500">No projects</p>
+                )}
             </aside>
         </>
     );
