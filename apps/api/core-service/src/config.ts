@@ -1,6 +1,6 @@
 export type Configurator = {
   set: (key: string, value: unknown) => void;
-  setMultiple: (configObj: Record<string, unknown>) => void;
+  setMultiple: (configObj: Record<string, unknown>) => Configurator;
 };
 
 export class Config {
@@ -10,14 +10,16 @@ export class Config {
   constructor(setup: (configurator: Configurator) => void) {
     const settings: Record<string, unknown> = {};
 
-    setup({
+    const configurator: Configurator = {
       set: (key, value) => {
         settings[key] = value;
       },
       setMultiple: (configObj) => {
         Object.assign(settings, configObj);
+        return configurator;
       },
-    });
+    };
+    setup(configurator);
 
     Object.freeze(settings);
 
@@ -60,14 +62,14 @@ export const appConfig = new Config((config) => {
   const host = process.env.DB_HOST ?? 'localhost';
   const database = process.env.DB_NAME ?? 'scene';
   const port = process.env.DB_PORT ?? '5432';
-  config.set('db_user', username);
-  config.set('db_password', password);
-  config.set('db_host', host);
-  config.set('db_name', database);
-  config.set('db_port', port);
-  config.set(
-    'database_url',
-    process.env.DATABASE_URL ??
+  config.setMultiple({
+    db_user: username,
+    db_password: password,
+    db_host: host,
+    db_name: database,
+    db_port: port,
+    database_url:
+      process.env.DATABASE_URL ??
       `postgresql://${username}:${password}@${host}:${port}/${database}`,
-  );
+  });
 });
