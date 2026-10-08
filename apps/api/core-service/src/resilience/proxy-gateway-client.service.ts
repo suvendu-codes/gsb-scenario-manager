@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { CircuitBreaker } from 'shared';
+import { MapGatewayPort } from './application/ports/map-gateway.port';
 
 @Injectable()
-export class ProxyGatewayClientService {
+export class ProxyGatewayClientService implements MapGatewayPort {
   constructor(private readonly http: HttpService) {}
 
   async post<T>(path: string, body: unknown): Promise<T> {
@@ -11,6 +13,14 @@ export class ProxyGatewayClientService {
     const { data } = await firstValueFrom(
       this.http.post<T>(`${baseUrl}${path}`, body),
     );
+    return data;
+  }
+
+  @CircuitBreaker()
+  async getMap(
+    url = process.env.MAP_API ?? 'https://jsonplaceholder.typicode.com/todos/1',
+  ): Promise<unknown> {
+    const { data } = await firstValueFrom(this.http.get<unknown>(url));
     return data;
   }
 }
