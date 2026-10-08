@@ -3,7 +3,8 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './gateway/redis-io.adapter';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { LoggingInterceptor } from 'shared';
+import { buildKafkaClientOptions, LoggingInterceptor } from 'shared';
+import { appConfig } from './config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -27,24 +28,23 @@ async function bootstrap() {
     app.useWebSocketAdapter(redisIoAdapter);
   }
 
-  const kafkaBrokers = process.env.KAFKA_BROKERS;
-  if (kafkaBrokers) {
+  const kafkaClient = buildKafkaClientOptions();
+  if (kafkaClient) {
     app.connectMicroservice<MicroserviceOptions>({
       transport: Transport.KAFKA,
       options: {
-        client: {
-          brokers: kafkaBrokers.split(','),
-        },
+        client: kafkaClient,
         consumer: {
-          groupId: 'bff-live',
+          groupId: process.env.KAFKA_CONSUMER_GROUP_ID ?? 'bff-live',
         },
       },
     });
     await app.startAllMicroservices();
+    logger.log(`Kafka consumer connected (${kafkaClient.brokers.join(', ')})`);
   }
 
-  const port = process.env.PORT ?? 3001;
+  const port = Number(appConfig.get('port'));
   await app.listen(port);
-  logger.log(`Listening on port ${port}`);
+  logger.log(`Listening on port ${port} (${String(appConfig.get('env'))})`);
 }
 void bootstrap();

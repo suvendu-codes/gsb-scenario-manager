@@ -1,17 +1,61 @@
+// import {
+//   CallHandler,
+//   ExecutionContext,
+//   Injectable,
+//   Logger,
+//   NestInterceptor,
+// } from "@nestjs/common";
+// import { tap, type Observable } from "rxjs";
+
+// @Injectable()
+// export class LoggingInterceptor implements NestInterceptor {
+//   private readonly logger = new Logger(LoggingInterceptor.name);
+
+//   intercept(
+//     context: ExecutionContext,
+//     next: CallHandler,
+//   ): Observable<unknown> {
+//     const now = Date.now();
+//     const { method, url } = this.requestMeta(context);
+
+//     return next.handle().pipe(
+//       tap(() => {
+//         this.logger.log(`${method} ${url} ${Date.now() - now}ms`);
+//       }),
+//     );
+//   }
+
+//   private requestMeta(context: ExecutionContext): {
+//     method: string;
+//     url: string;
+//   } {
+//     if (context.getType() === "http") {
+//       const req = context.switchToHttp().getRequest<{
+//         method?: string;
+//         url?: string;
+//       }>();
+//       return { method: req.method ?? "HTTP", url: req.url ?? "" };
+//     }
+
+//     return {
+//       method: context.getType(),
+//       url: `${context.getClass().name}.${context.getHandler().name}`,
+//     };
+//   }
+// }
+
 import {
   CallHandler,
   ExecutionContext,
   Injectable,
-  Logger,
   NestInterceptor,
 } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { tap } from "rxjs/operators";
+import logger from "./logger";
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new Logger(LoggingInterceptor.name);
-
   //context -> contains request and response objects
   //control -> route handler exectes
 
@@ -27,7 +71,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     const userId = request.user?.id || "unauthenticated";
 
-    this.logger.log(`
+    logger.log(`
         [${method} ${url} - User: ${userId} - User-Agent ${userAgent}]
             `);
     const startTime = Date.now();
@@ -38,14 +82,14 @@ export class LoggingInterceptor implements NestInterceptor {
           const endTime = Date.now();
           const duration = endTime - startTime;
 
-          this.logger.log(`
+          logger.log(`
                            [${method} ${url} - ${duration}ms - Response size - ${JSON.stringify(data)?.length || 0} bytes] 
                             `);
         },
         error: (error: { message?: string }) => {
           const endTime = Date.now();
           const duration = endTime - startTime;
-          this.logger.log(`
+          logger.log(`
                             [${method} ${url} - ${duration}ms - Error ${error.message}] 
                              `);
         },

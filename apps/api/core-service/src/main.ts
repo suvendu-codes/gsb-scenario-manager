@@ -1,13 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { LoggingInterceptor } from 'shared';
+import { ValidationPipe } from '@nestjs/common';
+import { LoggingInterceptor, logger } from 'shared';
+import { appConfig } from './config';
 
 async function bootstrap() {
+  logger.log('starting app...');
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
-  const logger = new Logger('Bootstrap');
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.enableCors();
   app.useGlobalPipes(
@@ -18,8 +19,10 @@ async function bootstrap() {
       disableErrorMessages: false,
     }),
   );
-  const port = process.env.PORT ?? 3002;
+  const port = Number(appConfig.get('port'));
   await app.listen(port);
-  logger.log(`Listening on port ${port}`);
+  logger.log(
+    `Listening on port ${port} (${String(appConfig.get('env'))}). ${logger.count} total logs`,
+  );
 }
 void bootstrap();

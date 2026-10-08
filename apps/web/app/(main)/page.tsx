@@ -1,8 +1,5 @@
-
-"use client";
-
-import EventTimeline from "@/components/scenorio-timeline/EventTimeline";
+import ScenarioPage from "./scenario/page";
 
 export default function MainPage() {
-  return <EventTimeline />;
+  return <ScenarioPage/>;
 }

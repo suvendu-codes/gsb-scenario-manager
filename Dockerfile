@@ -9,8 +9,7 @@ COPY apps/web/.next/standalone ./
 COPY apps/web/.next/static ./apps/web/.next/static
 RUN mkdir -p ./apps/web/public
 COPY apps/web/public ./apps/web/public
-COPY runner.js ./
 
 EXPOSE 8080
 
-CMD ["node", "runner.js"]
+CMD ["node", "apps/web/server.js"]

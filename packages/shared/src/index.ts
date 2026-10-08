@@ -7,4 +7,11 @@ export {
 } from "./resilience/retry.interceptor";
 export type { DlqPublisher } from "./resilience/retry.interceptor";
 export { ResilienceModule } from "./resilience/resilience.module";
+export { default as logger } from "./logging/logger";
 export { LoggingInterceptor } from "./logging/logging.interceptor";
+export { buildKafkaClientOptions } from "./kafka/kafka-client-options.util";
+export type { KafkaClientConfig } from "./kafka/kafka-client-options.util";
+export {
+  createGcpOAuthBearerProvider,
+  fetchGcpKafkaAccessToken,
+} from "./kafka/gcp-oauth-bearer.util";
