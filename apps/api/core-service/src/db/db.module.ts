@@ -1,7 +1,7 @@
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { appConfig } from '../config';
 import * as schema from './schema';
 import { DRIZZLE, PG_POOL } from './db.constants';
 
@@ -12,11 +12,10 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
   providers: [
     {
       provide: PG_POOL,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
+      useFactory: () =>
         new Pool({
-          connectionString: config.getOrThrow<string>('DATABASE_URL'),
-          max: Number(config.get('DB_POOL_MAX') ?? 5),
+          connectionString: appConfig.db.url,
+          max: appConfig.db.poolMax,
           connectionTimeoutMillis: 10_000,
           idleTimeoutMillis: 30_000,
           maxLifetimeSeconds: 1800,
