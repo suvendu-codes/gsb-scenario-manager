@@ -1,83 +1,5 @@
-// // import { z } from 'zod';
 
-// // const schema = z.object({
-// //   PORT: z.coerce.number().int().positive().default(3002),
-// //   NODE_ENV: z
-// //     .enum(['development', 'test', 'production'])
-// //     .default('development'),
-// //   MAP_API: z
-// //     .string()
-// //     .url()
-// //     .default('https://jsonplaceholder.typicode.com/todos/1'),
-// //   BFF_SERVICE_URL: z.string().url().default('http://localhost:3001'),
-// //   REDIS_HOST: z.string().min(1).default('localhost'),
-// //   REDIS_PORT: z.coerce.number().int().positive().default(6379),
-// //   DB_USER: z.string().min(1).default('scene'),
-// //   DB_PASSWORD: z.string().default('scene'),
-// //   DB_HOST: z.string().min(1).default('localhost'),
-// //   DB_NAME: z.string().min(1).default('scene'),
-// //   DB_PORT: z.coerce.number().int().positive().default(5432),
-// //   DATABASE_URL: z.string().optional(),
-// // });
-
-// // const parsed = schema.safeParse(process.env);
-// // if (!parsed.success) {
-// //   const issues = parsed.error.issues
-// //     .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
-// //     .join('\n');
-// //   throw new Error(`Invalid environment configuration:\n${issues}`);
-// // }
-// // const env = parsed.data;
-
-// // export const appConfig = Object.freeze({
-// //   port: env.PORT,
-// //   env: env.NODE_ENV,
-// //   mapApi: env.MAP_API,
-// //   bffServiceUrl: env.BFF_SERVICE_URL,
-// //   redis: { host: env.REDIS_HOST, port: env.REDIS_PORT },
-// //   db: {
-// //     user: env.DB_USER,
-// //     password: env.DB_PASSWORD,
-// //     host: env.DB_HOST,
-// //     name: env.DB_NAME,
-// //     port: env.DB_PORT,
-// //     url:
-// //       env.DATABASE_URL ??
-// //       `postgresql://${env.DB_USER}:${env.DB_PASSWORD}@${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`,
-// //   },
-// // } as const);
-
-// import { z } from 'zod';
-
-// const schema = z.object({
-//   PORT:  z.coerce.number().int().positive().default(3002),
-//   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-//   MAP_API: z.string().url().default('https://jsonplaceholder.typicode.com/todos/1'),
-//   DB_USER: z.string().default('scene'),
-//   DB_PASSWORD: z.string().default('scene'),
-//   DB_HOST: z.string().default('localhost'),
-//   DB_NAME: z.string().default('scene'),
-//   DB_PORT: z.coerce.number().default(5432),
-//   DATABASE_URL: z.string().optional(),
-// });
-
-// const env = schema.parse(process.env); // fails fast on bad input
-
-// export const appConfig = Object.freeze({
-//   port: env.PORT,
-//   env: env.NODE_ENV,
-//   mapApi: env.MAP_API,
-//   db: {
-//     user: env.DB_USER,
-//     password: env.DB_PASSWORD,
-//     host: env.DB_HOST,
-//     name: env.DB_NAME,
-//     port: env.DB_PORT,
-//     url:
-//       env.DATABASE_URL ??
-//       `postgresql://${env.DB_USER}:${env.DB_PASSWORD}@${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`,
-//   },
-// } as const);
+import './load-env';
 import { z } from 'zod';
 
 // ---------- 1. Schema: single source of truth for shape, types, rules ----------
@@ -90,6 +12,7 @@ const schema = z
       .url()
       .default('https://jsonplaceholder.typicode.com/todos/1'),
     bffServiceUrl: z.string().url().default('http://localhost:3001'),
+    runEngineUrl: z.string().url().default('http://localhost:3003'),
     redis: z.object({
       host: z.string().default('localhost'),
       port: z.coerce.number().int().positive().default(6379),
@@ -174,6 +97,7 @@ export class ConfigBuilder<S extends z.ZodType> {
       env: env.NODE_ENV,
       mapApi: env.MAP_API,
       bffServiceUrl: env.BFF_SERVICE_URL,
+      runEngineUrl: env.RUN_ENGINE_URL,
       redis: {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,

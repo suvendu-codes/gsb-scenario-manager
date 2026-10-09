@@ -4,4 +4,4 @@ export { ResilienceModule } from './resilience/resilience.module';
 export { CircuitBreakerInterceptor } from './resilience/circuit-breaker.interceptor';
 export { RetryInterceptor, DLQ_PUBLISHER, type DlqPublisher } from './resilience/retry.interceptor';
 export { CircuitBreaker } from './resilience/circuit-breaker.decorator';
-export { safeListener } from './utils/safe-listener.util';
+export { safeListener, withSafeListener } from './utils/safe-listener.util';
