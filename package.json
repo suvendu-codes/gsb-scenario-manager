@@ -5,6 +5,7 @@
   "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:core": "turbo run dev --filter core-service",
     "build": "turbo run build",
     "lint": "turbo run lint"
   },
