@@ -13,5 +13,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["src/index.ts", "src/logging/**/*.ts"]
+  "include": [
+    "src/index.ts",
+    "src/logging/**/*.ts",
+    "src/resilience/**/*.ts",
+    "src/utils/**/*.ts"
+  ]
 }
