@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/load-env.ts",
+    "src/main.ts",
+    "src/config.ts",
+    "src/app.module.ts",
+    "src/common/**/*.ts",
+    "src/db/**/*.ts",
+    "src/projects/**/*.ts",
+    "src/maps/**/*.ts",
+    "src/scenarios/**/*.ts",
+    "src/runs/**/*.ts"
+  ],
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+}

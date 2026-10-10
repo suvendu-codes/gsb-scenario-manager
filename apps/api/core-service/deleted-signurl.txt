@@ -1,0 +1,19 @@
+Deleted sign-url (core-service)
+
+HTTP
+- GET /metrics/:id/signed-url
+- GET /scenarios/:id — removed response field signedUrl (configUri remains)
+
+Removed files
+- apps/api/core-service/src/scenarios/infrastructure/gcs-config-storage.adapter.ts (GcsConfigStorageAdapter.getSignedUrl)
+- apps/api/core-service/src/scenarios/application/ports/config-storage.port.ts (ConfigStorage port + CONFIG_STORAGE token)
+
+Removed / changed code
+- apps/api/core-service/src/metrics/metrics.controller.ts — signedUrl (@Get(':id/signed-url'))
+- apps/api/core-service/src/metrics/metrics.service.ts — signedUrl(metricId)
+- apps/api/core-service/src/scenarios/application/use-cases/get-scenario.use-case.ts — CONFIG_STORAGE injection + signedUrl in return
+- apps/api/core-service/src/scenarios/scenarios.module.ts — CONFIG_STORAGE → GcsConfigStorageAdapter provider
+
+Previously removed / not present in tree (see git ad2f60a)
+- apps/api/core-service/src/metrics/application/use-cases/get-metric-signed-url.use-case.ts
+- MetricsRepositoryPort.signedUrl / MetricsRepository.signedUrl
