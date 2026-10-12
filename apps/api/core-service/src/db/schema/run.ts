@@ -15,7 +15,7 @@ export const run = pgTable(
       .notNull()
       .references(() => scenarioVersion.id),
     engine: text().notNull(),
-    status: runStatus().notNull().default('triggering'),
+    status: runStatus().notNull().default('accepted'),
     idempotencyKey: text('idempotency_key').notNull().unique(),
     engineRef: text('engine_ref'),
     resultsSummary: jsonb('results_summary'),

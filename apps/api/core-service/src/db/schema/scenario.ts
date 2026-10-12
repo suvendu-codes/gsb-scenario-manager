@@ -15,6 +15,7 @@ export const scenario = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     projectId: text('project_id').notNull(),
     mapId: text('map_id').notNull(),
+    solutionId: text('solution_id'),
     name: text().notNull(),
     status: scenarioStatus().notNull().default('draft'),
     authorId: text('author_id').notNull(),

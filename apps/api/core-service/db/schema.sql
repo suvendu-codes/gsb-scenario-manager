@@ -3,13 +3,14 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TYPE scenario_status AS ENUM ('draft', 'active', 'completed');
 CREATE TYPE run_status AS ENUM (
-  'triggering', 'setup_ready', 'running', 'paused', 'completed', 'failed', 'interrupted'
+  'accepted', 'setup_ready', 'running', 'paused', 'completed', 'failed', 'interrupted'
 );
 
 CREATE TABLE scenario (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id         TEXT NOT NULL,
   map_id             TEXT NOT NULL,
+  solution_id        TEXT,
   name               TEXT NOT NULL,
   status             scenario_status NOT NULL DEFAULT 'draft',
   author_id          TEXT NOT NULL,
@@ -38,7 +39,7 @@ CREATE TABLE run (
   scenario_id         UUID NOT NULL REFERENCES scenario(id),
   scenario_version_id UUID NOT NULL REFERENCES scenario_version(id),
   engine              TEXT NOT NULL,               -- trigger topic is per engine
-  status              run_status NOT NULL DEFAULT 'triggering',
+  status              run_status NOT NULL DEFAULT 'accepted',
   idempotency_key     TEXT NOT NULL UNIQUE,
   engine_ref          TEXT,
   results_summary     JSONB,                       -- final KPIs; deep metrics stay in Grafana/Tower
