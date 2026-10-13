@@ -17,11 +17,18 @@ export function ScenarioListLoading(): React.JSX.Element {
   );
 }
 
-/** Message shown when there are no scenarios yet, with a link to create one. */
-export function ScenarioListEmpty(): React.JSX.Element {
+/**
+ * Message shown when there are no scenarios to list, with a link to create one.
+ *
+ * @param statusLabel - Lowercase status name when a status filter hides everything
+ *   (for example `"completed"`), to show "No completed scenarios yet".
+ */
+export function ScenarioListEmpty({ statusLabel }: { statusLabel?: string }): React.JSX.Element {
   return (
     <div className={styles.message}>
-      <p className={styles.messageTitle}>No scenarios yet</p>
+      <p className={styles.messageTitle}>
+        {statusLabel ? `No ${statusLabel} scenarios yet` : "No scenarios yet"}
+      </p>
       <p className={styles.messageText}>Create a scenario to get started.</p>
       <Link href="/scenarios?create=1" className={buttonVariants({ size: "sm" })}>
         Create new scenario

@@ -86,6 +86,28 @@ const seedScenarios: Scenario[] = [
     createdAt: "2026-09-17T15:00:00.000Z",
     updatedAt: "2026-09-19T12:30:00.000Z",
   },
+  {
+    id: "9b1f3c52-6a1e-4d0b-8f3a-1c2d3e4f5a06",
+    name: "Peak Day v2",
+    projectId: "coupang-daegu",
+    mapId: "ecom-rtp",
+    solutionId: "sol-coupang-v3",
+    status: "draft",
+    authorId: "gauri",
+    createdAt: "2026-09-25T10:00:00.000Z",
+    updatedAt: "2026-09-28T17:45:00.000Z",
+  },
+  {
+    id: "9b1f3c52-6a1e-4d0b-8f3a-1c2d3e4f5a07",
+    name: "Peak Day",
+    projectId: "coupang-daegu",
+    mapId: "multi-msio",
+    solutionId: "sol-coupang-v3",
+    status: "draft",
+    authorId: "marta.silva",
+    createdAt: "2026-09-24T09:00:00.000Z",
+    updatedAt: "2026-09-26T11:15:00.000Z",
+  },
 ];
 
 // Kept on globalThis so created scenarios survive dev hot reloads.

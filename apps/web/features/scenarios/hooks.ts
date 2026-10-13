@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
   type UseMutationResult,
@@ -59,6 +60,55 @@ export function useProjectMaps(projectId: string): UseQueryResult<ProjectMap[], 
     enabled: projectId !== "",
     retry: 1,
   });
+}
+
+/** Everything the scenario list screen needs, loaded together. */
+export type ScenarioLibrary = {
+  scenarios: Scenario[];
+  projects: Project[];
+  mapsByProject: Record<string, ProjectMap[]>;
+  /** True until scenarios, projects and the maps of every project in use have loaded. */
+  isPending: boolean;
+  /** True only when the scenarios themselves failed to load. */
+  isError: boolean;
+  error: Error | null;
+  refetch: () => Promise<unknown>;
+};
+
+/**
+ * Loads scenarios plus the project and map names needed to group them.
+ * Names are decoration: if projects or maps fail to load, the list still
+ * works and shows ids instead. Only a scenarios failure counts as an error.
+ *
+ * @returns The scenarios, lookup data and loading/error state.
+ */
+export function useScenarioLibrary(): ScenarioLibrary {
+  const scenarios = useScenarios();
+  const projects = useProjects();
+
+  const projectIds = [...new Set(scenarios.data?.map((scenario) => scenario.projectId) ?? [])];
+  const mapQueries = useQueries({
+    queries: projectIds.map((projectId) => ({
+      queryKey: scenarioKeys.maps(projectId),
+      queryFn: () => getProjectMaps(projectId),
+      retry: 1,
+    })),
+  });
+
+  const mapsByProject: Record<string, ProjectMap[]> = {};
+  projectIds.forEach((projectId, index) => {
+    mapsByProject[projectId] = mapQueries[index].data ?? [];
+  });
+
+  return {
+    scenarios: scenarios.data ?? [],
+    projects: projects.data ?? [],
+    mapsByProject,
+    isPending: scenarios.isPending || projects.isPending || mapQueries.some((query) => query.isPending),
+    isError: scenarios.isError,
+    error: scenarios.error,
+    refetch: scenarios.refetch,
+  };
 }
 
 /**

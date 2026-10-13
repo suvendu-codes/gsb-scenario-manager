@@ -1,16 +1,12 @@
 import { cn } from "@/lib/utils";
 
+import { STATUS_LABELS } from "../constants";
 import type { ScenarioStatus } from "../types";
 import { statusPillStyles } from "./StatusPill.styles";
 
-const STATUS_LABELS: Record<ScenarioStatus, string> = {
-  draft: "Draft",
-  active: "Active",
-  completed: "Completed",
-};
-
 /**
  * Small coloured badge showing a scenario's status.
+ * An active scenario also shows a pulsing dot.
  *
  * @param status - The scenario status to display.
  */
