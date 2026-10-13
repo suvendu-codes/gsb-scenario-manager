@@ -3,6 +3,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { LoggingInterceptor } from 'shared';
 import { AppModule } from './app.module';
+import { setupSwagger } from './swagger/swagger';
 // import { SafeListenerInterceptor } from './safe-listener.interceptor';
 
 async function bootstrap() {
@@ -16,6 +17,7 @@ async function bootstrap() {
   );
   app.enableShutdownHooks();
   app.enableCors();
+  app.enableCsrfProtection();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -24,6 +26,7 @@ async function bootstrap() {
       disableErrorMessages: false,
     }),
   );
+  setupSwagger(app);
   const port = process.env.PORT ?? 3002;
   await app.listen(port);
   logger.log(`Listening on port ${port}`);
