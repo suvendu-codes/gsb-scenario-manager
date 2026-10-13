@@ -2,24 +2,26 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
+import { topBarStyles } from "./TopBar.styles";
+
+/**
+ * App header shown on every page: brand, page title and the
+ * "Create new scenario" link, which opens the create modal via `?create=1`.
+ */
 export function TopBar(): React.JSX.Element {
   return (
-    <header className="flex h-[52px] flex-none items-center justify-between border-b border-line bg-panel px-[18px]">
-      <div className="flex items-center gap-2.5">
-        <span className="size-2.5 rounded-[3px] bg-accent" aria-hidden="true" />
-        <span className="text-[14.5px] font-bold tracking-tight">GreyOrange</span>
-        <span className="text-line-strong" aria-hidden="true">
+    <header className={topBarStyles.root}>
+      <div className={topBarStyles.brand}>
+        <span className={topBarStyles.brandMark} aria-hidden="true" />
+        <span className={topBarStyles.brandName}>GreyOrange</span>
+        <span className={topBarStyles.separator} aria-hidden="true">
           ›
         </span>
-        <h1 className="text-[14.5px] font-semibold">Scenario Manager</h1>
+        <h1 className={topBarStyles.pageTitle}>Scenario Manager</h1>
       </div>
-      <Link
-        href="/scenarios?create=1"
-        className={cn(buttonVariants({ size: "sm" }))}
-      >
-        <Plus className="size-3.5" aria-hidden="true" />
+      <Link href="/scenarios?create=1" className={buttonVariants({ size: "sm" })}>
+        <Plus className={topBarStyles.createIcon} aria-hidden="true" />
         Create new scenario
       </Link>
     </header>

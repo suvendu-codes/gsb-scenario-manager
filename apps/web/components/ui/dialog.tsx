@@ -6,8 +6,20 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import { dialogStyles } from "./dialog.styles";
+
+/**
+ * Modal root. Control it with `open` and `onOpenChange`.
+ * Radix handles focus trapping, Esc to close, scroll lock and ARIA.
+ */
 export const Dialog = DialogPrimitive.Root;
 
+/**
+ * Modal panel with a dimmed overlay and a close button.
+ * Render a DialogTitle inside it so the dialog has an accessible name.
+ *
+ * @param className - Extra classes, merged over the panel styles.
+ */
 export function DialogContent({
   className,
   children,
@@ -15,77 +27,72 @@ export function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content>): React.JSX.Element {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-100 bg-ink/50" />
-      <DialogPrimitive.Content
-        className={cn(
-          "fixed left-1/2 top-1/2 z-100 flex max-h-[calc(100vh-48px)] w-[calc(100%-48px)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[20px] bg-panel shadow-[0_20px_60px_rgba(0,0,0,.25)]",
-          className,
-        )}
-        {...props}
-      >
+      <DialogPrimitive.Overlay className={dialogStyles.overlay} />
+      <DialogPrimitive.Content className={cn(dialogStyles.content, className)} {...props}>
         {children}
-        <DialogPrimitive.Close
-          aria-label="Close"
-          className="absolute right-5 top-5 flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          <X className="size-4" aria-hidden="true" />
+        <DialogPrimitive.Close aria-label="Close" className={dialogStyles.close}>
+          <X className={dialogStyles.closeIcon} aria-hidden="true" />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
 }
 
+/**
+ * Top section of a dialog, holding the title and description.
+ *
+ * @param className - Extra classes, merged over the default styles.
+ */
 export function DialogHeader({
   className,
   ...props
 }: React.ComponentProps<"div">): React.JSX.Element {
-  return <div className={cn("px-7 pr-14 pt-[26px]", className)} {...props} />;
+  return <div className={cn(dialogStyles.header, className)} {...props} />;
 }
 
+/**
+ * Dialog heading. Used as the dialog's accessible name.
+ *
+ * @param className - Extra classes, merged over the default styles.
+ */
 export function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>): React.JSX.Element {
-  return (
-    <DialogPrimitive.Title
-      className={cn("text-2xl font-bold tracking-tight text-ink", className)}
-      {...props}
-    />
-  );
+  return <DialogPrimitive.Title className={cn(dialogStyles.title, className)} {...props} />;
 }
 
+/**
+ * Short supporting text under the title, announced by screen readers.
+ *
+ * @param className - Extra classes, merged over the default styles.
+ */
 export function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>): React.JSX.Element {
   return (
-    <DialogPrimitive.Description
-      className={cn("mt-1 text-sm leading-snug text-muted", className)}
-      {...props}
-    />
+    <DialogPrimitive.Description className={cn(dialogStyles.description, className)} {...props} />
   );
 }
 
-export function DialogBody({
-  className,
-  ...props
-}: React.ComponentProps<"div">): React.JSX.Element {
-  return (
-    <div
-      className={cn("flex flex-col gap-5 overflow-y-auto px-7 pb-2.5 pt-[22px]", className)}
-      {...props}
-    />
-  );
+/**
+ * Scrollable middle section of a dialog, usually the form fields.
+ *
+ * @param className - Extra classes, merged over the default styles.
+ */
+export function DialogBody({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return <div className={cn(dialogStyles.body, className)} {...props} />;
 }
 
+/**
+ * Bottom section of a dialog, usually a status note and the action buttons.
+ *
+ * @param className - Extra classes, merged over the default styles.
+ */
 export function DialogFooter({
   className,
   ...props
 }: React.ComponentProps<"div">): React.JSX.Element {
-  return (
-    <div
-      className={cn("flex items-center justify-between gap-3 px-7 pb-[26px] pt-[18px]", className)}
-      {...props}
-    />
-  );
+  return <div className={cn(dialogStyles.footer, className)} {...props} />;
 }

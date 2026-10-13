@@ -5,6 +5,8 @@ import "./globals.css";
 import { TopBar } from "@/components/layout/TopBar";
 import { Providers } from "@/components/providers";
 
+import { layoutStyles } from "./layout.styles";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -21,13 +23,17 @@ export const metadata: Metadata = {
   description: "Create, configure and run warehouse scenarios.",
 };
 
+/**
+ * Root layout: loads fonts, wraps the app in providers and renders the
+ * top bar above the scrolling page content.
+ */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${plexMono.variable} h-full antialiased`}>
-      <body className="flex h-full flex-col">
+    <html lang="en" className={`${inter.variable} ${plexMono.variable} ${layoutStyles.html}`}>
+      <body className={layoutStyles.body}>
         <Providers>
           <TopBar />
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className={layoutStyles.main}>{children}</main>
         </Providers>
       </body>
     </html>
