@@ -7,7 +7,7 @@ import {
   ScenarioConfigNotFoundError,
   ScenarioNotFoundError,
 } from '../../../scenarios/domain/errors';
-import { DuplicateIdempotencyKeyError, RunTriggerFailedError } from '../../domain/errors';
+import { DuplicateCorrelationIdError, RunTriggerFailedError } from '../../domain/errors';
 import type { NewRun } from '../../domain/run';
 import { RUN_REPOSITORY, type RunRepository } from '../ports/run.repository';
 import { RUN_TRIGGER, type RunTrigger } from '../ports/run-trigger.port';
@@ -16,7 +16,7 @@ export interface TriggerRunInput {
   scenarioId: string;
   engine: string;
   triggeredBy: string;
-  idempotencyKey: string;
+  correlationId: string;
 }
 
 @Injectable()
@@ -28,7 +28,7 @@ export class TriggerRunUseCase {
   ) {}
 
   async execute(input: TriggerRunInput) {
-    const existing = await this.runs.findByIdempotencyKey(input.idempotencyKey);
+    const existing = await this.runs.findByCorrelationId(input.correlationId);
     if (existing) return existing;
 
     const scenario = await this.scenarios.findById(input.scenarioId);
@@ -36,13 +36,17 @@ export class TriggerRunUseCase {
     const version = await this.scenarios.findCurrentVersion(scenario);
     if (!version) throw new ScenarioConfigNotFoundError(input.scenarioId);
 
-    const newRun: NewRun = { ...input, scenarioVersionId: version.id };
+    const newRun: NewRun = {
+      scenarioId: input.scenarioId,
+      engine: input.engine,
+      correlationId: input.correlationId,
+    };
     let run;
     try {
       run = await this.runs.create(newRun);
     } catch (error) {
-      if (error instanceof DuplicateIdempotencyKeyError) {
-        const winner = await this.runs.findByIdempotencyKey(input.idempotencyKey);
+      if (error instanceof DuplicateCorrelationIdError) {
+        const winner = await this.runs.findByCorrelationId(input.correlationId);
         if (winner) return winner;
       }
       throw error;
@@ -51,6 +55,7 @@ export class TriggerRunUseCase {
     try {
       const { engineRef } = await this.trigger.start({
         runId: run.runId,
+        correlationId: run.correlationId,
         engine: input.engine,
         scenarioId: scenario.id,
         scenarioVersionId: version.id,

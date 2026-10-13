@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ApiOperation, ApiParam } from '@nestjs/swagger';
 import { withSafeListener } from 'shared';
 import { parseSort } from '../../common/dto/sort.dto';
 import {
@@ -13,6 +14,8 @@ export class MapsController {
   constructor(private readonly listMapScenarios: ListMapScenariosUseCase) {}
 
   @Get(':id/scenarios')
+  @ApiOperation({ summary: 'List scenarios for a map' })
+  @ApiParam({ name: 'id', description: 'Map ID' })
   listScenarios(@Param('id') mapId: string, @Query() query: ListScenariosQuery) {
     return withSafeListener(`GET /maps/${mapId}/scenarios`, () =>
       this.listMapScenarios.execute({

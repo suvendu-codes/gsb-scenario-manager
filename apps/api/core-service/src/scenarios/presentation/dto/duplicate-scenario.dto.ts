@@ -1,5 +1,9 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
 
 export class DuplicateScenarioDto {
-  @IsString() @IsNotEmpty() createdBy!: string;
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  createdBy!: string;
 }

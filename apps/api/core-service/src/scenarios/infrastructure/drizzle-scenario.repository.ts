@@ -1,9 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, sql, type AnyColumn } from 'drizzle-orm';
+import { and, asc, desc, eq, type AnyColumn } from 'drizzle-orm';
 import { DRIZZLE } from '../../db/db.constants';
 import type { DrizzleDB } from '../../db/db.module';
 import { scenario } from '../../db/schema/scenario';
-import { scenarioVersion } from '../../db/schema/scenario-version';
 import type {
   ScenarioChanges,
   ScenarioListFilter,
@@ -17,6 +16,12 @@ const SORT_COLUMNS: Record<ScenarioSortField, AnyColumn> = {
   name: scenario.name,
   created_at: scenario.createdAt,
   updated_at: scenario.updatedAt,
+};
+
+type StoredConfig = {
+  configUri?: string;
+  version?: number;
+  updatedBy?: string;
 };
 
 @Injectable()
@@ -43,39 +48,37 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
   }
 
   async findCurrentVersion(s: Scenario) {
-    const [row] = await this.db
-      .select()
-      .from(scenarioVersion)
-      .where(
-        and(
-          eq(scenarioVersion.scenarioId, s.id),
-          eq(scenarioVersion.versionNumber, s.currentVersion),
-        ),
-      )
-      .limit(1);
-    return row ? Object.assign(new ScenarioVersion(), row) : null;
+    const [row] = await this.db.select().from(scenario).where(eq(scenario.id, s.id)).limit(1);
+    if (!row) return null;
+    const cfg = readConfig(row);
+    if (!cfg.configUri) return null;
+    return Object.assign(new ScenarioVersion(), {
+      id: row.id,
+      scenarioId: row.id,
+      versionNumber: cfg.version ?? 1,
+      configUri: cfg.configUri,
+      createdBy: cfg.updatedBy ?? row.authorId,
+      createdAt: row.updatedAt,
+    });
   }
 
   async create(input: NewScenario) {
     try {
-      return await this.db.transaction(async (tx) => {
-        const [created] = await tx
-          .insert(scenario)
-          .values({
-            projectId: input.projectId,
-            mapId: input.mapId,
-            name: input.name,
-            authorId: input.authorId,
-          })
-          .returning();
-        await tx.insert(scenarioVersion).values({
-          scenarioId: created.id,
-          versionNumber: created.currentVersion,
-          configUri: input.configUri,
-          createdBy: input.createdBy,
-        });
-        return toScenario(created);
-      });
+      const [created] = await this.db
+        .insert(scenario)
+        .values({
+          projectId: input.projectId,
+          mapId: input.mapId,
+          name: input.name,
+          authorId: input.authorId,
+          config: {
+            configUri: input.configUri,
+            version: 1,
+            updatedBy: input.createdBy,
+          },
+        })
+        .returning();
+      return toScenario(created);
     } catch (error) {
       throw translate(error, input.mapId, input.name);
     }
@@ -83,27 +86,28 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
 
   async update(id: string, changes: ScenarioChanges) {
     try {
-      return await this.db.transaction(async (tx) => {
-        const [updated] = await tx
-          .update(scenario)
-          .set({
-            name: changes.name,
-            currentVersion: sql`${scenario.currentVersion} + 1`,
-            version: sql`${scenario.version} + 1`,
-            updatedAt: new Date(),
-          })
-          .where(and(eq(scenario.id, id), eq(scenario.version, changes.expectedVersion)))
-          .returning();
-        if (!updated) throw new ScenarioVersionConflictError(id);
+      const [current] = await this.db.select().from(scenario).where(eq(scenario.id, id)).limit(1);
+      if (!current) throw new ScenarioVersionConflictError(id);
 
-        await tx.insert(scenarioVersion).values({
-          scenarioId: id,
-          versionNumber: updated.currentVersion,
-          configUri: changes.configUri,
-          createdBy: changes.updatedBy,
-        });
-        return toScenario(updated);
-      });
+      const cfg = readConfig(current);
+      const version = cfg.version ?? 1;
+      if (version !== changes.expectedVersion) throw new ScenarioVersionConflictError(id);
+
+      const [updated] = await this.db
+        .update(scenario)
+        .set({
+          name: changes.name ?? current.name,
+          config: {
+            configUri: changes.configUri,
+            version: version + 1,
+            updatedBy: changes.updatedBy,
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(scenario.id, id))
+        .returning();
+      if (!updated) throw new ScenarioVersionConflictError(id);
+      return toScenario(updated);
     } catch (error) {
       throw translate(error, undefined, changes.name);
     }
@@ -114,7 +118,29 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
   }
 }
 
-const toScenario = (row: typeof scenario.$inferSelect) => new Scenario(row);
+const readConfig = (row: typeof scenario.$inferSelect): StoredConfig => {
+  const config = row.config;
+  if (config && typeof config === 'object' && !Array.isArray(config)) {
+    return config as StoredConfig;
+  }
+  return {};
+};
+
+const toScenario = (row: typeof scenario.$inferSelect) => {
+  const version = readConfig(row).version ?? 1;
+  return new Scenario({
+    id: row.id,
+    projectId: row.projectId,
+    mapId: row.mapId,
+    name: row.name,
+    status: row.status,
+    authorId: row.authorId,
+    currentVersion: version,
+    version,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
+};
 
 /** Maps the unique-violation on (map_id, name) to a domain error; leaves other errors alone. */
 function translate(error: unknown, mapId?: string, name?: string): unknown {

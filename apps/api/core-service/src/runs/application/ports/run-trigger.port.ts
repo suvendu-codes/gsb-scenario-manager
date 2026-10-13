@@ -1,5 +1,6 @@
 export interface RunTriggerRequest {
   runId: string;
+  correlationId: string;
   engine: string;
   scenarioId: string;
   scenarioVersionId: string;

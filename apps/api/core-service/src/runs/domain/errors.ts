@@ -1,8 +1,8 @@
 import { DomainError } from '../../common/domain/domain-error';
 
-export class DuplicateIdempotencyKeyError extends DomainError {
-  constructor(key: string) {
-    super(`A run with idempotency key "${key}" already exists`, 'conflict');
+export class DuplicateCorrelationIdError extends DomainError {
+  constructor(correlationId: string) {
+    super(`A run with correlation id "${correlationId}" already exists`, 'conflict');
   }
 }
 

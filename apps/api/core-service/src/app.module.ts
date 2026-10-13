@@ -4,6 +4,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { DomainErrorFilter } from './common/presentation/http-exception.filter';
 import { DbModule } from './db/db.module';
 import { MapsModule } from './maps/maps.module';
+import { ProjectsModule } from './projects/projects.module';
 import { RunsModule } from './runs/runs.module';
 import { ScenariosModule } from './scenarios/scenarios.module';
 
@@ -14,6 +15,7 @@ import { ScenariosModule } from './scenarios/scenarios.module';
       envFilePath: ['.env', '../../../.env'],
     }),
     DbModule,
+    ProjectsModule,
     MapsModule,
     ScenariosModule,
     RunsModule,
