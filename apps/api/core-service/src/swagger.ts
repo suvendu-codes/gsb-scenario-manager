@@ -1,7 +1,14 @@
 import { INestApplication, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
-import { swaggerConfig } from './swagger.config';
+
+const swaggerConfig = {
+  title: 'Core Service API',
+  description: 'API documentation for the core service',
+  version: '1.0',
+  path: process.env.SWAGGER_PATH ?? 'docs',
+  enabled: process.env.SWAGGER_ENABLED !== 'false',
+};
 
 export function setupSwagger(app: INestApplication): void {
   const { enabled, title, description, version, path } = swaggerConfig;

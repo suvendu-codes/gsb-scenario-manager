@@ -1,2 +1,1 @@
-export { default as logger } from "./logging/logger";
-export { LoggingInterceptor } from "./logging/logging.interceptor";
+export { requestLogger } from "./logging/request-logger.middleware.js";
