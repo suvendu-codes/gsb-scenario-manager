@@ -30,7 +30,7 @@ export function requestLogger(
   res: HttpResponse,
   next: () => void,
 ): void {
-  const startTime = Date.now();
+  const startTime = performance.now();
   const incomingId = req.headers[REQUEST_ID_HEADER];
   const requestId =
     (Array.isArray(incomingId) ? incomingId[0] : incomingId) ?? randomUUID();
@@ -48,9 +48,9 @@ export function requestLogger(
     const userId = req.user?.id ?? "anonymous";
     const aborted = res.writableFinished === false;
     const status = aborted ? "aborted" : res.statusCode;
-    const message = `[${requestId}] ${method} ${path} ${status} ${Date.now() - startTime}ms user=${userId}`;
-    if (aborted || res.statusCode >= 500) logger.error(message);
-    else if (res.statusCode >= 400) logger.warn(message);
+    const message = `[${requestId}] ${method} ${path} ${status} ${Math.round(performance.now() - startTime)}ms user=${userId}`;
+    if (!aborted && res.statusCode >= 500) logger.error(message);
+    else if (aborted || res.statusCode >= 400) logger.warn(message);
     else logger.log(message);
   };
 

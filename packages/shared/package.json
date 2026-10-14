@@ -16,11 +16,12 @@
     "dev": "tsc -p tsconfig.json --watch",
     "prepare": "pnpm run build"
   },
-  "dependencies": {
-    "@nestjs/common": "^12.1.2"
-  },
   "devDependencies": {
+    "@nestjs/common": "^12.1.2",
     "@types/node": "^26.6.4",
     "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^12.1.2"
   }
 }

@@ -8,8 +8,6 @@
     "@nestjs/core": "^12.1.2",
     "@nestjs/platform-express": "^12.1.2",
     "@nestjs/swagger": "^12.0.2",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.15.1",
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.3",
     "nestjs-zod": "^5.5.0",
@@ -24,6 +22,15 @@
     "@types/node": "^26.6.4",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
-    "typescript": "^7.0.2"
+    "eslint": "^9.39.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
   }
 }
