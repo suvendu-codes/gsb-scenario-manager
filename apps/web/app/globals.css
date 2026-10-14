@@ -1,46 +1,50 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-accent: #e85b31;
+  --color-accent-hover: #d64f26;
+  --color-accent-soft: #fdece3;
+  --color-accent-line: #f3c1a8;
+  --color-accent-disabled: #e8c9bb;
+
+  --color-ink: #1d1e20;
+  --color-muted: #54555b;
+  --color-faint: #75767c;
+
+  --color-line: #e6e5e2;
+  --color-line-strong: #d8d7d3;
+  --color-panel: #ffffff;
+  --color-paper: #f7f6f4;
+  --color-paper-2: #f0efec;
+
+  --color-good: #3a8a5a;
+  --color-good-soft: #eaf5ee;
+  --color-good-line: #a9d3b7;
+  --color-info: #1f5f86;
+  --color-info-soft: #e6f1f8;
+  --color-info-line: #a8cde3;
+  --color-info-dot: #2f8ac0;
+  --color-warn: #8a5a12;
+  --color-warn-soft: #fbf0d9;
+  --color-warn-line: #e6c98a;
+  --color-danger: #c25a4f;
+  --color-danger-hover: #a94a40;
+  --color-danger-soft: #fdeceb;
+  --color-danger-ink: #b3402a;
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-:root {
-  --st-bg: #0b0c10;
-  --st-panel: #14161c;
-  --st-panel-2: #191b22;
-  --st-border: #24262e;
-  --st-border-soft: #1d1f26;
-  --st-text: #e7e8ea;
-  --st-text-dim: #8b8f99;
-  --st-text-mute: #55585f;
-
-  --st-amber: #d9a441;
-  --st-amber-fill: rgba(217, 164, 65, 0.16);
-  --st-blue: #6c7fe0;
-  --st-blue-fill: rgba(108, 127, 224, 0.16);
-  --st-coral: #cf7267;
-  --st-coral-fill: rgba(207, 114, 103, 0.16);
-  --st-teal: #3f9b7d;
-  --st-teal-fill: rgba(63, 155, 125, 0.16);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
 }
