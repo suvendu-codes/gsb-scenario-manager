@@ -15,7 +15,12 @@ import type {
  * @returns A count for `all` and for each status.
  */
 export function countByStatus(scenarios: Scenario[]): Record<StatusFilter, number> {
-  const counts: Record<StatusFilter, number> = { all: scenarios.length, draft: 0, active: 0, completed: 0 };
+  const counts: Record<StatusFilter, number> = {
+    all: scenarios.length,
+    draft: 0,
+    active: 0,
+    completed: 0,
+  };
   for (const scenario of scenarios) counts[scenario.status] += 1;
   return counts;
 }
@@ -44,7 +49,11 @@ export function sortScenarios(scenarios: Scenario[], sort: SortOption): Scenario
 }
 
 /** Orders two groups by name for the `name` sort, otherwise by their date key. */
-function compareGroups(sort: SortOption, a: { name: string; key: string }, b: { name: string; key: string }): number {
+function compareGroups(
+  sort: SortOption,
+  a: { name: string; key: string },
+  b: { name: string; key: string },
+): number {
   if (sort === "name" || a.key === b.key) return a.name.localeCompare(b.name);
   return sort === "oldest" ? a.key.localeCompare(b.key) : b.key.localeCompare(a.key);
 }
@@ -75,7 +84,9 @@ export function groupScenarios(
   mapsByProject: Record<string, ProjectMap[]>,
   sort: SortOption,
 ): ProjectGroup[] {
-  const projectIds = [...new Set([...projects.map((p) => p.id), ...scenarios.map((s) => s.projectId)])];
+  const projectIds = [
+    ...new Set([...projects.map((p) => p.id), ...scenarios.map((s) => s.projectId)]),
+  ];
 
   const groups: ProjectGroup[] = [];
   for (const projectId of projectIds) {
@@ -96,11 +107,19 @@ export function groupScenarios(
       .filter((group) => group.scenarios.length > 0);
 
     maps.sort((a, b) =>
-      compareGroups(sort, { name: a.map.name, key: a.scenarios[0].updatedAt }, { name: b.map.name, key: b.scenarios[0].updatedAt }),
+      compareGroups(
+        sort,
+        { name: a.map.name, key: a.scenarios[0].updatedAt },
+        { name: b.map.name, key: b.scenarios[0].updatedAt },
+      ),
     );
 
     groups.push({
-      project: projects.find((p) => p.id === projectId) ?? { id: projectId, name: projectId, description: "" },
+      project: projects.find((p) => p.id === projectId) ?? {
+        id: projectId,
+        name: projectId,
+        description: "",
+      },
       maps,
       total: inProject.length,
     });
@@ -112,6 +131,10 @@ export function groupScenarios(
       sort,
     );
   return groups.sort((a, b) =>
-    compareGroups(sort, { name: a.project.name, key: keyOf(a) }, { name: b.project.name, key: keyOf(b) }),
+    compareGroups(
+      sort,
+      { name: a.project.name, key: keyOf(a) },
+      { name: b.project.name, key: keyOf(b) },
+    ),
   );
 }

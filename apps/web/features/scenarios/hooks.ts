@@ -21,7 +21,7 @@ export const scenarioKeys = {
 
 /**
  * Loads the scenario list with TanStack Query.
- * Retries once on failure so the error state appears quickly.
+ * Retrying on failure is handled by the API client, not here.
  *
  * @returns The query result: `data`, `isPending`, `isError`, `error` and `refetch`.
  */
@@ -29,7 +29,6 @@ export function useScenarios(): UseQueryResult<Scenario[], Error> {
   return useQuery({
     queryKey: scenarioKeys.list,
     queryFn: getScenarios,
-    retry: 1,
   });
 }
 
@@ -42,7 +41,6 @@ export function useProjects(): UseQueryResult<Project[], Error> {
   return useQuery({
     queryKey: scenarioKeys.projects,
     queryFn: getProjects,
-    retry: 1,
   });
 }
 
@@ -58,7 +56,6 @@ export function useProjectMaps(projectId: string): UseQueryResult<ProjectMap[], 
     queryKey: scenarioKeys.maps(projectId),
     queryFn: () => getProjectMaps(projectId),
     enabled: projectId !== "",
-    retry: 1,
   });
 }
 
@@ -72,6 +69,8 @@ export type ScenarioLibrary = {
   /** True only when the scenarios themselves failed to load. */
   isError: boolean;
   error: Error | null;
+  /** When the scenarios request last failed (a timestamp), or 0 if it has not failed. */
+  errorUpdatedAt: number;
   refetch: () => Promise<unknown>;
 };
 
@@ -91,7 +90,6 @@ export function useScenarioLibrary(): ScenarioLibrary {
     queries: projectIds.map((projectId) => ({
       queryKey: scenarioKeys.maps(projectId),
       queryFn: () => getProjectMaps(projectId),
-      retry: 1,
     })),
   });
 
@@ -104,9 +102,11 @@ export function useScenarioLibrary(): ScenarioLibrary {
     scenarios: scenarios.data ?? [],
     projects: projects.data ?? [],
     mapsByProject,
-    isPending: scenarios.isPending || projects.isPending || mapQueries.some((query) => query.isPending),
+    isPending:
+      scenarios.isPending || projects.isPending || mapQueries.some((query) => query.isPending),
     isError: scenarios.isError,
     error: scenarios.error,
+    errorUpdatedAt: scenarios.errorUpdatedAt,
     refetch: scenarios.refetch,
   };
 }

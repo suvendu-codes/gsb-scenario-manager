@@ -38,6 +38,26 @@ export function ScenarioListEmpty({ statusLabel }: { statusLabel?: string }): Re
 }
 
 /**
+ * Message shown when the service itself is down (the health check failed too),
+ * so the user knows it is not something they did.
+ *
+ * @param onRetry - Called when the user clicks "Try again".
+ */
+export function ScenarioListServiceDown({ onRetry }: { onRetry: () => void }): React.JSX.Element {
+  return (
+    <div className={styles.message} role="alert">
+      <p className={styles.messageTitle}>Service unavailable</p>
+      <p className={styles.messageText}>
+        Scenario Manager can’t reach its service right now. Please try again in a few minutes.
+      </p>
+      <Button variant="ghost" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
+  );
+}
+
+/**
  * Message shown when loading the list failed, with a retry button.
  *
  * @param message - The error message to show.
