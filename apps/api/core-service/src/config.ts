@@ -14,6 +14,7 @@ const schema = z
     port: z.coerce.number().int().positive().min(1).max(65535).default(3002),
     env: z.enum(['development', 'test', 'production']).default('development'),
     mapApi: optionalUrl,
+    runEngineUrl: optionalUrl,
     frontendOrigin: optionalUrl,
     devOrigin: optionalUrl,
     bffServiceUrl: z.string().url().default('http://localhost:3001'),
@@ -100,11 +101,16 @@ export class ConfigBuilder<S extends z.ZodType> {
   }
 
   /** Maps env vars onto the schema's shape. Unset vars are skipped. */
-  fromEnv(env: NodeJS.ProcessEnv = process.env): this {
+  fromEnv(source: NodeJS.ProcessEnv = process.env): this {
+    // `FOO=` in a copied .env.example must behave like FOO being unset.
+    const env: NodeJS.ProcessEnv = Object.fromEntries(
+      Object.entries(source).filter(([, v]) => v !== ''),
+    );
     return this.add({
       port: env.PORT,
       env: env.NODE_ENV,
       mapApi: env.MAP_API,
+      runEngineUrl: env.RUN_ENGINE_URL,
       frontendOrigin: env.FRONTEND_ORIGIN,
       devOrigin: env.DEV_ORIGIN,
       bffServiceUrl: env.BFF_SERVICE_URL,
@@ -140,5 +146,11 @@ export class ConfigBuilder<S extends z.ZodType> {
 
 // ---------- 3. Usage ----------
 export const appConfig = new ConfigBuilder(schema).fromEnv().build();
+
+/** Returns a configured URL or fails with a clear message when it is unset. */
+export function requireConfig(value: string | undefined, envVar: string): string {
+  if (!value) throw new Error(`${envVar} is not configured`);
+  return value;
+}
 
 export type AppConfig = typeof appConfig;
