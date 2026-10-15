@@ -9,7 +9,7 @@ import { DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ApiError } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 
 import { useCreateScenario, useProjectMaps, useProjects } from "../hooks";
 import { createScenarioSchema, SCENARIO_NAME_MAX_LENGTH } from "../schema";
@@ -120,7 +120,11 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
             {...register("mapId", { onChange: clearServerErrors })}
           >
             <option value="" disabled>
-              {!projectId ? "Select a project first" : maps.isPending ? "Loading maps…" : "Select a map"}
+              {!projectId
+                ? "Select a project first"
+                : maps.isPending
+                  ? "Loading maps…"
+                  : "Select a map"}
             </option>
             {maps.data?.map((map) => (
               <option key={map.id} value={map.id}>

@@ -35,7 +35,9 @@ export function CreateScenarioDialog(): React.JSX.Element {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Scenario</DialogTitle>
-          <DialogDescription>Choose a project and map, then give your scenario a name.</DialogDescription>
+          <DialogDescription>
+            Choose a project and map, then give your scenario a name.
+          </DialogDescription>
         </DialogHeader>
         <CreateScenarioForm onCreated={close} />
       </DialogContent>

@@ -1,4 +1,9 @@
-import type { CreateScenarioInput, Project, ProjectMap, Scenario } from "@/features/scenarios/types";
+import type {
+  CreateScenarioInput,
+  Project,
+  ProjectMap,
+  Scenario,
+} from "@/features/scenarios/types";
 
 /**
  * In-memory mock data standing in for core-service until its endpoints
@@ -12,11 +17,36 @@ const projects: Project[] = [
 ];
 
 const projectMaps: ProjectMap[] = [
-  { id: "ecom-rtp", projectId: "coupang-daegu", name: "Ecom RTP Baseline", description: "RTP · Pick Front, Put Front" },
-  { id: "multi-msio", projectId: "coupang-daegu", name: "Multi-order MSIO", description: "RTP · Pick Front" },
-  { id: "relay-coexist", projectId: "hm-canada", name: "Relay Coexistence", description: "RTP + conveyor relay" },
-  { id: "case-pick", projectId: "dillards-dc", name: "Case Pick RDC", description: "Case pick · regional DC" },
-  { id: "p2p-baseline", projectId: "sams-club-atl", name: "P2P Baseline", description: "Person-to-parts" },
+  {
+    id: "ecom-rtp",
+    projectId: "coupang-daegu",
+    name: "Ecom RTP Baseline",
+    description: "RTP · Pick Front, Put Front",
+  },
+  {
+    id: "multi-msio",
+    projectId: "coupang-daegu",
+    name: "Multi-order MSIO",
+    description: "RTP · Pick Front",
+  },
+  {
+    id: "relay-coexist",
+    projectId: "hm-canada",
+    name: "Relay Coexistence",
+    description: "RTP + conveyor relay",
+  },
+  {
+    id: "case-pick",
+    projectId: "dillards-dc",
+    name: "Case Pick RDC",
+    description: "Case pick · regional DC",
+  },
+  {
+    id: "p2p-baseline",
+    projectId: "sams-club-atl",
+    name: "P2P Baseline",
+    description: "Person-to-parts",
+  },
 ];
 
 /** Thrown by `createScenario` when the input is not allowed; carries the HTTP status to return. */

@@ -81,7 +81,10 @@ export function DialogDescription({
  *
  * @param className - Extra classes, merged over the default styles.
  */
-export function DialogBody({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+export function DialogBody({
+  className,
+  ...props
+}: React.ComponentProps<"div">): React.JSX.Element {
   return <div className={cn(dialogStyles.body, className)} {...props} />;
 }
 
