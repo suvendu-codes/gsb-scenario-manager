@@ -1,5 +1,5 @@
-/** Class groups for the CreateScenarioForm component. */
-export const createScenarioFormStyles = {
+/** Class groups for the ScenarioForm component. */
+export const scenarioFormStyles = {
   form: "flex min-h-0 flex-col",
   fieldError: "mt-1.5 text-[12.5px] text-danger-ink",
   footerNote: "text-[13px] text-faint",
