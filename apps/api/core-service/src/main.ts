@@ -1,10 +1,10 @@
-import './load-env';
+import './load-env.js';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { requestLogger } from 'shared';
-import { appConfig } from './config';
-import { AppModule } from './app.module';
-import { setupSwagger } from './swagger';
+import { appConfig } from './config.js';
+import { AppModule } from './app.module.js';
+import { setupSwagger } from './swagger.js';
 
 
 async function bootstrap() {
@@ -19,6 +19,7 @@ async function bootstrap() {
   app.enableCors({
     // Array allowlist: disallowed origins just get no CORS headers (no 500), and requests without an Origin pass through.
     origin: allowedOrigins,
+    trustedOrigins: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Request-Id'],
     exposedHeaders: ['X-Total-Count', 'Content-Range', 'X-Request-Id', 'Location', 'Retry-After'],

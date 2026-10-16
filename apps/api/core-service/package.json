@@ -2,6 +2,7 @@
   "name": "core-service",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@nestjs/common": "^12.1.2",
     "@nestjs/config": "^12.0.1",

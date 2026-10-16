@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
-import { DbModule } from './db/db.module';
+import { DbModule } from './db/db.module.js';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }), DbModule],

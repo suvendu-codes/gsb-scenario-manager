@@ -1,6 +1,6 @@
-import './src/load-env';
+import './src/load-env.js';
 import { defineConfig } from 'drizzle-kit';
-import { appConfig } from './src/config';
+import { appConfig } from './src/config.js';
 
 export default defineConfig({
   out: './drizzle',

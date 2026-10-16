@@ -1,9 +1,9 @@
 import { Global, Inject, Logger, Module, OnApplicationShutdown } from '@nestjs/common';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { appConfig } from '../config';
-import * as schema from './schema';
-import { DRIZZLE, PG_POOL } from './db.constants';
+import { appConfig } from '../config.js';
+import * as schema from './schema/index.js';
+import { DRIZZLE, PG_POOL } from './db.constants.js';
 
 export type DrizzleDB = NodePgDatabase<typeof schema>;
 

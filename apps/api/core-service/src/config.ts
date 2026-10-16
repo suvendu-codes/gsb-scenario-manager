@@ -1,5 +1,5 @@
 
-import './load-env';
+import './load-env.js';
 import { z } from 'zod';
 
 // ---------- 1. Schema: single source of truth for shape, types, rules ----------

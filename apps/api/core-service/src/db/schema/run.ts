@@ -1,7 +1,7 @@
 import { desc } from 'drizzle-orm';
 import { index, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { runEngine, runStatus, runVerdict } from './enums';
-import { scenario } from './scenario';
+import { runEngine, runStatus, runVerdict } from './enums.js';
+import { scenario } from './scenario.js';
 
 export const run = pgTable(
   'run',
