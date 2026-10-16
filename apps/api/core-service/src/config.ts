@@ -1,16 +1,21 @@
 
-import './load-env';
+import './load-env.js';
 import { z } from 'zod';
 
 // ---------- 1. Schema: single source of truth for shape, types, rules ----------
+// Blank env vars (e.g. `FOO=` in .env) count as unset.
+const optionalUrl = z.preprocess(
+  (v) => (v === '' ? undefined : v),
+  z.string().url().optional(),
+);
+
 const schema = z
   .object({
     port: z.coerce.number().int().positive().min(1).max(65535).default(3002),
     env: z.enum(['development', 'test', 'production']).default('development'),
-    mapApi: z
-      .string()
-      .url()
-      .default('https://jsonplaceholder.typicode.com/todos/1'),
+    mapApi: optionalUrl,
+    frontendOrigin: optionalUrl,
+    devOrigin: optionalUrl,
     bffServiceUrl: z.string().url().default('http://localhost:3001'),
     redis: z.object({
       host: z.string().default('localhost'),
@@ -40,11 +45,16 @@ const schema = z
     }
   })
   // Derive final shape: dev-only credential defaults + computed URL
-  .transform(({ databaseUrl, db, ...rest }) => {
+  .transform(({ databaseUrl, db, frontendOrigin, devOrigin, ...rest }) => {
     const user = db.user ?? 'scene';
     const password = db.password ?? 'scene';
     return {
       ...rest,
+      // Used for both CORS and CSRF; the dev origin is ignored in production.
+      allowedOrigins: [
+        frontendOrigin,
+        rest.env !== 'production' ? devOrigin : undefined,
+      ].filter((origin): origin is string => !!origin),
       db: {
         ...db,
         user,
@@ -95,6 +105,8 @@ export class ConfigBuilder<S extends z.ZodType> {
       port: env.PORT,
       env: env.NODE_ENV,
       mapApi: env.MAP_API,
+      frontendOrigin: env.FRONTEND_ORIGIN,
+      devOrigin: env.DEV_ORIGIN,
       bffServiceUrl: env.BFF_SERVICE_URL,
       redis: {
         host: env.REDIS_HOST,
