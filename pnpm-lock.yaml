@@ -296,10 +296,6 @@ importers:
         version: 5.0.4(@types/node@20.19.43)(vite@8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/shared:
-    dependencies:
-      opossum:
-        specifier: ^10.0.0
-        version: 10.0.0
     devDependencies:
       '@nestjs/common':
         specifier: ^12.1.2
@@ -307,9 +303,6 @@ importers:
       '@types/node':
         specifier: ^26.6.4
         version: 26.6.4
-      '@types/opossum':
-        specifier: ^8.1.9
-        version: 8.1.9
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -2563,9 +2556,6 @@ packages:
   '@types/node@26.6.4':
     resolution: {integrity: sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg==}
 
-  '@types/opossum@8.1.9':
-    resolution: {integrity: sha512-Jm/tYxuJFefiwRYs+/EOsUP3ktk0c8siMgAHPLnA4PXF4wKghzcjqf88dY+Xii5jId5Txw4JV0FMKTpjbd7KJA==}
-
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
 
@@ -4742,10 +4732,6 @@ packages:
   open@8.4.2:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
-
-  opossum@10.0.0:
-    resolution: {integrity: sha512-sghtqL8Usj+et06Zui0nyn0R6FFsl7cyuoU+d7MctYU0nbS7Htzjleh+tWohFqk1Rp1srrFwbFa8Vxd0O64w6A==}
-    engines: {node: ^26 || ^24 || ^22}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -7695,10 +7681,6 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@types/opossum@8.1.9':
-    dependencies:
-      '@types/node': 26.6.4
-
   '@types/pg@8.23.1':
     dependencies:
       '@types/node': 26.6.4
@@ -9878,8 +9860,6 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
-
-  opossum@10.0.0: {}
 
   optionator@0.9.4:
     dependencies:
