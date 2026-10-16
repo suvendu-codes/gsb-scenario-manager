@@ -1,5 +1,5 @@
 import './load-env.js';
-import { Logger } from '@nestjs/common';
+import { Logger, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { requestLogger } from 'shared';
 import { appConfig } from './config.js';
@@ -12,8 +12,13 @@ async function bootstrap() {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   const logger = new Logger('Bootstrap');
+  app.setGlobalPrefix('api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
   app.use(requestLogger);
-  app.enableShutdownHooks()
+  app.enableShutdownHooks();
   // Used for both CORS and CSRF: CORS-allowed origins are not implicitly CSRF-trusted.
   const { allowedOrigins } = appConfig;
   app.enableCors({
@@ -26,7 +31,7 @@ async function bootstrap() {
     credentials: true,
     maxAge: 600, // cache preflight for 10 minutes
   });
-  app.enableCsrfProtection({ trustedOrigins: allowedOrigins });
+  // app.enableCsrfProtection({ trustedOrigins: allowedOrigins });
   setupSwagger(app);
   const port = appConfig.port;
   await app.listen(port);
