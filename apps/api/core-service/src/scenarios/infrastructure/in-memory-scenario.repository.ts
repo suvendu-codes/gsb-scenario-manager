@@ -6,7 +6,11 @@ import type {
   ScenarioPageFilter,
   ScenarioRepository,
 } from '../application/ports/scenario.repository.js';
-import { DuplicateScenarioNameError, ScenarioNotFoundError } from '../domain/errors.js';
+import {
+  DraftAlreadyExistsError,
+  DuplicateScenarioNameError,
+  ScenarioNotFoundError,
+} from '../domain/errors.js';
 import { NewScenario, Scenario, ScenarioProps, ScenarioVersion } from '../domain/scenario.js';
 import { ScenarioStatus } from '../domain/scenario-status.js';
 
@@ -87,7 +91,7 @@ export class InMemoryScenarioRepository implements ScenarioRepository {
           row.status === ScenarioStatus.Draft,
       )
     ) {
-      throw new Error('scenario_one_draft_per_map');
+      throw new DraftAlreadyExistsError(input.mapId);
     }
     const now = new Date();
     const row: Row = {
@@ -124,7 +128,9 @@ export class InMemoryScenarioRepository implements ScenarioRepository {
 
   async delete(id: string) {
     const index = this.rows.findIndex((row) => row.id === id);
-    if (index >= 0) this.rows.splice(index, 1);
+    if (index < 0) return;
+    toScenario(this.rows[index]).assertDeletable();
+    this.rows.splice(index, 1);
   }
 }
 

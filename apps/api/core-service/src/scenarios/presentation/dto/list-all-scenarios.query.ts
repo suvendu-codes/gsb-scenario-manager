@@ -1,46 +1,17 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, Min } from 'class-validator';
-import { sortPattern } from '../../../common/dto/sort.dto.js';
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
+import { sortQuery } from '../../../common/dto/sort.dto.js';
 import { SCENARIO_SORT_FIELDS } from '../../application/ports/scenario.repository.js';
 import { ScenarioStatus } from '../../domain/scenario-status.js';
 
-export class ListAllScenariosQuery {
-  @ApiPropertyOptional({ enum: Object.values(ScenarioStatus) })
-  @IsOptional()
-  @IsIn(Object.values(ScenarioStatus))
-  status?: ScenarioStatus;
+const ListAllScenariosSchema = z.object({
+  // `all` is the explicit "no status filter" value.
+  status: z.enum([...Object.values(ScenarioStatus), 'all']).optional(),
+  map_id: z.uuid().optional(),
+  project_id: z.uuid().optional(),
+  sort: sortQuery(SCENARIO_SORT_FIELDS),
+  limit: z.coerce.number().int().min(1).max(100).optional().meta({ default: 20 }),
+  cursor: z.string().optional().meta({ description: 'Opaque `next_cursor` from the previous response' }),
+});
 
-  @ApiPropertyOptional({ format: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  map_id?: string;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  project_id?: string;
-
-  @ApiPropertyOptional({
-    description: `Sort field; prefix with \`-\` for descending. Allowed: ${SCENARIO_SORT_FIELDS.join(', ')}`,
-    example: '-updated_at',
-  })
-  @IsOptional()
-  @Matches(sortPattern(SCENARIO_SORT_FIELDS), {
-    message: `sort must be one of ${SCENARIO_SORT_FIELDS.join(', ')} (prefix with - for descending)`,
-  })
-  sort?: string;
-
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
-
-  @ApiPropertyOptional({ description: 'Opaque `next_cursor` from the previous response' })
-  @IsOptional()
-  @IsString()
-  cursor?: string;
-}
+export class ListAllScenariosQuery extends createZodDto(ListAllScenariosSchema) {}

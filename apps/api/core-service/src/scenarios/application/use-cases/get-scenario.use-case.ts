@@ -11,9 +11,6 @@ export class GetScenarioUseCase {
     if (!scenario) throw new ScenarioNotFoundError(id);
     const version = await this.scenarios.findCurrentVersion(scenario);
     if (!version) throw new ScenarioConfigNotFoundError(id);
-    return {
-      ...scenario,
-      configUri: version.configUri,
-    };
+    return { scenario, configUri: version.configUri };
   }
 }

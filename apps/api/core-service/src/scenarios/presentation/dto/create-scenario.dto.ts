@@ -1,34 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
-export class CreateScenarioDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  projectId!: string;
+const CreateScenarioSchema = z.object({
+  projectId: z.string().min(1),
+  mapId: z.string().min(1),
+  name: z.string().min(1),
+  authorId: z.string().min(1),
+  configUri: z.string().min(1).meta({ description: 'URI of the scenario config blob (e.g. gs://…)' }),
+  createdBy: z.string().min(1),
+});
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  mapId!: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  authorId!: string;
-
-  @ApiProperty({ description: 'URI of the scenario config blob (e.g. gs://…)' })
-  @IsString()
-  @IsNotEmpty()
-  configUri!: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  createdBy!: string;
-}
+export class CreateScenarioDto extends createZodDto(CreateScenarioSchema) {}

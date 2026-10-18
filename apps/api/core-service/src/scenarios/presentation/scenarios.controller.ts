@@ -47,7 +47,7 @@ export class ScenariosController {
   list(@Query() q: ListAllScenariosQuery) {
     return withSafeListener('GET /scenarios', () =>
       this.listScenarios.execute({
-        status: q.status,
+        status: q.status === 'all' ? undefined : q.status,
         mapId: q.map_id,
         projectId: q.project_id,
         sort: parseSort<ScenarioSortField>(q.sort, SCENARIO_SORT_FIELDS, {
@@ -64,7 +64,10 @@ export class ScenariosController {
   @ApiOperation({ summary: 'Get a scenario by ID' })
   @ApiParam({ name: 'id', format: 'uuid', description: 'Scenario ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return withSafeListener(`GET /scenarios/${id}`, () => this.getScenario.execute(id));
+    return withSafeListener(`GET /scenarios/${id}`, async () => {
+      const { scenario, configUri } = await this.getScenario.execute(id);
+      return { ...scenario, configUri };
+    });
   }
 
   @Post()
@@ -100,6 +103,7 @@ export class ScenariosController {
   }
 
   @Delete(':id')
+  @UseGuards(DraftScenarioGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({ description: 'Scenario deleted' })
   @ApiOperation({ summary: 'Delete a scenario' })

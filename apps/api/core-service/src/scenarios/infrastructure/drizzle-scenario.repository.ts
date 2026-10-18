@@ -11,6 +11,7 @@ import type {
   ScenarioSortField,
 } from '../application/ports/scenario.repository.js';
 import {
+  DraftAlreadyExistsError,
   DuplicateScenarioNameError,
   ScenarioLockedError,
   ScenarioNotFoundError,
@@ -127,6 +128,7 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
         .set({
           name: changes.name ?? current.name,
           config: {
+            ...readConfig(current),
             configUri: changes.configUri,
             updatedBy: changes.updatedBy,
           },
@@ -142,7 +144,16 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
   }
 
   async delete(id: string) {
-    await this.db.delete(scenario).where(eq(scenario.id, id));
+    // The status predicate makes the check atomic with the delete, so a concurrent transition out of draft can't slip through.
+    const deleted = await this.db
+      .delete(scenario)
+      .where(and(eq(scenario.id, id), eq(scenario.status, ScenarioStatus.Draft)))
+      .returning({ id: scenario.id });
+    if (deleted.length > 0) return;
+
+    const [current] = await this.db.select().from(scenario).where(eq(scenario.id, id)).limit(1);
+    if (!current) throw new ScenarioNotFoundError(id);
+    throw new ScenarioLockedError(id, current.status, 'deleted');
   }
 }
 
@@ -168,12 +179,15 @@ const toScenario = (row: typeof scenario.$inferSelect) => {
   });
 };
 
-/** Maps the unique-violation on (map_id, name) to a domain error; leaves other errors alone. */
+/** Maps the unique-violations on (map_id, name) and one-draft-per-map to domain errors; leaves other errors alone. */
 function translate(error: unknown, mapId?: string, name?: string): unknown {
   const code = (error as { code?: string } | null)?.code;
   const constraint = (error as { constraint?: string } | null)?.constraint;
   if (code === '23505' && constraint === 'scenario_map_name_unique') {
     return new DuplicateScenarioNameError(mapId ?? 'this map', name ?? '');
+  }
+  if (code === '23505' && constraint === 'scenario_one_draft_per_map') {
+    return new DraftAlreadyExistsError(mapId ?? 'this map');
   }
   return error;
 }

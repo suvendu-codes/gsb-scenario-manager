@@ -37,10 +37,20 @@ describe('InMemoryScenarioRepository', () => {
     const repo = new InMemoryScenarioRepository();
     const created = await repo.create(input);
     const rows = Reflect.get(repo, 'rows') as { id: string; status: string }[];
-    rows.find((item) => item.id === created.id)!.status = ScenarioStatus.Active;
+    rows.find((item) => item.id === created.id)!.status = ScenarioStatus.Running;
 
     await expect(
       repo.update(created.id, { configUri: input.configUri, updatedBy: 'author-1' }),
     ).rejects.toBeInstanceOf(ScenarioLockedError);
+  });
+
+  it('rejects deletes when status is not draft', async () => {
+    const repo = new InMemoryScenarioRepository();
+    const created = await repo.create(input);
+    const rows = Reflect.get(repo, 'rows') as { id: string; status: string }[];
+    rows.find((item) => item.id === created.id)!.status = ScenarioStatus.Running;
+
+    await expect(repo.delete(created.id)).rejects.toBeInstanceOf(ScenarioLockedError);
+    expect(await repo.findById(created.id)).not.toBeNull();
   });
 });

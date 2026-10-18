@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
-import { isUUID } from 'class-validator';
+import { z } from 'zod';
 import { SCENARIO_REPOSITORY, type ScenarioRepository } from '../../application/ports/scenario.repository.js';
 import { ScenarioNotFoundError } from '../../domain/errors.js';
 
@@ -11,11 +11,14 @@ export class DraftScenarioGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
     const id: string | undefined = context.switchToHttp().getRequest().params?.id;
     // Guards run before pipes: let ParseUUIDPipe reject malformed ids.
-    if (!id || !isUUID(id)) return true;
+    if (!id || !z.uuid().safeParse(id).success) return true;
 
     const scenario = await this.scenarios.findById(id);
     if (!scenario) throw new ScenarioNotFoundError(id);
-    scenario.assertEditable();
+
+    const method = context.switchToHttp().getRequest<Request>().method;
+    if (method === 'DELETE') scenario.assertDeletable();
+    else scenario.assertEditable();
     return true;
   }
 }

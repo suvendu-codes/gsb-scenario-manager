@@ -1,15 +1,13 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
-export class CloneScenarioDto {
-  @ApiProperty({ description: 'ID of the scenario to clone' })
-  @IsString()
-  @IsNotEmpty()
-  id!: string;
+const CloneScenarioSchema = z.object({
+  id: z.string().min(1).meta({ description: 'ID of the scenario to clone' }),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .meta({ description: 'Name for the clone; defaults to "<source name> (copy)"' }),
+});
 
-  @ApiPropertyOptional({ description: 'Name for the clone; defaults to "<source name> (copy)"' })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  name?: string;
-}
+export class CloneScenarioDto extends createZodDto(CloneScenarioSchema) {}

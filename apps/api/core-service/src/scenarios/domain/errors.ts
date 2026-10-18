@@ -23,3 +23,9 @@ export class DuplicateScenarioNameError extends DomainError {
     super(`Scenario name "${name}" already exists for map ${mapId}`, 'conflict');
   }
 }
+
+export class DraftAlreadyExistsError extends DomainError {
+  constructor(mapId: string) {
+    super(`Map ${mapId} already has a draft scenario`, 'conflict');
+  }
+}
