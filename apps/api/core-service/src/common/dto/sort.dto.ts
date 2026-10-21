@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type SortDirection = 'asc' | 'desc';
 
 export interface Sort<F extends string> {
@@ -19,5 +21,14 @@ export function parseSort<F extends string>(
     : fallback;
 }
 
-export const sortPattern = (fields: readonly string[]) =>
-  new RegExp(`^-?(${fields.join('|')})$`);
+export const sortQuery = (fields: readonly [string, ...string[]]) =>
+  z
+    .string()
+    .regex(new RegExp(`^-?(${fields.join('|')})$`), {
+      error: `sort must be one of ${fields.join(', ')} (prefix with - for descending)`,
+    })
+    .optional()
+    .meta({
+      description: `Sort field; prefix with \`-\` for descending. Allowed: ${fields.join(', ')}`,
+      example: '-updated_at',
+    });
