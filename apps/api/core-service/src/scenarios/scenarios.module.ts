@@ -6,7 +6,7 @@ import { CloneScenarioUseCase } from './application/use-cases/clone-scenario.use
 import { GetScenarioUseCase } from './application/use-cases/get-scenario.use-case.js';
 import { ListScenariosUseCase } from './application/use-cases/list-scenarios.use-case.js';
 import { UpdateScenarioUseCase } from './application/use-cases/update-scenario.use-case.js';
-import { InMemoryScenarioRepository } from './infrastructure/in-memory-scenario.repository.js';
+import { DrizzleScenarioRepository } from './infrastructure/drizzle-scenario.repository.js';
 import { ScenariosController } from './presentation/scenarios.controller.js';
 
 @Module({
@@ -18,7 +18,7 @@ import { ScenariosController } from './presentation/scenarios.controller.js';
     UpdateScenarioUseCase,
     CloneScenarioUseCase,
     DeleteScenarioUseCase,
-    { provide: SCENARIO_REPOSITORY, useClass: InMemoryScenarioRepository },
+    { provide: SCENARIO_REPOSITORY, useClass: DrizzleScenarioRepository },
   ],
   exports: [SCENARIO_REPOSITORY],
 })
