@@ -9,14 +9,14 @@ export class DraftScenarioGuard implements CanActivate {
   constructor(@Inject(SCENARIO_REPOSITORY) private readonly scenarios: ScenarioRepository) {}
 
   async canActivate(context: ExecutionContext) {
-    const id: string | undefined = context.switchToHttp().getRequest().params?.id;
+    const { params, method } = context.switchToHttp().getRequest<{ params?: { id?: string }; method: string }>();
+    const id = params?.id;
     // Guards run before pipes: let ParseUUIDPipe reject malformed ids.
     if (!id || !z.uuid().safeParse(id).success) return true;
 
     const scenario = await this.scenarios.findById(id);
     if (!scenario) throw new ScenarioNotFoundError(id);
 
-    const method = context.switchToHttp().getRequest<Request>().method;
     if (method === 'DELETE') scenario.assertDeletable();
     else scenario.assertEditable();
     return true;
