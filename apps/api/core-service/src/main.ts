@@ -31,7 +31,7 @@ async function bootstrap() {
     credentials: true,
     maxAge: 600, // cache preflight for 10 minutes
   });
-  // app.enableCsrfProtection({ trustedOrigins: allowedOrigins });
+  app.enableCsrfProtection({ trustedOrigins: allowedOrigins });
   setupSwagger(app);
   const port = appConfig.port;
   await app.listen(port);
