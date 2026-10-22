@@ -1,5 +1,6 @@
 export type DomainErrorKind =
   | 'not_found'
+  | 'forbidden'
   | 'conflict'
   | 'unavailable'
   | 'bad_gateway';
