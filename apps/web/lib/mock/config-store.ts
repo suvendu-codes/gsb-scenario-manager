@@ -14,7 +14,9 @@ import type {
   PatchConfigBody,
   ScenarioConfig,
 } from "@/features/scenario-config/types";
+import { configProblem } from "@/features/scenario-config/problems";
 import { computeIssues, validateConfig } from "@/features/scenario-config/validation";
+import { summarizeProblems, type Problem } from "@/lib/api/error";
 
 import { getScenarioDetail, MockApiError } from "./store";
 
@@ -77,6 +79,11 @@ export function getScenarioConfig(id: string): ScenarioConfig {
   return toResponse(id, state, buildDefaults(), detail.datasets);
 }
 
+/** The error for a change that has problems: every problem is listed, none is hidden. */
+function configInvalid(problems: Problem[]): MockApiError {
+  return new MockApiError(400, summarizeProblems(problems), { code: "CONFIG_INVALID", problems });
+}
+
 /**
  * Changes a draft scenario's config. `reset` runs first, then `set`. The whole result is
  * checked before anything is stored; a value equal to its default is not kept as an override.
@@ -84,20 +91,29 @@ export function getScenarioConfig(id: string): ScenarioConfig {
  * @param id - The scenario id.
  * @param body - Values to set by path, and paths (or prefixes) to reset to their defaults.
  * @returns The updated config.
- * @throws {MockApiError} 404 for an unknown scenario, 409 if the scenario is not a draft, 400 for
- *   an unknown path, a path that is not a single value, or a value that makes the config invalid.
+ * @throws {MockApiError} 404 for an unknown scenario, 409 (`SCENARIO_NOT_EDITABLE`) if the
+ *   scenario is not a draft, and 400 (`CONFIG_INVALID`) listing every problem found: unknown
+ *   paths, paths that are not a single value, values that break the schema, and rules that span
+ *   several values.
  */
 export function patchScenarioConfig(id: string, body: PatchConfigBody): ScenarioConfig {
   const detail = getScenarioDetail(id);
   if (detail.status !== "draft") {
-    throw new MockApiError(409, "Only draft scenarios can be edited.");
+    throw new MockApiError(409, "Only draft scenarios can be edited.", {
+      code: "SCENARIO_NOT_EDITABLE",
+      params: { status: detail.status },
+    });
   }
 
   const defaults = buildDefaults();
   const next: Overrides = { ...(configs[id]?.overrides ?? {}) };
+  const problems: Problem[] = [];
 
   for (const path of body.reset ?? []) {
-    if (!hasPath(defaults, path)) throw new MockApiError(400, `Unknown config path: ${path}`);
+    if (!hasPath(defaults, path)) {
+      problems.push(configProblem("UNKNOWN_PATH", { path }, path));
+      continue;
+    }
     for (const key of Object.keys(next)) {
       if (key === path || key.startsWith(`${path}.`)) delete next[key];
     }
@@ -105,19 +121,26 @@ export function patchScenarioConfig(id: string, body: PatchConfigBody): Scenario
 
   const setPaths = Object.keys(body.set ?? {});
   for (const path of setPaths) {
-    if (!isLeafPath(defaults, path)) {
-      throw new MockApiError(400, `Can't set ${path}: it is not a single config value.`);
+    if (!hasPath(defaults, path)) {
+      problems.push(configProblem("UNKNOWN_PATH", { path }, path));
+    } else if (!isLeafPath(defaults, path)) {
+      problems.push(configProblem("NOT_A_SINGLE_VALUE", { path }, path));
+    } else {
+      next[path] = normalise(path, (body.set ?? {})[path]);
     }
-    next[path] = normalise(path, (body.set ?? {})[path]);
   }
+  if (problems.length > 0) throw configInvalid(problems);
 
   const parsed = configValuesSchema.safeParse(resolveConfig(defaults, next));
   if (!parsed.success) {
-    const [issue] = parsed.error.issues;
-    throw new MockApiError(400, `${issue.path.join(".")}: ${issue.message}`);
+    throw configInvalid(
+      parsed.error.issues.map((issue) =>
+        configProblem("INVALID_VALUE", { reason: issue.message }, issue.path.join(".")),
+      ),
+    );
   }
-  const [problem] = validateConfig(parsed.data, DEFAULT_RUN_DURATION_HOURS);
-  if (problem) throw new MockApiError(400, problem);
+  const crossField = validateConfig(parsed.data, DEFAULT_RUN_DURATION_HOURS);
+  if (crossField.length > 0) throw configInvalid(crossField);
 
   for (const path of setPaths) {
     if (deepEqual(next[path], getAtPath(defaults, path))) delete next[path];

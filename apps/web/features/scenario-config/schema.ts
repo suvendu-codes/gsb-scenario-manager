@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { problemSchema } from "@/lib/api/error";
+
 import operationsJson from "./catalog/operations.json";
 
 /** The three modules of the scenario config panel. */
@@ -311,10 +313,13 @@ export const configValuesSchema = z
  */
 export const overridesSchema = z.record(z.string(), z.unknown());
 
-/** A problem that stops the scenario from running. */
-export const configIssueSchema = z.object({
+/**
+ * A problem that stops the scenario from running: the API's problem shape (stable `code`,
+ * English `message`, `params`, and a `path` when it is about one value) plus the module it
+ * belongs to.
+ */
+export const configIssueSchema = problemSchema.extend({
   module: z.enum(["datasets", "wms", "station", "agent"]),
-  message: z.string(),
 });
 
 /**

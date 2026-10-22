@@ -1,4 +1,7 @@
+import type { Problem } from "@/lib/api/error";
+
 import { STATION_IDS } from "./catalog";
+import { configProblem } from "./problems";
 import { operationsCatalog, SCHEDULER_WEIGHTS } from "./schema";
 import type { ConfigIssue, ConfigValues, StationConfig } from "./types";
 import type { ScenarioDatasets } from "@/features/scenario-setup/types";
@@ -24,22 +27,34 @@ function allowedPutFlows(category: string, side: "front" | "back"): string[] {
   return (flows?.[side] ?? []).map((flow) => flow.id);
 }
 
-function stationProblems(id: string, station: StationConfig, runDurationHours: number): string[] {
-  const problems: string[] = [];
+function stationProblems(id: string, station: StationConfig, runDurationHours: number): Problem[] {
+  const problems: Problem[] = [];
+  const at = `station.stations.${id}`;
 
   const total = station.schedule.reduce((sum, block) => sum + block.hours, 0);
   if (Math.abs(total - runDurationHours) > EPSILON) {
-    problems.push(`${id}: the schedule adds up to ${total}h, but the run is ${runDurationHours}h.`);
+    problems.push(
+      configProblem(
+        "SCHEDULE_TOTAL_MISMATCH",
+        { stationId: id, actualHours: total, expectedHours: runDurationHours },
+        `${at}.schedule`,
+      ),
+    );
   }
 
   for (const block of station.schedule) {
     for (const tea of block.teaBreaks) {
       const longest = Math.min(120, Math.max(5, Math.floor(block.hours * 60)));
+      const params = {
+        stationId: id,
+        periodHours: block.hours,
+        durationMinutes: tea.durationMinutes,
+      };
       if (tea.durationMinutes > longest) {
-        problems.push(`${id}: a tea break is longer than its ${block.hours}h period.`);
+        problems.push(configProblem("TEA_BREAK_TOO_LONG", params, `${at}.schedule`));
       } else if (tea.count > maxTeaCount(block.hours, tea.durationMinutes)) {
         problems.push(
-          `${id}: too many tea breaks of ${tea.durationMinutes} min in ${block.hours}h.`,
+          configProblem("TEA_BREAK_TOO_MANY", { ...params, count: tea.count }, `${at}.schedule`),
         );
       }
     }
@@ -47,7 +62,13 @@ function stationProblems(id: string, station: StationConfig, runDurationHours: n
 
   const { frontPositions, staffedFrontPositions } = station.structure;
   if (staffedFrontPositions > frontPositions) {
-    problems.push(`${id}: more staffed positions than front positions.`);
+    problems.push(
+      configProblem(
+        "STAFFED_POSITIONS_EXCEED",
+        { stationId: id, staffedPositions: staffedFrontPositions, frontPositions },
+        `${at}.structure.staffedFrontPositions`,
+      ),
+    );
   }
 
   const { category, sides, behavior } = station.operations.put;
@@ -55,7 +76,13 @@ function stationProblems(id: string, station: StationConfig, runDurationHours: n
   for (const side of usedSides) {
     const flow = behavior[side];
     if (flow !== null && !allowedPutFlows(category, side).includes(flow)) {
-      problems.push(`${id}: "${flow}" is not a ${side} put flow for ${category}.`);
+      problems.push(
+        configProblem(
+          "PUT_FLOW_NOT_ALLOWED",
+          { stationId: id, flowId: flow, side, category },
+          `${at}.operations.put.behavior.${side}`,
+        ),
+      );
     }
   }
   return problems;
@@ -64,34 +91,50 @@ function stationProblems(id: string, station: StationConfig, runDurationHours: n
 /**
  * Checks the rules that span several values, which the schema alone can't express: every
  * station schedule fills the run, tea breaks fit their period, the data window is not empty,
- * and the All-stations lists only name real stations.
+ * and the All-stations lists only name real stations. Every problem found is returned, not
+ * only the first.
  *
  * @param values - The effective config.
  * @param runDurationHours - How long the run is.
- * @returns Human-readable problems; empty when the config is consistent.
+ * @returns The problems, each with a stable code, params and the path of the value it is about;
+ *   empty when the config is consistent.
  */
-export function validateConfig(values: ConfigValues, runDurationHours: number): string[] {
-  const problems: string[] = [];
+export function validateConfig(values: ConfigValues, runDurationHours: number): Problem[] {
+  const problems: Problem[] = [];
   const { wms, station } = values;
 
   if (wms.dataWindow.startHour >= wms.dataWindow.endHour) {
-    problems.push("The data window must start before it ends.");
+    problems.push(configProblem("DATA_WINDOW_EMPTY", wms.dataWindow, "wms.dataWindow"));
   }
   if (new Set(wms.orderTypes).size !== wms.orderTypes.length) {
-    problems.push("Order types can't be listed twice.");
+    problems.push(configProblem("ORDER_TYPES_DUPLICATE", {}, "wms.orderTypes"));
   }
   if (SCHEDULER_WEIGHTS.every((key) => station.global.pickScheduler.weights[key] === 0)) {
-    problems.push("The pick scheduler weights can't all be 0.");
+    problems.push(
+      configProblem("SCHEDULER_WEIGHTS_ALL_ZERO", {}, "station.global.pickScheduler.weights"),
+    );
   }
 
   for (const id of STATION_IDS) {
     problems.push(...stationProblems(id, station.stations[id], runDurationHours));
   }
   for (const section of ["schedule", "structure"] as const) {
-    for (const list of [station.apply[section], station.override[section]]) {
+    for (const kind of ["apply", "override"] as const) {
+      const list = station[kind][section];
+      const path = `station.${kind}.${section}`;
       const unknown = list.filter((id) => !STATION_IDS.includes(id));
-      if (unknown.length > 0) problems.push(`Unknown station: ${unknown.join(", ")}.`);
-      if (new Set(list).size !== list.length) problems.push(`A station is listed twice.`);
+      if (unknown.length > 0) {
+        problems.push(
+          configProblem(
+            "UNKNOWN_STATION",
+            { list: kind, section, stationIds: unknown.join(", ") },
+            path,
+          ),
+        );
+      }
+      if (new Set(list).size !== list.length) {
+        problems.push(configProblem("STATION_LISTED_TWICE", { list: kind, section }, path));
+      }
     }
   }
   return problems;
@@ -107,38 +150,47 @@ function datasetsReady(datasets: ScenarioDatasets): boolean {
 }
 
 /**
- * The problems that would stop the scenario from running.
+ * The problems that would stop the scenario from running. Each has a stable code and the module
+ * it belongs to.
  *
  * @param values - The effective config.
  * @param datasets - The scenario's datasets.
  */
 export function computeIssues(values: ConfigValues, datasets: ScenarioDatasets): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
+  const issue = (module: ConfigIssue["module"], problem: Problem): void => {
+    issues.push({ module, ...problem });
+  };
+
   if (!datasetsReady(datasets)) {
-    issues.push({
-      module: "datasets",
-      message: "A dataset is missing or doesn’t match the site map",
-    });
+    issue("datasets", configProblem("DATASET_MISSING_OR_INVALID", {}));
   }
   if (values.wms.orderTypes.length === 0) {
-    issues.push({ module: "wms", message: "Choose at least one order type" });
+    issue("wms", configProblem("NO_ORDER_TYPE", {}, "wms.orderTypes"));
   }
 
   const stations = Object.entries(values.station.stations);
   if (stations.every(([, s]) => s.schedule.every((block) => block.mode === "off"))) {
-    issues.push({ module: "station", message: "No station is scheduled to work" });
+    issue("station", configProblem("NO_STATION_SCHEDULED", {}));
   }
   for (const [id, station] of stations) {
     if (!station.schedule.some((block) => block.mode === "put")) continue;
     const { category, sides, behavior } = station.operations.put;
     const usedSides = category === "put" ? sides : (["back"] as const);
     if (usedSides.some((side) => !behavior[side])) {
-      issues.push({ module: "station", message: `${id} has no put behaviour` });
+      issue(
+        "station",
+        configProblem(
+          "PUT_FLOW_MISSING",
+          { stationId: id },
+          `station.stations.${id}.operations.put`,
+        ),
+      );
     }
   }
 
   if (values.agent.fleet.htm + values.agent.fleet.vtm === 0) {
-    issues.push({ module: "agent", message: "The fleet has no bots" });
+    issue("agent", configProblem("NO_BOTS", {}, "agent.fleet"));
   }
   return issues;
 }

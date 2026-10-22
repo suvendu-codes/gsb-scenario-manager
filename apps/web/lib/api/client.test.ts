@@ -82,6 +82,54 @@ describe("request: failures", () => {
     expect(error).toMatchObject({ kind: "http", status: 409, message: "Conflict" });
   });
 
+  it("reads the error envelope: code, params, path and the list of problems", async () => {
+    const problem = {
+      code: "STAFFED",
+      message: "PPS-1: too many",
+      params: { stationId: "PPS-1" },
+      path: "a.b",
+    };
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          code: "CONFIG_INVALID",
+          message: "PPS-1: too many (and 1 more problem)",
+          problems: [problem, { code: "Z", message: "z" }],
+        },
+        400,
+      ),
+    );
+
+    const error = await errorOf(request("/x", z.object({})));
+
+    expect(error).toMatchObject({
+      kind: "http",
+      status: 400,
+      code: "CONFIG_INVALID",
+      message: "PPS-1: too many (and 1 more problem)",
+    });
+    expect(error.problems).toEqual([problem, { code: "Z", message: "z" }]);
+  });
+
+  it("gives an error with no envelope an empty problem list and no code", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Not here" }, 404));
+
+    const error = await errorOf(request("/x", z.object({})));
+
+    expect(error.code).toBeUndefined();
+    expect(error.problems).toEqual([]);
+    expect(error.message).toBe("Not here");
+  });
+
+  it("falls back to the message when the envelope is malformed", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ code: 5, message: "Still readable" }, 400));
+
+    const error = await errorOf(request("/x", z.object({})));
+
+    expect(error).toMatchObject({ status: 400, message: "Still readable" });
+    expect(error.code).toBeUndefined();
+  });
+
   it("wraps a body that is not valid JSON in an ApiError instead of a SyntaxError", async () => {
     fetchMock.mockResolvedValueOnce(new Response("<html>not json</html>", { status: 200 }));
 
