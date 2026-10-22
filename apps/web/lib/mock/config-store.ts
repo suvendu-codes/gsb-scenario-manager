@@ -88,6 +88,12 @@ function configInvalid(problems: Problem[]): MockApiError {
  * Changes a draft scenario's config. `reset` runs first, then `set`. The whole result is
  * checked before anything is stored; a value equal to its default is not kept as an override.
  *
+ * There is no concurrency control: array overrides (a schedule, the order types, the apply and
+ * override lists) are replaced whole, so with two tabs the last write wins. The response
+ * carries `updatedAt`, so a precondition (`If-Match` or an `updatedAt` check, answering 409)
+ * can be added without changing the contract. Which one is core-service's call, so it is not
+ * built into the mock (review S3, deferred).
+ *
  * @param id - The scenario id.
  * @param body - Values to set by path, and paths (or prefixes) to reset to their defaults.
  * @returns The updated config.

@@ -31,6 +31,8 @@ function stationProblems(id: string, station: StationConfig, runDurationHours: n
   const problems: Problem[] = [];
   const at = `station.stations.${id}`;
 
+  // The run length is fixed at 8h for now; see DEFAULT_RUN_DURATION_HOURS for how a change of
+  // length is meant to be migrated.
   const total = station.schedule.reduce((sum, block) => sum + block.hours, 0);
   if (Math.abs(total - runDurationHours) > EPSILON) {
     problems.push(
