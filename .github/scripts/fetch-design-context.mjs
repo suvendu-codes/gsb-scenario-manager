@@ -8,10 +8,41 @@
  *   3. The PR description itself
  *
  * Writes a single markdown file for the review prompt to read. Never throws:
- * if Atlassian credentials are absent or a fetch fails, it records that in the
- * output and exits 0, so a credential problem degrades the review to
- * practice-only rather than failing the build.
+ * if credentials are absent or a fetch fails, it records that in the output and
+ * exits 0, so a credential problem degrades the review to practice-only rather
+ * than failing the build.
  *
+ * ---------------------------------------------------------------------------
+ * AUTHENTICATION — two supported modes
+ * ---------------------------------------------------------------------------
+ *
+ * SCOPED (preferred). A token limited to the scopes you select, ideally issued
+ * to an Atlassian service account rather than a person. Requires the site's
+ * cloud ID, because scoped tokens go through the api.atlassian.com gateway
+ * rather than your site URL.
+ *
+ *     ATLASSIAN_CLOUD_ID   from admin.atlassian.com — the string after /s/
+ *     ATLASSIAN_API_TOKEN  "Create API token with scopes" at
+ *                          id.atlassian.com/manage-profile/security/api-tokens
+ *
+ *   Scopes needed: read-only Jira work (e.g. read:jira-work) and a Confluence
+ *   content read scope. Names differ by API version, so pick them from
+ *   Atlassian's scope list when creating the token. Grant nothing beyond read.
+ *
+ *   Note: scoped tokens expire in 365 days at most, so this needs rotating.
+ *
+ * CLASSIC (fallback). A token carrying every permission its owner has — which
+ * is why it is the fallback, not the default. Use only if scoped tokens are
+ * not an option for you.
+ *
+ *     JIRA_BASE_URL        https://<site>.atlassian.net
+ *     JIRA_USER_EMAIL      the token owner's account email
+ *     JIRA_API_TOKEN       classic token
+ *
+ * Set VERIFY=1 to test credentials and exit without writing context. Do that
+ * once locally before wiring the secrets into CI.
+ *
+ * ---------------------------------------------------------------------------
  * Everything this script writes is UNTRUSTED DATA. It is quoted into the
  * prompt inside fenced blocks and the prompt is told to treat it as reference
  * material, never as instructions.
@@ -21,6 +52,8 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const {
+  ATLASSIAN_CLOUD_ID = '',
+  ATLASSIAN_API_TOKEN = '',
   JIRA_BASE_URL = '',
   JIRA_USER_EMAIL = '',
   JIRA_API_TOKEN = '',
@@ -28,6 +61,7 @@ const {
   PR_BODY = '',
   BRANCH_NAME = '',
   OUT_FILE = '.github/codex/context/design-context.md',
+  VERIFY = '',
 } = process.env;
 
 const MAX_DOC_CHARS = 6000;
@@ -37,21 +71,64 @@ const TIMEOUT_MS = 15000;
 const notes = [];
 const sections = [];
 
-const base = JIRA_BASE_URL.replace(/\/+$/, '');
-const hasCreds = Boolean(base && JIRA_USER_EMAIL && JIRA_API_TOKEN);
+/** Picks the auth mode from whichever credentials are present. */
+function resolveAuth() {
+  const cloudId = ATLASSIAN_CLOUD_ID.trim();
+  const scopedToken = ATLASSIAN_API_TOKEN.trim();
 
-const authHeader =
-  'Basic ' + Buffer.from(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`).toString('base64');
+  if (cloudId && scopedToken) {
+    return {
+      mode: 'scoped',
+      jira: `https://api.atlassian.com/ex/jira/${encodeURIComponent(cloudId)}`,
+      confluence: `https://api.atlassian.com/ex/confluence/${encodeURIComponent(cloudId)}`,
+      header: `Bearer ${scopedToken}`,
+    };
+  }
+
+  const site = JIRA_BASE_URL.trim().replace(/\/+$/, '');
+  if (site && JIRA_USER_EMAIL && JIRA_API_TOKEN) {
+    return {
+      mode: 'classic',
+      jira: site,
+      confluence: site,
+      header:
+        'Basic ' +
+        Buffer.from(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`).toString('base64'),
+    };
+  }
+
+  if (cloudId && !scopedToken) {
+    notes.push('ATLASSIAN_CLOUD_ID is set but ATLASSIAN_API_TOKEN is missing.');
+  } else if (scopedToken && !cloudId) {
+    notes.push(
+      'ATLASSIAN_API_TOKEN is set but ATLASSIAN_CLOUD_ID is missing. ' +
+        'Scoped tokens need the cloud ID because they use the api.atlassian.com gateway.'
+    );
+  }
+  return null;
+}
+
+const auth = resolveAuth();
 
 async function get(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      headers: { Authorization: authHeader, Accept: 'application/json' },
+      headers: { Authorization: auth.header, Accept: 'application/json' },
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const hint =
+        res.status === 401
+          ? ' (token invalid, expired or revoked)'
+          : res.status === 403
+            ? ' (token lacks the scope, or the account lacks permission)'
+            : res.status === 404
+              ? ' (not found, or not visible to this account)'
+              : '';
+      throw new Error(`HTTP ${res.status}${hint}`);
+    }
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -108,22 +185,56 @@ function findConfluencePageIds(...texts) {
   return [...ids].slice(0, MAX_CONFLUENCE_PAGES);
 }
 
+/** VERIFY=1 — check the credentials reach both APIs, then exit. */
+async function verify() {
+  if (!auth) {
+    console.error('No credentials configured. See the header of this file.');
+    console.error(notes.map((n) => `  - ${n}`).join('\n'));
+    process.exit(1);
+  }
+  console.log(`Auth mode: ${auth.mode}`);
+  let ok = true;
+
+  try {
+    const res = await get(`${auth.jira}/rest/api/3/myself`);
+    console.log(`  Jira        OK — authenticated as ${res?.emailAddress ?? res?.accountId}`);
+  } catch (err) {
+    console.error(`  Jira        FAILED — ${err.message}`);
+    ok = false;
+  }
+
+  try {
+    await get(`${auth.confluence}/wiki/rest/api/space?limit=1`);
+    console.log('  Confluence  OK');
+  } catch (err) {
+    console.error(`  Confluence  FAILED — ${err.message}`);
+    ok = false;
+  }
+
+  process.exit(ok ? 0 : 1);
+}
+
 async function main() {
+  if (VERIFY) return verify();
+
+  if (!auth) {
+    notes.push(
+      'Atlassian credentials are not configured, so Jira and Confluence could not be read.'
+    );
+  }
+
   // --- 1. Jira ----------------------------------------------------------
   const issueKey = findIssueKey();
   let jiraDescription = '';
 
   if (!issueKey) {
     notes.push('No Jira ticket key found in the branch name, PR title or PR body.');
-  } else if (!hasCreds) {
-    notes.push(
-      `Ticket ${issueKey} referenced, but Atlassian credentials are not configured, ` +
-        'so the ticket description could not be read.'
-    );
+  } else if (!auth) {
+    notes.push(`Ticket ${issueKey} referenced, but it could not be read.`);
   } else {
     try {
       const issue = await get(
-        `${base}/rest/api/3/issue/${encodeURIComponent(issueKey)}` +
+        `${auth.jira}/rest/api/3/issue/${encodeURIComponent(issueKey)}` +
           '?fields=summary,description,issuetype,status'
       );
       const summary = issue?.fields?.summary ?? '';
@@ -143,20 +254,18 @@ async function main() {
   // --- 2. Confluence ----------------------------------------------------
   const pageIds = findConfluencePageIds(PR_BODY, jiraDescription);
 
-  if (pageIds.length && !hasCreds) {
-    notes.push('Confluence pages are linked, but credentials are not configured.');
+  if (pageIds.length && !auth) {
+    notes.push(`${pageIds.length} Confluence page(s) linked, but they could not be read.`);
   }
 
-  for (const id of hasCreds ? pageIds : []) {
+  for (const id of auth ? pageIds : []) {
     try {
       const page = await get(
-        `${base}/wiki/rest/api/content/${encodeURIComponent(id)}?expand=body.view`
+        `${auth.confluence}/wiki/rest/api/content/${encodeURIComponent(id)}?expand=body.view`
       );
       const title = page?.title ?? id;
       const text = htmlToText(page?.body?.view?.value);
-      sections.push(
-        `## Confluence: ${title}\n\n` + '```text\n' + truncate(text) + '\n```'
-      );
+      sections.push(`## Confluence: ${title}\n\n` + '```text\n' + truncate(text) + '\n```');
     } catch (err) {
       notes.push(`Could not fetch Confluence page ${id}: ${err.message}`);
     }
@@ -192,7 +301,7 @@ async function main() {
   mkdirSync(dirname(OUT_FILE), { recursive: true });
   writeFileSync(OUT_FILE, out, 'utf8');
 
-  console.log(`Wrote ${OUT_FILE} (${out.length} chars)`);
+  console.log(`Wrote ${OUT_FILE} (${out.length} chars, auth: ${auth?.mode ?? 'none'})`);
   if (notes.length) console.log('Gaps:\n' + notes.map((n) => `  - ${n}`).join('\n'));
 }
 
