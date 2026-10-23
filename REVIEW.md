@@ -9,6 +9,18 @@ Applied by the automated Codex review (`.github/workflows/codex-review.yml`) and
 - **[minor]** — maintainability or clarity problem worth fixing.
 - **[nit]** — optional preference. Skip anything ESLint or Prettier enforces.
 
+## Design conformance
+
+Judged against `.github/codex/context/design-context.md` (the Jira ticket, linked Confluence pages, and the PR description), not against the reviewer's own preferences.
+
+- The change implements what the ticket describes — no silent scope creep, no quietly dropped requirements.
+- Where the design names an approach, the code takes it, or the PR declares and justifies the deviation under "Deviations from the design".
+- Types, Zod schemas and API shapes match the contract the design specifies.
+- Work deliberately deferred is stated as deferred rather than simply absent.
+- A deviation that is declared and reasoned is not a finding. An undeclared one is.
+
+When no design context is available, say so and review practice only.
+
 ## All code
 
 - The change does what the PR description says, and nothing unrelated.

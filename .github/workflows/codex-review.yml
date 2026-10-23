@@ -28,6 +28,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Collect design context
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          OUT_FILE: .github/codex/context/design-context.md
+        run: node .github/scripts/fetch-design-context.mjs
+
       - name: Run Codex
         id: run_codex
         uses: openai/codex-action@v1
