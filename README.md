@@ -88,6 +88,107 @@ worker metrics, and alert routing remain subject to review of existing practices
 and tooling. Health alerts must preserve run lifecycle status and leave execution
 decisions to human intervention.
 
+## Backend runtime configuration
+
+Use the same application code in dev, stage, and prod, with a separate deployment
+and configuration for each environment. Broker addresses, database connections,
+and credentials are supplied at process startup rather than selected through
+environment-specific branches in application code.
+
+```text
+Environment deployment configuration and secrets
+                  |
+                  v
+Container environment variables
+                  |
+                  v
+Node.js process.env -> validation -> Kafka consumer and PostgreSQL pool
+```
+
+### How values reach the application
+
+- **Local Docker:** `compose.local.yml` supplies container environment variables;
+  no `.env` edit is needed for the worker demo.
+- **Direct local execution:** the backend can load a local `.env` file through
+  `src/load-env.ts`. Existing process environment variables take precedence over
+  values loaded by that helper. Keep credentials out of committed files.
+- **Deployed environments:** deployment tooling supplies environment variables.
+  For Kubernetes, ordinary settings can come from configuration and credentials
+  from the team's approved secret-management integration. These are deployment
+  responsibilities; Kubernetes manifests and secret provisioning are not provided
+  by this setup.
+
+The backend reads and validates configuration at startup. Validation errors stop
+startup; valid configuration does not itself guarantee network connectivity or
+valid credentials. Settings are not automatically reloaded: roll out or restart
+the process after changing them.
+
+### Kafka and PostgreSQL settings
+
+| Variable | Purpose |
+| --- | --- |
+| `STATUS_WORKER_ENABLED` | Set to `true` to enable Kafka consumption; disabled by default |
+| `KAFKA_BROKERS` | Comma-separated broker addresses for this deployment |
+| `KAFKA_GROUP_ID` | Consumer group shared by worker replicas within the environment |
+| `KAFKA_STATUS_TOPIC` | Status event topic; set to the shared run-response topic |
+| `KAFKA_RESULT_TOPIC` | Result event topic; set to the same shared run-response topic |
+| `KAFKA_SSL` | Whether to use TLS for Kafka connections |
+| `KAFKA_USERNAME`, `KAFKA_PASSWORD` | Optional SASL/PLAIN credentials; configure both and enable TLS |
+| `DATABASE_URL` | PostgreSQL connection string; takes precedence over individual `DB_*` connection fields |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Alternative PostgreSQL connection fields when `DATABASE_URL` is not provided |
+| `DB_POOL_MAX` | Maximum connections in this process's PostgreSQL pool |
+| `NODE_ENV` | Node execution mode: `development`, `test`, or `production`; does not select an environment's resources |
+
+Status and result events share one topic and are distinguished by `event_type`.
+The code currently exposes two topic settings, so configure both to the same
+value. A single `KAFKA_RUN_EVENTS_TOPIC` setting has been discussed but is not
+implemented.
+
+Example of injected settings for a deployed dev environment (illustrative values,
+not a committed secret file):
+
+```dotenv
+NODE_ENV=production
+STATUS_WORKER_ENABLED=true
+KAFKA_BROKERS=kafka-dev.example:9093
+KAFKA_GROUP_ID=scenario-manager-status-worker
+KAFKA_STATUS_TOPIC=scenario.run.response
+KAFKA_RESULT_TOPIC=scenario.run.response
+KAFKA_SSL=true
+DATABASE_URL=postgresql://<user>:<password>@postgres-dev.example:5432/scenario
+```
+
+Supply actual broker/database addresses, credentials, and required authentication
+or connection options through the deployment's configuration and secrets.
+`NODE_ENV=production` can be used for deployed dev and stage environments as well
+as prod; it enables production configuration rules rather than choosing a cluster.
+
+| Deployment | Kafka connection | PostgreSQL connection | Credentials |
+| --- | --- | --- | --- |
+| Dev | Dev broker cluster | Dev database | Dev secrets |
+| Stage | Stage broker cluster | Stage database | Stage secrets |
+| Prod | Prod broker cluster | Prod database | Prod secrets |
+
+Separate Kafka clusters can use the same topic/group names. If environments share
+a cluster, isolate their topics and permissions; different consumer groups alone
+do not isolate event streams. The platform team decides whether PostgreSQL uses
+separate instances or isolated databases on shared infrastructure. The app receives
+the appropriate connection string in either case. Producers must use the matching
+environment's Kafka topic, and database migrations must be applied to each target
+database before deploying code that depends on them.
+
+### Configuration ownership in code
+
+Paths are relative to `apps/api/core-service/`:
+
+| File | Responsibility |
+| --- | --- |
+| `src/load-env.ts` | Loads a local `.env` file when found |
+| `src/config.ts` | Reads, validates, and freezes application/PostgreSQL configuration |
+| `src/status-worker/infrastructure/kafka.config.ts` | Reads and validates Kafka settings |
+| `src/db/db.module.ts` | Creates the PostgreSQL pool and Drizzle database provider |
+| `src/status-worker/infrastructure/kafka-event-source.module.ts` | Creates the Kafka consumer from its configuration |
+
 ## Local status worker
 
 With Docker running, execute from the repository root:
