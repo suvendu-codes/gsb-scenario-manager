@@ -112,13 +112,18 @@ can run alongside `local:up`. Docker Compose with support for `!reset` overlays 
 required (use Compose 2.24.4 or newer). The overlay follows the
 [Compose merge rules](https://docs.docker.com/reference/compose-file/merge/).
 
-The suite runs four checks:
+The suite runs 69 cases covering the currently implemented contract:
 
-- Real Kafka consumption through failed execution, retry, late historical events,
-  pause/resume, JSON results, and duplicate acknowledgement, with database assertions.
-- PostgreSQL rejects a second active run while an execution is running.
-- PostgreSQL rejects a second active run while an execution is paused.
-- PostgreSQL rejects a current-run pointer to a different scenario's run.
+- Lifecycle statuses, pause/resume, JSON verdicts/results, terminal preservation,
+  timestamp ordering, duplicates, historical-run isolation, and simulator events.
+- Separate-topic delivery, invalid inputs, identity mismatches, unknown-run replay,
+  offset-commit failures, transaction rollback/recovery, and consumer restart.
+- PostgreSQL active-run uniqueness, valid retry links, cross-scenario references,
+  self-retry rejection, and unique correlation IDs.
+
+See the [plain-language module test guide](./apps/api/core-service/test/module/README.md)
+for every test's steps and expected result, including the limits of fault injection
+and the production scenarios not covered by this suite.
 
 Tests poll for observable database state and committed offsets with bounded
 timeouts. Constraint fixtures are rolled back. A failure produces a nonzero exit

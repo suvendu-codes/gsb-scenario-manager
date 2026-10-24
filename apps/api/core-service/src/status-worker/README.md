@@ -291,6 +291,13 @@ delivery, transactional repository calls, Kafka acknowledgements, failures,
 configuration, and startup/shutdown. They use mocked database and broker
 boundaries and do not replace a staging PostgreSQL/Kafka integration test.
 
+The separate Docker module suite exercises real Kafka and PostgreSQL, including
+event ordering, lifecycle outcomes, rejected inputs, rollback, replay, restart,
+and database constraints. See the [plain-language module test guide](../../test/module/README.md)
+for every case's steps, expected result, and test ID. Run it from the repository
+root with `pnpm test:module`. Fault-injection details and remaining production
+coverage gaps are documented in that guide.
+
 Run `pnpm --filter core-service test`, `pnpm --filter core-service typecheck`,
 and `pnpm --filter core-service build` from the repository root.
 

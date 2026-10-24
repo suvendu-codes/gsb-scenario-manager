@@ -47,7 +47,7 @@ try {
   if (interrupted) throw new Error('Module tests interrupted');
   await run(['up', '-d', '--no-build', 'worker'], 'startup.log', { timeout: 240_000 });
   if (interrupted) throw new Error('Module tests interrupted');
-  await run(['run', '--rm', '--no-deps', 'module-tests'], 'tests.tap', { timeout: 240_000 });
+  await run(['run', '--rm', '--no-deps', 'module-tests'], 'tests.tap', { timeout: 420_000 });
   if (interrupted) throw new Error('Module tests interrupted');
   console.info('Module tests passed.');
 } catch (error) {

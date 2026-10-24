@@ -110,6 +110,8 @@ pnpm test:module     # Test using a separate temporary infrastructure stack
 See [Local development](./LOCAL_DEVELOPMENT.md) for prerequisites, connections,
 cleanup, and CI behavior. See the [status worker component guide](./apps/api/core-service/src/status-worker/README.md)
 for lifecycle rules, sequence diagrams, data models, and planned observability.
+The [module test guide](./apps/api/core-service/test/module/README.md) describes
+each executable module test in plain language with its expected result and test ID.
 
 ## Frontend
 
