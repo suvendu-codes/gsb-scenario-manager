@@ -4,13 +4,22 @@
   "private": true,
   "packageManager": "pnpm@12.3.4",
   "scripts": {
+    "test:module": "node scripts/module-test.mjs",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "build-service": "turbo run build typecheck lint test --filter=core-service",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "prepare": "husky"
+    "prepare": "husky",
+    "local:up": "docker compose -f compose.local.yml up --build -d worker",
+    "local:demo": "node scripts/local-demo.mjs",
+    "local:generate": "docker compose -f compose.local.yml run --rm --no-deps generator",
+    "local:logs": "docker compose -f compose.local.yml logs --follow worker",
+    "local:ps": "docker compose -f compose.local.yml ps -a",
+    "local:down": "docker compose -f compose.local.yml down",
+    "local:reset": "docker compose -f compose.local.yml down --volumes",
+    "local:db": "docker compose -f compose.local.yml exec postgres psql -U scene -d scene_local"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

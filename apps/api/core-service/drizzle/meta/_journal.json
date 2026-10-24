@@ -8,6 +8,20 @@
       "when": 1791871314432,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792831816316,
+      "tag": "0001_status_worker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792839988730,
+      "tag": "0002_scenario_current_run",
+      "breakpoints": true
     }
   ]
 }

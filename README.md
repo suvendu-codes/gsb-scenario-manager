@@ -1,3 +1,7 @@
+For the Scenario Manager worker with real local PostgreSQL, Kafka, and a verified
+event generator, see [Local development](./LOCAL_DEVELOPMENT.md). Run `pnpm local:demo`
+with Docker Desktop running.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
