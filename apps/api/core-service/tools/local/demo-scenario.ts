@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import type { RecordMetadata } from 'kafkajs';
-import type { RunEvent } from '../status-worker/domain/run-event.js';
-import { runEventSchema } from '../status-worker/domain/run-event.js';
+import type { RunEvent } from '../../src/status-worker/domain/run-event.js';
+import { runEventSchema } from '../../src/status-worker/domain/run-event.js';
 import { demoResult, demoStatus } from './demo-events.js';
 import { localResources } from './local-resources.js';
 

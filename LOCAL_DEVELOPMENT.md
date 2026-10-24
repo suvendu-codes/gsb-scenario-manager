@@ -1,5 +1,12 @@
 # Local status worker
 
+Local CLI sources live in `apps/api/core-service/tools/local/`, real-infrastructure
+tests in `apps/api/core-service/test/module/`, and sample events in
+`apps/api/core-service/test/fixtures/`. Production code stays in `src/` with its
+existing feature layout. `build:tools` compiles development entry points into
+`dist-tools/`, separately from the production `dist/` build. Docker commands below
+build both outputs automatically.
+
 Start Docker Desktop, then run from the repository root:
 
 ```sh

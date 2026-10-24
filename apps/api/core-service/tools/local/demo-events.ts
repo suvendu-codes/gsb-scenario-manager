@@ -1,4 +1,4 @@
-import type { RunEvent } from '../status-worker/domain/run-event.js';
+import type { RunEvent } from '../../src/status-worker/domain/run-event.js';
 
 export function demoStatus(correlationId: string, engineRunId: string,
   status: Extract<RunEvent, { event_type: 'run.status' }>['status'], emittedAt: string): RunEvent {

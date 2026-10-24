@@ -79,7 +79,7 @@ services:
   init:
     <<: *worker-image
     environment: *worker-env
-    command: ["node", "dist/local/init-main.js"]
+    command: ["node", "dist-tools/tools/local/init-main.js"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -102,7 +102,7 @@ services:
       <<: *worker-env
       DEMO_EVENT_DELAY_MS: "500"
     profiles: ["demo"]
-    command: ["node", "dist/local/generate-main.js"]
+    command: ["node", "dist-tools/tools/local/generate-main.js"]
     depends_on:
       worker:
         condition: service_started

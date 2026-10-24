@@ -1,7 +1,7 @@
 import { Kafka, logLevel } from 'kafkajs';
 import { Pool } from 'pg';
-import { appConfig } from '../config.js';
-import { readKafkaConfig } from '../status-worker/infrastructure/kafka.config.js';
+import { appConfig } from '../../src/config.js';
+import { readKafkaConfig } from '../../src/status-worker/infrastructure/kafka.config.js';
 
 /** Explicit opt-in: never seed or initialize a production deployment. */
 export function assertLocalDemo(env: NodeJS.ProcessEnv = process.env) {

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import type { PoolClient } from 'pg';
-import { runDemoScenario } from './demo-scenario.js';
-import { localResources } from './local-resources.js';
+import { runDemoScenario } from '../../tools/local/demo-scenario.js';
+import { localResources } from '../../tools/local/local-resources.js';
 
 // Explicitly invoked in Docker; intentionally separate from the fast Vitest unit suite.
 test('Kafka consumption persists lifecycle/results, isolates retries, and acknowledges replay',

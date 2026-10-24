@@ -16,5 +16,5 @@ services:
       KAFKA_RESULT_TOPIC: run.response.local
       KAFKA_SSL: "false"
       DEMO_EVENT_DELAY_MS: "0"
-    command: ["node", "--test", "--test-reporter=tap", "--test-timeout=180000", "dist/local/module-checks.js"]
+    command: ["node", "--test", "--test-reporter=tap", "--test-timeout=180000", "dist-tools/test/module/status-worker.module.js"]
     profiles: ["module"]

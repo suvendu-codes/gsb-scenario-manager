@@ -1,4 +1,4 @@
-import '../load-env.js';
+import '../../src/load-env.js';
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { readFile } from 'node:fs/promises';
@@ -6,22 +6,22 @@ import { parseArgs } from 'node:util';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { z } from 'zod';
-import { appConfig } from '../config.js';
-import * as schema from '../db/schema/index.js';
-import { ProcessRunEventUseCase } from './application/process-run-event.use-case.js';
-import { runEventSchema } from './domain/run-event.js';
-import { DrizzleRunEventRepository } from './infrastructure/drizzle-run-event.repository.js';
-import { InMemoryRunEventRepository } from './infrastructure/in-memory-run-event.repository.js';
-import { readKafkaConfig } from './infrastructure/kafka.config.js';
-import { StatusWorker } from './application/status-worker.js';
-import { KafkaEventSource } from './infrastructure/kafka-event-source.js';
-import { MockEventConsumer } from './infrastructure/mock-event-consumer.js';
+import { appConfig } from '../../src/config.js';
+import * as schema from '../../src/db/schema/index.js';
+import { ProcessRunEventUseCase } from '../../src/status-worker/application/process-run-event.use-case.js';
+import { runEventSchema } from '../../src/status-worker/domain/run-event.js';
+import { DrizzleRunEventRepository } from '../../src/status-worker/infrastructure/drizzle-run-event.repository.js';
+import { InMemoryRunEventRepository } from '../../src/status-worker/infrastructure/in-memory-run-event.repository.js';
+import { readKafkaConfig } from '../../src/status-worker/infrastructure/kafka.config.js';
+import { StatusWorker } from '../../src/status-worker/application/status-worker.js';
+import { KafkaEventSource } from '../../src/status-worker/infrastructure/kafka-event-source.js';
+import { MockEventConsumer } from '../../src/status-worker/infrastructure/mock-event-consumer.js';
 
 async function main() {
   if (appConfig.env === 'production') throw new Error('Mock runner is disabled in production');
   const { values } = parseArgs({ options: {
     database: { type: 'boolean', default: false },
-    file: { type: 'string', default: 'examples/run-events.json' },
+    file: { type: 'string', default: 'test/fixtures/run-events.json' },
   } });
   const input: unknown = JSON.parse(await readFile(values.file, 'utf8'));
   const events = z.array(runEventSchema).min(1).parse(input);

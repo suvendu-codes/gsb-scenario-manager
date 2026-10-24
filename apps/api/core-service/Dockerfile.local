@@ -5,7 +5,8 @@ RUN npm install --global pnpm@12.3.4
 COPY . .
 RUN pnpm install --frozen-lockfile --filter core-service... \
     && pnpm --filter shared build \
-    && pnpm --filter core-service build
+    && pnpm --filter core-service build \
+    && pnpm --filter core-service build:tools
 WORKDIR /workspace/apps/api/core-service
 ENV NODE_ENV=development
 USER node

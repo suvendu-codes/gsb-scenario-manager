@@ -64,7 +64,7 @@ describe('mock transport through the real worker', () => {
   });
   it('replays the sample lifecycle and results without Kafka or PostgreSQL', async () => {
     const { consumer, repository, worker } = await fixture();
-    const input: unknown = JSON.parse(await readFile('examples/run-events.json', 'utf8'));
+    const input: unknown = JSON.parse(await readFile('test/fixtures/run-events.json', 'utf8'));
     const events = runEventSchema.array().parse(input);
     for (const e of events) consumer.enqueue(e.event_type, Buffer.from(JSON.stringify(e)));
     await consumer.drain();

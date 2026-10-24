@@ -1,40 +1,86 @@
-For the Scenario Manager worker with real local PostgreSQL, Kafka, and a verified
-event generator, see [Local development](./LOCAL_DEVELOPMENT.md). Run `pnpm local:demo`
-with Docker Desktop running.
+# Scenario Manager
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Workspace for the Scenario Manager frontend, backend API, and status worker.
 
-## Getting Started
+## Repository layout
 
-First, run the development server:
+```text
+apps/
+  web/                         Next.js frontend
+  api/core-service/
+    src/                       Production backend code
+      scenarios/               Scenario CRUD and domain rules
+      runs/                    Execution domain models
+      status-worker/           Event processing and transport/storage adapters
+      pps/                     PPS feature
+      db/                      PostgreSQL connection and Drizzle schema
+      common/                  Backend utilities and HTTP infrastructure
+      main.ts                  HTTP API entry point
+    tools/local/               Infrastructure initialization and event/mock CLIs
+    test/module/               Tests requiring real PostgreSQL and Kafka
+    test/fixtures/             Sample events
+    drizzle/                   Versioned migrations and metadata
+    db/schema.sql              SQL schema reference
+packages/
+  shared/                      Shared backend utilities
+  shared-types/                Shared type definitions
+scripts/                       Local demo and module-test orchestration
+compose.local.yml              Persistent worker development stack
+compose.module.yml             Isolated module-test overlay
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker-compose.yml             Original PostgreSQL/Redis development stack
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Backend features retain their existing `domain`, `application`, `infrastructure`,
+and, where applicable, `presentation` structure. Unit tests remain beside the
+code they test. Development tools and infrastructure-dependent tests live outside
+production `src`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local status worker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+With Docker running, execute from the repository root:
 
-## Learn More
+```sh
+pnpm local:demo
+```
 
-To learn more about Next.js, take a look at the following resources:
+This starts real PostgreSQL and Kafka, applies migrations, starts the standalone
+worker, and publishes sample events with database verification. Services remain
+running afterward.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```sh
+pnpm local:logs      # Follow worker logs
+pnpm local:generate  # Generate another execution scenario
+pnpm local:down      # Stop containers; preserve local data
+pnpm test:module     # Test using a separate temporary infrastructure stack
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See [Local development](./LOCAL_DEVELOPMENT.md) for prerequisites, connections,
+cleanup, and CI behavior. See the [status worker component guide](./apps/api/core-service/src/status-worker/README.md)
+for lifecycle rules, sequence diagrams, data models, and planned observability.
 
-## Deploy on Vercel
+## Frontend
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter web dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open http://localhost:3000. Frontend code lives in `apps/web`; the worker demo
+starts only the worker and its infrastructure.
+
+## Backend checks and builds
+
+```sh
+pnpm --filter core-service typecheck
+pnpm --filter core-service lint
+pnpm --filter core-service test
+pnpm --filter core-service build
+pnpm --filter core-service build:tools
+```
+
+`build` emits production code to `dist/`. `build:tools` emits local tools, module
+tests, and the production modules they import to a separate `dist-tools/` tree.
+The local Docker image builds both; production builds do not include tools or
+module-test entry points. `worker:mock` builds and runs the in-memory demo without
+Kafka or PostgreSQL.

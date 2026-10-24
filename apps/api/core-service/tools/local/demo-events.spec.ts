@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runEventSchema } from '../status-worker/domain/run-event.js';
+import { runEventSchema } from '../../src/status-worker/domain/run-event.js';
 import { demoResult, demoStatus } from './demo-events.js';
 import { assertLocalDemo } from './local-resources.js';
 

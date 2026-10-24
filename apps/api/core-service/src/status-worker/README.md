@@ -425,6 +425,13 @@ the team's existing incident workflow.
 
 ## Run locally with PostgreSQL and Kafka
 
+Development CLI entry points live in `tools/local/`, module tests in
+`test/module/`, and sample events in `test/fixtures/` (relative to core-service).
+They compile through `tsconfig.tools.json` into `dist-tools/`; the regular
+`tsconfig.build.json` continues to build production `src/` into `dist/`. Unit
+tests remain colocated with the files they test. Production startup and feature
+boundaries are unchanged.
+
 Prerequisites: Docker Desktop (or Docker Engine with Compose) running, Node.js 22,
 and the repository's pnpm version (`12.3.4`). Run all commands below from the
 repository root. No local PostgreSQL or Kafka installation is needed.
@@ -535,7 +542,7 @@ pnpm --filter core-service worker:mock
 
 This builds and runs a separate development CLI with an in-process consumer
 and an in-memory run repository. It needs neither Kafka nor PostgreSQL. The
-sample at `apps/api/core-service/examples/run-events.json` drives accepted,
+sample at `apps/api/core-service/test/fixtures/run-events.json` drives accepted,
 setup-ready, running, and result events through the real worker and prints
 the final row and acknowledged offsets. Each invocation starts fresh with
 one demo run (`mock-correlation-1`). It does not change your database.

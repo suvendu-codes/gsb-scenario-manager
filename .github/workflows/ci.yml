@@ -58,6 +58,7 @@ jobs:
       - run: pnpm --filter core-service lint
       - run: pnpm --filter core-service typecheck
       - run: pnpm --filter core-service build
+      - run: pnpm --filter core-service build:tools
       - run: pnpm --filter core-service test
 
   lint:

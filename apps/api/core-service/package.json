@@ -32,9 +32,10 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "build:tools": "tsc -p tsconfig.tools.json",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "worker:mock": "pnpm run build && node dist/status-worker/mock-main.js"
+    "worker:mock": "pnpm run build:tools && node dist-tools/tools/local/mock-main.js"
   }
 }
