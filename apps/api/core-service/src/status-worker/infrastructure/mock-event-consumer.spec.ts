@@ -1,3 +1,4 @@
+import { seed } from '../../../test/fixtures/run-state.js';
 import { readFile } from 'node:fs/promises';
 import { Logger } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +12,7 @@ import { readKafkaConfig } from './kafka.config.js';
 import { MockEventConsumer } from './mock-event-consumer.js';
 
 const row: typeof run.$inferSelect = {
-  retryOfRunId: null, id: 'id', scenarioId: 'scenario', correlationId: 'mock-correlation-1',
+  ...seed, retryOfRunId: null, id: 'id', scenarioId: 'scenario', correlationId: 'mock-correlation-1',
   engine: 'emulator', engineRunId: null, status: 'accepted', verdict: null,
   reason: null, results: {}, engineRef: null, statusMessage: null,
   statusEventAt: null, resultEventAt: null, completedAt: null,
@@ -19,7 +20,7 @@ const row: typeof run.$inferSelect = {
 };
 const event = {
   event_type: 'run.status', correlation_id: row.correlationId, run_id: 'engine-run',
-  engine: 'emulator', status: 'running', emitted_at: '2026-10-09T12:53:00Z',
+  engine: 'emulator', sequence: 1, status: 'running', emitted_at: '2026-10-09T12:53:00Z',
 };
 
 async function fixture() {
@@ -27,7 +28,7 @@ async function fixture() {
   vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
   const consumer = new MockEventConsumer();
   const repository = new InMemoryRunEventRepository([row], [{ id: row.scenarioId, currentRunId: row.id, status: 'running' }]);
-  const worker = new StatusWorker(new KafkaEventSource(consumer, readKafkaConfig({})), new ProcessRunEventUseCase(repository));
+  const worker = new StatusWorker(new KafkaEventSource(consumer, readKafkaConfig({ KAFKA_STATUS_TOPIC: 'run.status', KAFKA_RESULT_TOPIC: 'run.result' })), new ProcessRunEventUseCase(repository));
   await worker.onModuleInit();
   return { consumer, repository, worker, log };
 }
@@ -69,10 +70,10 @@ describe('mock transport through the real worker', () => {
     for (const e of events) consumer.enqueue(e.event_type, Buffer.from(JSON.stringify(e)));
     await consumer.drain();
     expect(consumer.pendingCount).toBe(0);
-    expect(consumer.committedOffset('run.status')).toBe('3');
+    expect(consumer.committedOffset('run.status')).toBe('4');
     expect(consumer.committedOffset('run.result')).toBe('1');
     expect(repository.snapshot()[0]).toMatchObject({
-      status: 'completed', verdict: 'success', engineRunId: 'mock-engine-run-1',
+      status: 'completed', verdict: null, engineRunId: 'mock-engine-run-1',
       results: { throughput_uph: 2840 },
     });
     await worker.beforeApplicationShutdown();

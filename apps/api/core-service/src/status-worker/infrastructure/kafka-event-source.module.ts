@@ -28,6 +28,15 @@ import { KafkaEventSource, STATUS_CONSUMER } from './kafka-event-source.js';
           sessionTimeout: 60_000,
           retry: { restartOnFailure: async () => true },
         });
+        // OBSERVABILITY PLAN: capture connect/disconnect, group join/rebalance,
+        // assignment, and crash/restart signals through KafkaJS lifecycle events.
+        // Proposed metrics: connection/readiness gauges, rebalances_total,
+        // crashes_total{restart_scheduled}, and rebalance/recovery-duration seconds.
+        // Verify event meanings before treating a connection as processing-ready.
+        // Consumer-group offset lag must also come from independent Kafka/platform
+        // monitoring so it remains visible when this process is unavailable.
+        // Suppress misleading engine-silence alerts during worker/delivery outages;
+        // this does not resolve existing run alerts or change execution state.
         // Surface fatal failures without logging connection details or payloads.
         consumer.on(consumer.events.CRASH, ({ payload }) => {
           new Logger('KafkaStatusWorker').error(

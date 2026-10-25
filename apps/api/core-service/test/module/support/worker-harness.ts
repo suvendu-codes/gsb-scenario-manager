@@ -14,6 +14,7 @@ import { DrizzleRunEventRepository } from '../../../src/status-worker/infrastruc
 import { ProcessRunEventUseCase } from '../../../src/status-worker/application/process-run-event.use-case.js';
 import { StatusWorker } from '../../../src/status-worker/application/status-worker.js';
 import type { EventDelivery } from '../../../src/status-worker/application/ports/event-source.js';
+import { RunEventRejectedError, type RunEventRejectionCode } from '../../../src/status-worker/domain/run-event-rejection.js';
 
 export type Fixture = { scenarioId: string; id: string; correlationId: string; engineId: string; engine: 'emulator' | 'simulator' };
 
@@ -65,13 +66,14 @@ export class WorkerHarness {
     } finally { client.release(); }
   }
 
-  status(f: Fixture, status: Extract<RunEvent, { event_type: 'run.status' }>['status'], emittedAt = this.now()): RunEvent {
-    return { event_type: 'run.status', correlation_id: f.correlationId, run_id: f.engineId, engine: f.engine, emitted_at: emittedAt, status };
+  status(f: Fixture, status: Extract<RunEvent, { event_type: 'run.status' }>['status'], sequence = 1,
+    extra: Partial<Extract<RunEvent, { event_type: 'run.status' }>> = {}): Extract<RunEvent, { event_type: 'run.status' }> {
+    return { event_type: 'run.status', correlation_id: f.correlationId, run_id: f.engineId, engine: f.engine,
+      emitted_at: this.now(), sequence, status, ...(status === 'failed' ? { reason: 'engine_failure' } : {}), ...extra };
   }
-
-  result(f: Fixture, status: Extract<RunEvent, { event_type: 'run.result' }>['status'] = 'success', emittedAt = this.now(),
-    results: Extract<RunEvent, { event_type: 'run.result' }>['results'] = { marker: randomUUID() }): RunEvent {
-    return { event_type: 'run.result', correlation_id: f.correlationId, run_id: f.engineId, engine: f.engine, emitted_at: emittedAt, status, results };
+  result(f: Fixture, sequence = 2, results: Extract<RunEvent, { event_type: 'run.result' }>['results'] = { marker: randomUUID() }): Extract<RunEvent, { event_type: 'run.result' }> {
+    return { event_type: 'run.result', correlation_id: f.correlationId, run_id: f.engineId, engine: f.engine,
+      emitted_at: this.now(), sequence, results };
   }
 
   async run(f: Fixture) {
@@ -88,7 +90,7 @@ export class WorkerHarness {
 
   async send(value: unknown, topic = this.resources.config.statusTopic) {
     return this.producer.send({ topic, acks: -1,
-      messages: [{ key: 'module-test', value: JSON.stringify(value) }] });
+      messages: [{ key: (value as { correlation_id?: string })?.correlation_id ?? 'invalid', value: JSON.stringify(value) }] });
   }
 
   async acknowledged(sent: RecordMetadata[], groupId = this.resources.config.groupId) {
@@ -120,9 +122,18 @@ export class WorkerHarness {
     let crashes = 0;
     consumer.on(consumer.events.CRASH, () => { crashes++; });
     let commits = 0;
+    const rejections: RunEventRejectionCode[] = [];
     const client: EventConsumer = {
       connect: () => consumer.connect(), subscribe: (options) => consumer.subscribe(options),
-      run: (options) => consumer.run({ ...options, partitionsConsumedConcurrently: separateTopics ? 2 : 1 }),
+      run: (options) => consumer.run({ ...options, partitionsConsumedConcurrently: separateTopics ? 2 : 1,
+        eachMessage: async (message) => {
+          try { await options.eachMessage(message); }
+          catch (error) {
+            if (error instanceof RunEventRejectedError) rejections.push(error.code);
+            throw error;
+          }
+        },
+      }),
       stop: () => consumer.stop(), disconnect: () => consumer.disconnect(),
       commitOffsets: async (offsets) => {
         if (failFirstCommit && commits++ === 0) throw new Error('Injected offset commit failure');
@@ -144,6 +155,10 @@ export class WorkerHarness {
     catch (error) { await consumer.disconnect(); throw error; }
     return {
       groupId, topics: names, deliveries,
+      assertRejectedAs: (expected: RunEventRejectionCode) => {
+        assert.ok(rejections.length > 0, 'Must observe a classified rejection');
+        assert.ok(rejections.every((code) => code === expected), `Expected ${expected}; got ${rejections.join(', ')}`);
+      },
       send: (value: string | null) => this.producer.send({ topic: names[0], acks: -1, messages: [{ value }] }),
       waitForFailure: () => eventually(async () => crashes > 0, 'consumer must reject the event and stop'),
       assertUnacknowledged: async (sent: RecordMetadata[]) => {

@@ -1,6 +1,6 @@
 # Status worker
 
-The Nest `StatusWorkerModule` consumes `run.status` and `run.result` events and
+The Nest `StatusWorkerModule` consumes `run.status`, `run.result`, and `run.heartbeat` events and
 updates an existing `run` by its unique `correlation_id`. The trigger flow must
 persist that row before publishing the trigger. Events cannot create a run:
 the response envelope does not contain its required `scenario_id`.
@@ -18,21 +18,21 @@ sequenceDiagram
     Note over Engine,DB: Trigger flow has already persisted the scenario, run, and current-run pointer
     Engine->>Kafka: Publish run.status or run.result
     Kafka->>Worker: Deliver event with topic, partition, offset
-    Worker->>Worker: Parse and validate event schema
+    Worker->>Worker: Parse and validate event schema and execution identity
     alt Invalid event
         Worker->>Worker: Log processing failure; do not acknowledge
     else Valid event
         Worker->>DB: BEGIN; find run by correlation_id
         Worker->>DB: Lock owning scenario, then run
-        Worker->>Worker: Validate execution identity and apply lifecycle / timestamp rules
+        Worker->>Worker: Validate sequence and command identity; plan contiguous events
         alt Unknown run, identity mismatch, or database error
             Worker->>DB: ROLLBACK
             Worker->>Worker: Log failure; do not acknowledge
-        else Duplicate, stale, or disallowed transition
+        else Verified duplicate
             Worker->>DB: COMMIT without changes
             Worker->>Kafka: Commit next offset
-        else Applicable event
-            Worker->>DB: Update run status / result fields
+        else Applicable event or durable gap receipt
+            Worker->>DB: Store receipt; update contiguous state, command, result, or recovery flag
             opt Run is scenario.current_run_id
                 Worker->>DB: Update scenario status in same transaction
             end
@@ -50,7 +50,7 @@ can update that run under the same rules but cannot change the current scenario.
 ### Health, progress, and alert evaluation (planned)
 
 The participants below describe responsibilities, not selected services or tools.
-The existing worker does not yet consume heartbeat/progress events.
+The worker records heartbeat/progress observations. Alert evaluation and missing-event retrieval are not implemented.
 
 ```mermaid
 sequenceDiagram
@@ -113,6 +113,13 @@ erDiagram
     SCENARIO ||--o{ RUN : owns
     SCENARIO o|--o| RUN : selects_current
     RUN o|--o{ RUN : retry_parent
+    RUN ||--o{ RUN_EVENT_INBOX : stores_receipts
+    RUN_EVENT_INBOX {
+        uuid run_id PK,FK "internal SM ID"
+        bigint sequence PK
+        jsonb payload
+        timestamptz received_at
+    }
     SCENARIO {
         uuid id PK
         text project_id
@@ -131,7 +138,16 @@ erDiagram
         text run_id "nullable engine execution ID"
         enum engine
         enum status
-        enum verdict "nullable"
+        enum verdict "legacy read-only"
+        text pending_command "nullable action enum"
+        bigint command_sequence "echoed request identity"
+        text decision "accepted or rejected"
+        text command_reason
+        bigint last_event_sequence
+        boolean recovery_required
+        timestamptz heartbeat_emitted_at
+        timestamptz heartbeat_received_at
+        jsonb progress
         text reason "nullable"
         text status_message "nullable"
         jsonb results "opaque JSON object"
@@ -152,9 +168,9 @@ erDiagram
   including paused runs. Every retry creates a new row and correlation ID.
 - `run.id` is the internal primary key; `run.run_id` is the engine's execution ID,
   bound on an applicable response. They have different meanings.
-- Status and result emission timestamps independently reject replayed/older events.
+- Status/results share a persisted sequence. Producer timestamps are diagnostic, not the ordering authority.
   `updated_at` is a database update timestamp, not proof of a fresh heartbeat or
-  meaningful progress. Existing fields must not be treated as heartbeat state.
+  meaningful progress. Use the dedicated heartbeat fields, not generic row update timestamps, for reporting freshness.
 
 ### Health and progress observations (proposed, not implemented)
 
@@ -201,26 +217,28 @@ scenario, so a historical run cannot refresh the current run's health.
 
 Execution alert records are a logical view and may be owned by existing alerting
 tools rather than PostgreSQL. Worker, Kafka, and monitoring availability alerts
-belong to their service/group/partition scope, not to an individual run. No health
-columns, observation tables, alert tables, or health-driven lifecycle changes are
-introduced by this documentation.
+belong to their service/group/partition scope, not to an individual run. The implemented heartbeat fields store latest observations only. Separate health/alert tables and health-driven lifecycle changes are not introduced.
 
 ## Configuration and rollout
 
-Apply the migrations through `drizzle/0002_scenario_current_run.sql` using your
-normal migration runner before enabling the worker. Migration 0001 adds the
-status message and event timestamps. Migration 0002 adds current-run ownership,
-retry links, and the one-active-run constraint. It reconciles the initial
-scenario enum labels (`active` to `running`, `completed` to `finished`) with
-the existing application labels, and backfills each scenario's current run.
-The single active run wins; otherwise the latest created run wins, breaking
-timestamp ties by ID. Review this historical selection before rollout.
-The migration fails if existing data contains overlapping active runs; resolve
-those explicitly rather than silently closing one.
+Apply migrations through `drizzle/0003_status_worker_contract.sql` before enabling this contract.
+Migration 0003 replaces the unpublished command-state draft with separate pending-command
+fields, `trigger_requested`/`resuming`, sequence tracking, heartbeat observations,
+and `run_event_inbox`. It recreates the status enum transactionally, avoiding
+PostgreSQL's unsafe-new-enum-value restriction on a fresh install.
+
+This is a fresh, non-production service. No existing-data conversion or sequence-baseline
+reconciliation is required. New executions start with last_event_sequence=0 and expect
+engine sequence 1. The SQL files provide repeatable schema creation for local development
+and CI; they do not imply a production data migration plan.
+
+Migration 0002 retains current-run ownership, same-scenario links, and the one-active-run
+constraint. Existing scenario labels remain running/paused/finished. Legacy queued,
+provisioning, interrupted and verdict storage remain readable for migration compatibility;
+new engine events use the documented statuses and no verdict. TODO: agree legacy cleanup.
 
 Set `STATUS_WORKER_ENABLED=true`, `KAFKA_BROKERS` (comma-separated),
-`KAFKA_STATUS_TOPIC`, and `KAFKA_RESULT_TOPIC`. Both topic settings can name the
-same topic. Set `KAFKA_GROUP_ID` consistently across replicas; the default is
+`KAFKA_STATUS_TOPIC`, and `KAFKA_RESULT_TOPIC`. Both settings default to `run.response` and should name the same response topic for status, result, and health events. Explicit legacy separate-topic settings remain supported during migration. Set `KAFKA_GROUP_ID` consistently across replicas; the default is
 `scenario-manager-status-worker`. Topics must already exist. A new group reads
 from the beginning; an existing group resumes committed offsets.
 
@@ -232,47 +250,51 @@ The worker runs inside core-service, is disabled by default, and drains Kafka
 processing before the database pool shuts down. No broker connection is made
 when disabled. Run the normal core-service build and startup commands.
 
-## Event mapping
+## Event and command business rules
 
-| Event field | Run column |
+The shared contract is the [Confluence Event Schema Proposal](https://greyorange-work.atlassian.net/wiki/spaces/SVRPERFTM/pages/236912869).
+
+| Input | Persistence / rule |
 | --- | --- |
-| `correlation_id` | Lookup by `correlation_id` |
-| `run_id` | `run_id` (engine ID, separate from the SM primary key) |
-| `engine` | Must match the stored engine |
-| status event `status` | `status` |
-| `reason`, `message` | `reason`, `status_message` |
-| `engine_ref` | JSON string in existing text `engine_ref`, preserving both URLs |
-| result event `status` | `verdict`: success, failure, or inconclusive |
-| `results` | Full JSON object in `results` |
-| `emitted_at` | Independent status/result event timestamps |
+| `correlation_id` | Required, unique execution lookup; never create an orphan run |
+| `run_id` | Optional engine identity; bind when supplied, preserve when omitted, reject conflicts |
+| `sequence` | Positive safe integer; status and results share a counter starting at 1 |
+| `command_id` | Action enum: run, pause, resume, cancel |
+| `command_sequence` | Echoes SM's command counter; independent from response sequence |
+| `decision` | Accepted/rejected command decision; acceptance is not completion |
+| Status | Confirmed engine lifecycle; do not overwrite it with pausing/cancelling |
+| Results | Opaque JSON, only after completed/failed; no event verdict/status field |
+| Heartbeat | Latest fresh observation; never changes lifecycle or clears commands |
 
-A result completes a nonterminal run; an existing failed, cancelled, interrupted,
-or completed status is preserved. Terminal lifecycle states are sticky: later
-status events cannot replace the outcome or completion time. Results can enrich
-an already-terminal record without changing its lifecycle outcome.
-`completed_at` records the first applied terminal event's emission time.
-`updated_at` is the database update time. The owning scenario is updated in the
-same transaction only when its `current_run_id` matches this run. Existing
-application labels are retained: active execution maps to `running`, paused
-to `paused`, and all terminal outcomes to `finished`. The precise outcome
-remains on the run; distinct scenario `failed`/`cancelled` labels are not added.
+One pending command is recorded by the command API. Acceptance keeps it pending.
+A correlated destination or rejection clears it; any confirmed terminal state clears
+it atomically as well. Rejection of Pause/Resume/Cancel preserves confirmed state.
+Run rejection must explicitly report failed, even when no engine run ID is available.
+A terminal outcome clearing Pause does not mean Pause succeeded. Command reasons are
+stored separately from execution failure reasons.
 
-The proposal provides examples rather than a full transition specification.
-This implementation accepts the existing database status/verdict enums. Setup
-stages only advance, running and paused may alternate, and terminal lifecycle
-states cannot reopen or change to another terminal state. A newer result can
-replace older metrics/verdict data without changing the terminal lifecycle.
-Equal or older events of the same type are ignored (first event wins ties).
-Status and result clocks are independent so a completed status cannot suppress
-its matching result. Producers should use increasing `emitted_at` values per
-run and event type and key messages by `correlation_id`.
+Completed and failed statuses precede mandatory results. Cancelled executions do not
+accept results. Missing results never turn completion into failure. The first terminal
+state and completion timestamp remain authoritative; a conflicting new status is a
+contract violation, not an acknowledged duplicate. A result cannot complete an active run.
+
+Status/results are persisted in an execution receipt ledger keyed by internal run ID
+and sequence. Identical receipts are no-ops; changed payload under the same identity is
+rejected. On a gap, preserve confirmed state, store future events, set recovery_required,
+and commit only after durable persistence. Unrelated runs can continue. Delivery of the
+missing event drains the contiguous held prefix under the same lock and transaction.
+A command API must reject new commands while recovery_required is true.
+
+TODO: confirm start-at-1 counters and heartbeat sequencing with engines. Heartbeats
+currently do not consume status/result counter slots. TODO: implement the engine recovery
+client, bounded replay/retention, missing-result scheduler, and reviewed permanent-loss
+policy. No engine HTTP endpoint, timeout, automatic failed state, or retry is invented.
 
 ## Delivery and errors
 
 Scenario-then-run row locking serializes updates across topics and replicas. Kafka
 offsets are committed only after the database transaction commits, using
-at-least-once delivery. Replays are safe through persisted timestamps and
-identity checks. SQL and lock waits are bounded below the consumer session
+at-least-once delivery. Replays are safe through persisted event receipts, sequences, and identity checks. SQL and lock waits are bounded below the consumer session
 timeout. KafkaJS retries processing failures with backoff and restarts after
 retry exhaustion. See https://kafka.js.org/docs/consuming and
 https://kafka.js.org/docs/configuration#default-retry.
@@ -285,6 +307,38 @@ Monitor the worker's `run_event_not_acknowledged` logs (topic, partition,
 offset only), and consumer group lag. A permanent bad record requires an
 operator-approved repair/replay or offset intervention. Agree on a DLQ policy
 before enabling if partition blocking is unacceptable.
+
+### Rejected-event reasons
+
+Rejected inputs use typed `RunEventRejectedError` subclasses with sanitized codes.
+The existing failure log adds `rejectionCode` only for a classified processing
+rejection; database/network and acknowledgement exceptions are propagated without
+being mislabeled as invalid engine input. Raw payloads and exception details are
+not included in that log.
+
+| Code | Meaning |
+| --- | --- |
+| `empty_event` | Kafka tombstone/null or zero-length body |
+| `malformed_json` | Body is not parseable JSON |
+| `invalid_execution_identity` | Both correlation and engine run IDs fail validation |
+| `invalid_correlation_id` | Correlation ID is absent, blank, null, or the wrong type |
+| `invalid_engine_run_id` | Engine run ID is absent, blank, null, or the wrong type |
+| `invalid_event_schema` | Another envelope/payload rule fails validation |
+| `unknown_correlation` | Valid correlation ID has no registered run |
+| `correlation_mismatch` | Domain input conflicts with the loaded run's correlation |
+| `engine_mismatch` | Response engine does not match the registered run |
+| `engine_run_id_mismatch` | Response attempts to replace the bound engine execution ID |
+
+Correlation ID is mandatory. Missing engine run ID is valid; a supplied invalid ID is rejected. The first supplied valid engine ID is bound atomically. There is no engine-ID lookup fallback, orphan-run creation, or automatic state correction for invalid input. Unknown correlations require investigation;
+configuration or data problems can cause them as well as producer defects.
+
+Every rejection still propagates without acknowledging Kafka and without applying
+state changes. Codes do not authorize skipping a record and do not change retry
+behavior. Durable capture, quarantine, and controlled replay remain SMF-503/504
+work. Metrics, deduplicated alerts, and engine-team reporting remain deferred
+until the observability approach in SMF-482 is reviewed. A comment at the failure
+boundary records that follow-up. No automatic reporting or new metrics endpoint
+is introduced here.
 
 Unit tests cover validation, mappings, lifecycle rules, duplicate/out-of-order
 delivery, transactional repository calls, Kafka acknowledgements, failures,
@@ -303,10 +357,7 @@ and `pnpm --filter core-service build` from the repository root.
 
 ## Observability and alerting (planned)
 
-This section records the agreed direction for future implementation. The worker
-currently emits processing and acknowledgement logs; it does not consume health
-or progress events, persist heartbeat/progress state, expose monitoring endpoints,
-or evaluate these alerts. Review the organization's current observability tooling,
+This section records the agreed direction for future implementation. The worker records latest heartbeat timestamps and optional opaque progress and emits processing/acknowledgement logs. It does not expose monitoring endpoints or evaluate alerts. Review the organization's current observability tooling,
 deployment monitoring, Kafka metrics, and alerting practices before selecting an
 implementation. No monitoring vendor, exporter, alert destination, event schema,
 or timeout is selected here.
@@ -370,7 +421,7 @@ execution is advancing. Producers should report meaningful progress either in a
 separate progress event or as clearly defined fields within heartbeat events;
 align that contract with emulator and simulator teams before implementation.
 
-Proposed per-run observations, not current database columns:
+Observation targets (latest heartbeat timestamps and opaque progress are implemented; phase/progress evaluation remains proposed):
 
 | Observation | Purpose |
 | --- | --- |
@@ -459,8 +510,7 @@ images and dependencies.
 The demo exercises a failed run, a separate retry run, late historical events,
 pause/resume, JSON results, and duplicate delivery. It inserts scenario/run
 fixtures directly rather than exercising a trigger API. Each invocation creates
-new fixtures. Heartbeat/progress monitoring is planned and is not part of this
-demo.
+new fixtures. Heartbeat alert evaluation is planned; the module suite covers observation persistence.
 
 Services remain running after the demo. The standalone worker consumes events
 without starting an HTTP server; this command does not start the frontend or
@@ -534,7 +584,7 @@ Compose file is [compose.local.yml](../../../../../compose.local.yml).
 Structured logs show `status_worker_starting`, `status_worker_started`,
 `run_event_received`, `run_event_processed` (updated or ignored), and
 `run_event_acknowledged` with delivery context and duration. Processing logs
-include correlation ID, engine run ID, event type, and incoming status/verdict.
+include correlation ID, optional engine run ID, event type, sequence, and incoming lifecycle status.
 They are emitted only after the repository completes; acknowledgement is logged
 only after offset commit succeeds. Failures identify whether processing or
 offset commit failed. Payloads, result metrics, engine URLs, credentials, and
@@ -550,7 +600,7 @@ pnpm --filter core-service worker:mock
 This builds and runs a separate development CLI with an in-process consumer
 and an in-memory run repository. It needs neither Kafka nor PostgreSQL. The
 sample at `apps/api/core-service/test/fixtures/run-events.json` drives accepted,
-setup-ready, running, and result events through the real worker and prints
+setup-ready, running, completed, and result events through the real worker and prints
 the final row and acknowledged offsets. Each invocation starts fresh with
 one demo run (`mock-correlation-1`). It does not change your database.
 
@@ -667,5 +717,4 @@ events remain acknowledged no-ops. An unknown correlation still fails processing
 Tests cover current-run scenario mappings, delayed old-run failures/results,
 duplicate delivery, identity mismatches, current-run selection independent of
 timestamps, scenario-first locking, and propagation of scenario-write failures.
-Sequence-based ordering, heartbeats, and DLQ handling from the newer PDF contract
-remain separate follow-up work; this change aligns execution ownership only.
+Sequence-based status/result processing and heartbeat observations are implemented. Engine retrieval/reconciliation, alert evaluation, poison-event quarantine, and command API/outbox publication remain separate work.

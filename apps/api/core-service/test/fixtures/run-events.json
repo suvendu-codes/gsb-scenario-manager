@@ -5,7 +5,8 @@
     "run_id": "mock-engine-run-1",
     "engine": "emulator",
     "status": "accepted",
-    "emitted_at": "2026-10-09T11:07:33Z"
+    "emitted_at": "2026-10-09T11:07:33Z",
+    "sequence": 1
   },
   {
     "event_type": "run.status",
@@ -17,7 +18,8 @@
     "engine_ref": {
       "instance_url": "https://example.com/live/mock-engine-run-1",
       "live_socket": "wss://example.com/ws/mock-engine-run-1"
-    }
+    },
+    "sequence": 2
   },
   {
     "event_type": "run.status",
@@ -25,7 +27,17 @@
     "run_id": "mock-engine-run-1",
     "engine": "emulator",
     "status": "running",
-    "emitted_at": "2026-10-09T12:53:00Z"
+    "emitted_at": "2026-10-09T12:53:00Z",
+    "sequence": 3
+  },
+  {
+    "event_type": "run.status",
+    "correlation_id": "mock-correlation-1",
+    "run_id": "mock-engine-run-1",
+    "engine": "emulator",
+    "emitted_at": "2026-10-09T23:10:00Z",
+    "status": "completed",
+    "sequence": 4
   },
   {
     "event_type": "run.result",
@@ -33,14 +45,23 @@
     "run_id": "mock-engine-run-1",
     "engine": "emulator",
     "emitted_at": "2026-10-09T23:10:00Z",
-    "status": "success",
     "version": "",
     "results": {
       "duration_minutes": 720,
       "throughput_uph": 2840,
-      "orders": { "total": 30240, "processed": 30180, "breached": 60 },
-      "breach_pct": { "normal": 0.2, "same_day": 0.0 },
-      "metrics_ref": { "grafana_url": "https://example.com/metrics/mock-engine-run-1" }
-    }
+      "orders": {
+        "total": 30240,
+        "processed": 30180,
+        "breached": 60
+      },
+      "breach_pct": {
+        "normal": 0.2,
+        "same_day": 0.0
+      },
+      "metrics_ref": {
+        "grafana_url": "https://example.com/metrics/mock-engine-run-1"
+      }
+    },
+    "sequence": 5
   }
 ]

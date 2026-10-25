@@ -1,3 +1,4 @@
+import { seed as contractSeed } from '../../../test/fixtures/run-state.js';
 import { describe, expect, it, vi } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
@@ -9,10 +10,10 @@ import { DrizzleRunEventRepository } from './drizzle-run-event.repository.js';
 
 const event: RunEvent = {
   event_type: 'run.status', correlation_id: 'cid', run_id: 'emu',
-  engine: 'emulator', status: 'running', emitted_at: '2026-10-09T12:53:00Z',
+  engine: 'emulator', sequence: 1, status: 'running', emitted_at: '2026-10-09T12:53:00Z',
 };
 const row: typeof run.$inferSelect = {
-  retryOfRunId: null, id: 'run-id', correlationId: 'cid', engineRunId: null, scenarioId: 'scenario-id',
+  ...contractSeed, retryOfRunId: null, id: 'run-id', correlationId: 'cid', engineRunId: null, scenarioId: 'scenario-id',
   engine: 'emulator', status: 'accepted', verdict: null, reason: null, results: {},
   engineRef: null, statusMessage: null, statusEventAt: null, resultEventAt: null,
   createdAt: new Date(), updatedAt: new Date(), completedAt: null,
@@ -22,12 +23,15 @@ function fixture(rows: (typeof row)[] = [row], currentRunId = row.id) {
   const owner = { id: row.scenarioId, currentRunId, status: 'running' };
   const lock = vi.fn().mockResolvedValueOnce([owner]).mockResolvedValueOnce(rows);
   const limit = vi.fn().mockResolvedValue(rows.map((r) => ({ scenarioId: r.scenarioId })));
-  const selectWhere = vi.fn().mockReturnValue({ for: lock, limit });
+  const selectWhere = vi.fn().mockImplementation(() => {
+    return Object.assign(Promise.resolve([]), { for: lock, limit });
+  });
   const updateWhere = vi.fn().mockResolvedValue([]);
   const set = vi.fn().mockReturnValue({ where: updateWhere });
   const tx = {
     execute: vi.fn().mockResolvedValue([]),
     select: vi.fn().mockReturnValue({ from: vi.fn().mockReturnValue({ where: selectWhere }) }),
+    insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue([]) }),
     update: vi.fn().mockReturnValue({ set }),
   };
   const transaction = vi.fn(async (callback: (t: typeof tx) => Promise<unknown>) => callback(tx));
@@ -55,11 +59,6 @@ describe('DrizzleRunEventRepository', () => {
   it('rejects unknown correlations without creating an orphan run', async () => {
     const f = fixture([]);
     await expect(f.repository.apply(event)).rejects.toThrow('No run exists');
-    expect(f.tx.update).not.toHaveBeenCalled();
-  });
-  it('does not update a replayed event', async () => {
-    const f = fixture([{ ...row, statusEventAt: new Date(event.emitted_at) }]);
-    await expect(f.repository.apply(event)).resolves.toBe('ignored');
     expect(f.tx.update).not.toHaveBeenCalled();
   });
   it('rejects an engine mismatch without writing', async () => {

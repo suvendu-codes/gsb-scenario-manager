@@ -8,8 +8,10 @@ export function readKafkaConfig(env: NodeJS.ProcessEnv = process.env) {
     enabled: flag,
     brokers: z.string().default('').transform((v) => v.split(',').map((s) => s.trim()).filter(Boolean)),
     groupId: z.string().min(1).default('scenario-manager-status-worker'),
-    statusTopic: topic.default('run.status'),
-    resultTopic: topic.default('run.result'),
+    // One response topic carries status, results, and health for both engines.
+    // Keep explicit legacy settings readable during deployment migration.
+    statusTopic: topic.default('run.response'),
+    resultTopic: topic.default('run.response'),
     ssl: flag,
     username: z.string().min(1).optional(),
     password: z.string().min(1).optional(),

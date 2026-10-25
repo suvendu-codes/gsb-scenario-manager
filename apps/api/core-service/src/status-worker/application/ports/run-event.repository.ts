@@ -1,4 +1,5 @@
 import type { RunEvent } from '../../domain/run-event.js';
+import { RunEventRejectedError } from '../../domain/run-event-rejection.js';
 
 export const RUN_EVENT_REPOSITORY = Symbol('RUN_EVENT_REPOSITORY');
 
@@ -9,9 +10,9 @@ export interface RunEventRepository {
    * Lock scenario before run; trigger/retry writers must use the same order.
    * Never infer current ownership from timestamps or overwrite another execution.
    */
-  apply(event: RunEvent): Promise<'updated' | 'ignored'>;
+  apply(event: RunEvent): Promise<'updated' | 'ignored' | 'held'>;
 }
 
-export class RunNotFoundError extends Error {
-  constructor() { super('No run exists for this correlation ID'); }
+export class RunNotFoundError extends RunEventRejectedError {
+  constructor() { super('unknown_correlation', 'No run exists for this correlation ID'); }
 }

@@ -27,8 +27,7 @@ are committed. Look for `demo_passed`; failures return a nonzero exit code.
 
 Each invocation creates a new scenario and two runs. The fixture inserts the
 scenario and execution rows directly; this does not exercise a trigger API or
-outbox. Events use the worker's currently implemented event contract. Future
-sequence, heartbeat, and command-contract work is outside this demo.
+outbox. Events use the worker's currently implemented event contract. The demo uses contiguous sequences and terminal status before results. The command API/outbox and engine recovery HTTP client are outside this demo.
 
 ## Commands
 
@@ -112,10 +111,9 @@ can run alongside `local:up`. Docker Compose with support for `!reset` overlays 
 required (use Compose 2.24.4 or newer). The overlay follows the
 [Compose merge rules](https://docs.docker.com/reference/compose-file/merge/).
 
-The suite runs 69 cases covering the currently implemented contract:
+The suite runs 104 cases covering the currently implemented contract:
 
-- Lifecycle statuses, pause/resume, JSON verdicts/results, terminal preservation,
-  timestamp ordering, duplicates, historical-run isolation, and simulator events.
+- Lifecycle statuses, separate pending commands, opaque results after terminal status, sequence gaps and replay, heartbeat observations, duplicates, historical-run isolation, and simulator events.
 - Separate-topic delivery, invalid inputs, identity mismatches, unknown-run replay,
   offset-commit failures, transaction rollback/recovery, and consumer restart.
 - PostgreSQL active-run uniqueness, valid retry links, cross-scenario references,

@@ -32,7 +32,9 @@ async function main() {
     id: '00000000-0000-4000-8000-000000000001',
     scenarioId: '00000000-0000-4000-8000-000000000002',
     correlationId: 'mock-correlation-1', engine: 'emulator', engineRunId: null,
-    status: 'accepted', verdict: null, reason: null, results: {}, engineRef: null,
+    pendingCommand: null, commandSequence: null, decision: null, commandReason: null,
+    lastEventSequence: 0, recoveryRequired: false, heartbeatEmittedAt: null, heartbeatReceivedAt: null, progress: null,
+    status: 'trigger_requested', verdict: null, reason: null, results: {}, engineRef: null,
     statusMessage: null, statusEventAt: null, resultEventAt: null,
     completedAt: null, createdAt: new Date(), updatedAt: new Date(),
   }], [{ id: '00000000-0000-4000-8000-000000000002', currentRunId: '00000000-0000-4000-8000-000000000001', status: 'running' }]);

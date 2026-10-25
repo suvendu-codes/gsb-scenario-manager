@@ -17,6 +17,7 @@ export function scenarioStatusForRun(scenario: ScenarioRunState, run: RunState):
     case 'cancelled':
       return ScenarioStatus.Finished;
     case 'paused':
+    case 'resuming':
       return ScenarioStatus.Paused;
     default:
       return ScenarioStatus.Running;

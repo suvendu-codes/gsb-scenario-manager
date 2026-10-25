@@ -11,7 +11,7 @@ describe('local event generator', () => {
   });
   it('generates opaque JSON results using the agreed identity envelope', () => {
     expect(runEventSchema.parse(demoResult('cid', 'engine-id', '2026-10-24T12:00:00Z', 'test')))
-      .toMatchObject({ event_type: 'run.result', status: 'success', results: { demo_marker: 'test' } });
+      .toMatchObject({ event_type: 'run.result', results: { demo_marker: 'test' } });
   });
   it('requires explicit local opt-in and refuses production', () => {
     expect(() => assertLocalDemo({})).toThrow();

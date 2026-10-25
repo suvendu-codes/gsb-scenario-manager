@@ -6,6 +6,7 @@ import { RunNotFoundError } from '../application/ports/run-event.repository.js';
 import { StatusWorker } from '../application/status-worker.js';
 import { KafkaEventSource } from './kafka-event-source.js';
 import { readKafkaConfig } from './kafka.config.js';
+import { RunIdentityMismatchError } from '../domain/apply-run-event.js';
 
 function fixture() {
   const consumer = {
@@ -20,7 +21,7 @@ function fixture() {
     topic: 'run.status', partition: 0,
     message: { offset: '9007199254740993', value: Buffer.from(JSON.stringify({
       event_type: 'run.status', correlation_id: 'cid', run_id: 'emu',
-      engine: 'emulator', status: 'running', emitted_at: '2026-10-09T12:53:00Z',
+      engine: 'emulator', sequence: 1, status: 'running', emitted_at: '2026-10-09T12:53:00Z',
     })) },
   };
   return { consumer, repository, worker, payload, source };
@@ -30,10 +31,10 @@ describe('Kafka event source with StatusWorker', () => {
   it('connects and subscribes before starting with manual commits', async () => {
     const { consumer, worker } = fixture();
     await worker.onModuleInit();
-    expect(consumer.subscribe).toHaveBeenCalledWith({ topics: ['run.status', 'run.result'], fromBeginning: true });
+    expect(consumer.subscribe).toHaveBeenCalledWith({ topics: ['run.response'], fromBeginning: true });
     expect(consumer.run).toHaveBeenCalledWith({ autoCommit: false, eachMessage: expect.any(Function) });
   });
-  it.each(['updated', 'ignored'])('acknowledges %s events only after persistence', async (outcome) => {
+  it.each(['updated', 'ignored', 'held'])('acknowledges %s events only after persistence', async (outcome) => {
     const { consumer, repository, worker, payload, source } = fixture();
     repository.apply.mockImplementation(async () => {
       expect(consumer.commitOffsets).not.toHaveBeenCalled();
@@ -58,6 +59,35 @@ describe('Kafka event source with StatusWorker', () => {
     expect(repository.apply).not.toHaveBeenCalled();
     expect(consumer.commitOffsets).not.toHaveBeenCalled();
     log.mockRestore();
+  });
+  it.each([
+    [new RunNotFoundError(), 'unknown_correlation'],
+    [new RunIdentityMismatchError('engine_mismatch'), 'engine_mismatch'],
+    [new RunIdentityMismatchError(), 'engine_run_id_mismatch'],
+  ])('propagates classified rejection without acknowledgement', async (error, rejectionCode) => {
+    const { consumer, repository, worker, payload, source } = fixture();
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    repository.apply.mockRejectedValue(error);
+    try {
+      await expect(worker.handleMessage(source.toDelivery(payload))).rejects.toBe(error);
+      expect(consumer.commitOffsets).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith({ topic: payload.topic, partition: payload.partition,
+        offset: payload.message.offset, event: 'run_event_not_acknowledged', stage: 'processing', rejectionCode });
+    } finally { log.mockRestore(); }
+  });
+  it.each(['database', 'acknowledgement'])('does not mislabel a %s failure as invalid engine input', async (stage) => {
+    const { consumer, repository, worker, payload, source } = fixture();
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const error = new Error('sensitive infrastructure details');
+    if (stage === 'database') repository.apply.mockRejectedValue(error);
+    else consumer.commitOffsets.mockRejectedValue(error);
+    try {
+      await expect(worker.handleMessage(source.toDelivery(payload))).rejects.toBe(error);
+      expect(log).toHaveBeenCalledWith({ topic: payload.topic, partition: payload.partition,
+        offset: payload.message.offset, event: 'run_event_not_acknowledged',
+        stage: stage === 'database' ? 'processing' : 'acknowledgement' });
+      expect(JSON.stringify(log.mock.calls)).not.toContain('sensitive infrastructure details');
+    } finally { log.mockRestore(); }
   });
   it('propagates commit failures for replay', async () => {
     const { consumer, worker, payload, source } = fixture();

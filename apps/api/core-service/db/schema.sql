@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TYPE scenario_status AS ENUM ('draft', 'running', 'paused', 'finished');
 CREATE TYPE run_status AS ENUM (
-  'accepted', 'queued', 'provisioning', 'setup_ready', 'running', 'paused',
+  'trigger_requested', 'accepted', 'queued', 'provisioning', 'setup_ready', 'running', 'paused', 'resuming',
   'completed', 'failed', 'interrupted', 'cancelled'
 );
 CREATE TYPE run_verdict AS ENUM ('success', 'failure', 'inconclusive');
@@ -37,8 +37,17 @@ CREATE TABLE run (
   scenario_id     UUID NOT NULL REFERENCES scenario(id),
   retry_of_run_id UUID,
   engine          run_engine NOT NULL,
-  status          run_status NOT NULL DEFAULT 'accepted',
-  verdict         run_verdict,
+  status          run_status NOT NULL DEFAULT 'trigger_requested',
+  verdict         run_verdict,                    -- legacy read-only field
+  pending_command TEXT CHECK (pending_command IS NULL OR pending_command IN ('run','pause','resume','cancel')),
+  command_sequence BIGINT CHECK (command_sequence IS NULL OR command_sequence BETWEEN 1 AND 9007199254740991),
+  decision TEXT CHECK (decision IS NULL OR decision IN ('accepted','rejected')),
+  command_reason TEXT,
+  last_event_sequence BIGINT NOT NULL DEFAULT 0 CHECK (last_event_sequence BETWEEN 0 AND 9007199254740991),
+  recovery_required BOOLEAN NOT NULL DEFAULT false,
+  heartbeat_emitted_at TIMESTAMPTZ,
+  heartbeat_received_at TIMESTAMPTZ,
+  progress JSONB,
   reason          TEXT,                            -- failure reason from a failed status event
   results         JSONB NOT NULL DEFAULT '{}'::jsonb,
   engine_ref      TEXT,
@@ -58,3 +67,12 @@ ALTER TABLE run ADD CONSTRAINT run_retry_not_self CHECK (retry_of_run_id IS NULL
 ALTER TABLE scenario ADD CONSTRAINT scenario_current_run_same_scenario_fk FOREIGN KEY (id, current_run_id) REFERENCES run(scenario_id, id);
 CREATE UNIQUE INDEX run_one_active_per_scenario ON run(scenario_id)
   WHERE status NOT IN ('completed', 'failed', 'interrupted', 'cancelled');
+
+ALTER TABLE run ADD CONSTRAINT run_pending_command_identity CHECK (pending_command IS NULL OR command_sequence IS NOT NULL);
+CREATE TABLE run_event_inbox (
+  run_id UUID NOT NULL REFERENCES run(id), -- internal SM primary key
+  sequence BIGINT NOT NULL,
+  payload JSONB NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (run_id, sequence)
+);

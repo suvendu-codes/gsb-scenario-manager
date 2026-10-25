@@ -16,6 +16,9 @@ export class KafkaEventSource implements EventSource {
   ) {}
 
   async start(handler: (delivery: EventDelivery) => Promise<void>) {
+    // OBSERVABILITY PLAN: connect/subscribe latency and failures, consumer readiness,
+    // and assigned partition count. Disabled consumption is intentional, not an
+    // outage. No recently received event does not prove failure on an idle topic.
     if (!this.consumer) {
       this.logger.log({ event: 'status_worker_disabled' });
       return;
@@ -45,6 +48,10 @@ export class KafkaEventSource implements EventSource {
       body: message.value,
       context: { topic, partition, offset: message.offset },
       acknowledge: async () => {
+        // OBSERVABILITY PLAN: offset-commit duration and success/failure counters
+        // are owned by this adapter; the worker owns overall handling outcomes.
+        // Report committed NEXT offset in logs, but never use offsets as labels.
+        // Commit failure after DB success means replay, not a rolled-back update.
         if (!this.consumer) throw new Error('Kafka consumer is disabled');
         await this.consumer.commitOffsets([{
           topic, partition, offset: (BigInt(message.offset) + 1n).toString(),
@@ -54,6 +61,9 @@ export class KafkaEventSource implements EventSource {
   }
 
   async stop() {
+    // OBSERVABILITY PLAN: separate stop/drain errors from disconnect errors;
+    // expose enough stage context to diagnose termination without connection
+    // strings or raw Kafka exception objects in logs.
     if (!this.consumer) return;
     try { await this.consumer.stop(); }
     finally { await this.consumer.disconnect(); }

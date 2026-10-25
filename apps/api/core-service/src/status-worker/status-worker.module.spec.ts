@@ -1,3 +1,4 @@
+import { seed as contractSeed } from '../../test/fixtures/run-state.js';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -19,7 +20,7 @@ class PushSource implements EventSource {
 }
 
 const seed: RunState = {
-  id: 'id', scenarioId: 'scenario', correlationId: 'cid', engine: 'emulator',
+  ...contractSeed, id: 'id', scenarioId: 'scenario', correlationId: 'cid', engine: 'emulator',
   engineRunId: null, status: 'accepted', verdict: null, reason: null,
   results: {}, engineRef: null, statusMessage: null, statusEventAt: null,
   resultEventAt: null, createdAt: new Date(), updatedAt: new Date(), completedAt: null,
@@ -29,7 +30,7 @@ function delivery() {
   return {
     body: Buffer.from(JSON.stringify({
       event_type: 'run.status', correlation_id: 'cid', run_id: 'engine-id',
-      engine: 'emulator', status: 'running', emitted_at: '2026-10-09T12:53:00Z',
+      engine: 'emulator', sequence: 1, status: 'running', emitted_at: '2026-10-09T12:53:00Z',
     })),
     context: { source: 'test-push', deliveryId: 'delivery-1' },
     acknowledge: vi.fn(async () => {}),

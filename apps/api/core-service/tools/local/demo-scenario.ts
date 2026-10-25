@@ -28,10 +28,10 @@ export async function runDemoScenario() {
     runEventSchema.parse(event);
     const topic = event.event_type === 'run.status' ? config.statusTopic : config.resultTopic;
     const offsets = await producer.send({ topic, acks: -1, messages: [{
-      key: event.run_id, value: JSON.stringify(event),
+      key: event.correlation_id, value: JSON.stringify(event),
     }] });
     console.info(JSON.stringify({ event: 'demo_published', eventType: event.event_type,
-      status: event.status, correlationId: event.correlation_id, offsets }));
+      status: event.event_type === 'run.status' ? event.status : undefined, correlationId: event.correlation_id, offsets }));
     await delay(eventDelay);
     return offsets;
   }
@@ -105,8 +105,7 @@ export async function runDemoScenario() {
     } finally { retry.release(); }
     console.info(JSON.stringify({ event: 'demo_retry_created', scenarioId, runId: secondId, correlationId: secondCid }));
 
-    await publish(demoStatus(firstCid, firstEngineId, 'failed', timestamp()));
-    await publish(demoResult(firstCid, firstEngineId, timestamp(), 'late-old-result', 'failure'));
+    await publish(demoResult(firstCid, firstEngineId, timestamp(), 'late-old-result'));
     await waitForRun(firstId, (r) => r.results.demo_marker === 'late-old-result');
     const unchanged = await pool.query<{ current_run_id: string; status: string }>('SELECT current_run_id,status FROM scenario WHERE id=$1', [scenarioId]);
     if (unchanged.rows[0]?.current_run_id !== secondId || unchanged.rows[0]?.status !== 'running') {
@@ -118,6 +117,7 @@ export async function runDemoScenario() {
       await publish(demoStatus(secondCid, secondEngineId, status, timestamp()));
       await waitForRun(secondId, (r) => r.status === status);
     }
+    await publish(demoStatus(secondCid, secondEngineId, 'completed', timestamp()));
     const result = demoResult(secondCid, secondEngineId, timestamp(), 'current-success');
     await publish(result);
     await waitForRun(secondId, (r) => r.status === 'completed' && r.results.demo_marker === 'current-success');
