@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { setTimeout as delay } from 'node:timers/promises';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { RecordMetadata } from 'kafkajs';
@@ -16,16 +15,10 @@ import { StatusWorker } from '../../../src/status-worker/application/status-work
 import type { EventDelivery } from '../../../src/status-worker/application/ports/event-source.js';
 import { RunEventRejectedError, type RunEventRejectionCode } from '../../../src/status-worker/domain/run-event-rejection.js';
 
-export type Fixture = { scenarioId: string; id: string; correlationId: string; engineId: string; engine: 'emulator' | 'simulator' };
+import { eventually, isTransientCoordinatorError } from './eventually.js';
+export { eventually } from './eventually.js';
 
-export async function eventually(check: () => Promise<boolean>, description: string) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (await check()) return;
-    await delay(100);
-  }
-  assert.fail(`Timed out: ${description}`);
-}
+export type Fixture = { scenarioId: string; id: string; correlationId: string; engineId: string; engine: 'emulator' | 'simulator' };
 
 export class WorkerHarness {
   readonly resources = localResources();
@@ -100,7 +93,7 @@ export class WorkerHarness {
         const offset = offsets.find((t) => t.topic === m.topicName)?.partitions.find((p) => p.partition === m.partition)?.offset;
         return offset !== undefined && m.baseOffset !== undefined && BigInt(offset) > BigInt(m.baseOffset);
       });
-    }, 'successful event must be persisted and acknowledged');
+    }, 'successful event must be persisted and acknowledged', { retryOnError: isTransientCoordinatorError });
   }
 
   async apply(event: RunEvent) {
@@ -162,7 +155,13 @@ export class WorkerHarness {
       send: (value: string | null) => this.producer.send({ topic: names[0], acks: -1, messages: [{ value }] }),
       waitForFailure: () => eventually(async () => crashes > 0, 'consumer must reject the event and stop'),
       assertUnacknowledged: async (sent: RecordMetadata[]) => {
-        const offsets = await this.admin.fetchOffsets({ groupId, topics: names });
+        // Wait for an authoritative offset observation, then assert outside the
+        // retry loop. A wrongly committed record must fail, never be retried away.
+        let offsets: Awaited<ReturnType<typeof this.admin.fetchOffsets>> = [];
+        await eventually(async () => {
+          offsets = await this.admin.fetchOffsets({ groupId, topics: names });
+          return true;
+        }, 'read committed offsets for rejected event', { retryOnError: isTransientCoordinatorError });
         for (const m of sent) {
           const offset = offsets.find((t) => t.topic === m.topicName)?.partitions.find((p) => p.partition === m.partition)?.offset;
           assert.ok(offset !== undefined && m.baseOffset !== undefined);

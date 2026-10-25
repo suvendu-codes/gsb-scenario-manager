@@ -1,6 +1,6 @@
 # Status worker module tests
 
-The suite currently expands 43 test families into 107 positive and negative cases.
+The suite currently expands 45 test families into 109 positive and negative cases.
 
 Run `pnpm test:module` from the repository root with Docker running. The runner
 creates isolated PostgreSQL and Kafka resources, applies all migrations, starts
@@ -59,6 +59,9 @@ outbox relay are not exercised.
 | SW-41 / completed, failed, cancelled | Send fresh health after termination | Observation acknowledged without any execution mutation |
 | SW-42 / array progress, status-counter field on health | Send health fields outside the current accepted contract | Rejected without refreshing health; heartbeat sequence scope remains an engine contract TODO |
 | SW-43 | Two independent consumers contend on one locked run, then receive duplicate and out-of-order events | Locking serializes changes; both groups acknowledge; only three receipts exist; repaired state and scenario agree |
+
+| SW-44 | Committed-offset observation receives temporary Kafka coordinator errors 14, 15 and 16 | Retry the observation within the existing deadline; then confirm real persistence and offset advancement |
+| SW-45 | A rejected record's offset check receives the same coordinator errors | Retry only the read; still prove the record is uncommitted and no state/receipt was stored |
 
 Unit tests supplement this suite with schema validation, command outcomes,
 terminal/result rules, timestamp-independent ordering, adapters, shutdown and logging.
@@ -121,3 +124,17 @@ These cases cover the current implemented worker contract. Engine event retrieva
 permanent-loss policy, missing-result alert timers, real engine interoperability,
 broker/DB outage campaigns, load limits and consumer-group rebalance behaviour
 remain separate work; no test claims those unimplemented behaviours are complete.
+
+## CI coordinator readiness
+
+A fresh Kafka broker may temporarily answer OffsetFetch with coordinator loading,
+unavailability, or not-the-coordinator (codes 14, 15, 16). Offset observation retries
+only those Kafka protocol errors within the existing 30-second polling deadline.
+Each read rediscovers the coordinator through KafkaJS. Authentication, authorization,
+assertion failures and unrelated errors still fail immediately. A permanent coordinator
+failure times out with its last error preserved as the cause.
+
+The negative-offset assertion runs after a successful read, outside the retry loop:
+a record committed by mistake must still fail the test. Unit regressions verify retry
+classification, eventual success, deadline exhaustion, and immediate propagation of
+non-coordinator errors. No production event handling or retry policy is changed.

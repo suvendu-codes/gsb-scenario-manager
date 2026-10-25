@@ -1,3 +1,4 @@
+import kafkaJs from 'kafkajs';
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -6,6 +7,8 @@ import type { RunEvent } from '../../src/status-worker/domain/run-event.js';
 import type { RunEventRejectionCode } from '../../src/status-worker/domain/run-event-rejection.js';
 const h = new WorkerHarness();
 before(() => h.start()); after(() => h.close());
+
+const { KafkaJSProtocolError } = kafkaJs;
 
 for (const engine of ['emulator', 'simulator'] as const) {
   for (const final of ['completed', 'failed'] as const) {
@@ -472,4 +475,34 @@ test('SW-43: two independent consumers serialize duplicate and out-of-order deli
   } finally {
     if (!released) await client.query('ROLLBACK'); client.release(); await Promise.all([one.stop(), two.stop()]);
   }
+});
+
+
+/** Reproduce CI's coordinator responses on the observer; real delivery/storage remain unchanged. */
+async function withCoordinatorErrors(check: () => Promise<void>) {
+  const original = h.admin.fetchOffsets;
+  let attempts = 0;
+  h.admin.fetchOffsets = async options => {
+    const code = [14, 15, 16][attempts++];
+    if (code !== undefined) throw new KafkaJSProtocolError(Object.assign(new Error(`Injected coordinator error ${code}`), {
+      code, type: 'TEST_COORDINATOR_ERROR', retriable: true,
+    }));
+    return original(options);
+  };
+  try { await check(); assert.ok(attempts >= 4, 'Observer must retry coordinator errors before verifying offsets'); }
+  finally { h.admin.fetchOffsets = original; }
+}
+test('SW-44: committed-offset polling survives coordinator loading, unavailability and rediscovery', async () => {
+  const f = await h.fixture();
+  await withCoordinatorErrors(() => h.apply(h.status(f, 'accepted')));
+  assert.equal((await h.run(f)).status, 'accepted'); assert.equal((await h.run(f)).lastEventSequence, 1);
+  assert.equal((await receipts(f)).length, 1);
+});
+test('SW-45: rejected-offset verification retries coordinator errors without accepting invalid events', async () => {
+  const f = await h.fixture(); const before = await h.run(f); const worker = await h.isolated();
+  try {
+    const sent = await worker.send('{'); await worker.waitForFailure();
+    await withCoordinatorErrors(() => worker.assertUnacknowledged(sent));
+    assert.deepEqual(await h.run(f), before); assert.deepEqual(await receipts(f), []);
+  } finally { await worker.stop(); }
 });
