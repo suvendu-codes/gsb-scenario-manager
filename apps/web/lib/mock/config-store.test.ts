@@ -22,15 +22,31 @@ beforeEach(async () => {
   ({ config, store } = await load());
 });
 
+type Failure = {
+  status: number;
+  message: string;
+  details: { code?: string; params?: Record<string, unknown>; problems?: ProblemShape[] };
+};
+type ProblemShape = {
+  code: string;
+  message: string;
+  params?: Record<string, unknown>;
+  path?: string;
+};
+
 /** Runs a patch that must fail and returns the error. */
-function failure(id: string, body: Parameters<ConfigStore["patchScenarioConfig"]>[1]) {
+function failure(id: string, body: Parameters<ConfigStore["patchScenarioConfig"]>[1]): Failure {
   try {
     config.patchScenarioConfig(id, body);
   } catch (error) {
-    return error as { status: number; message: string };
+    return error as Failure;
   }
   throw new Error("expected the patch to fail");
 }
+
+/** The codes and paths of a failure's problems. */
+const problemCodes = (error: Failure) =>
+  (error.details.problems ?? []).map((p) => [p.code, p.path]);
 
 describe("getScenarioConfig", () => {
   it("returns the defaults with no overrides for a new scenario", () => {
@@ -45,7 +61,11 @@ describe("getScenarioConfig", () => {
 
   it("reports the missing datasets as an issue", () => {
     expect(config.getScenarioConfig(DRAFT_ID).issues).toEqual([
-      { module: "datasets", message: "A dataset is missing or doesn’t match the site map" },
+      {
+        module: "datasets",
+        code: "DATASET_MISSING_OR_INVALID",
+        message: "A dataset is missing or doesn’t match the site map",
+      },
     ]);
   });
 
@@ -124,7 +144,9 @@ describe("patchScenarioConfig: set", () => {
 
     expect(result.issues).toContainEqual({
       module: "wms",
+      code: "NO_ORDER_TYPE",
       message: "Choose at least one order type",
+      path: "wms.orderTypes",
     });
   });
 
@@ -175,57 +197,133 @@ describe("patchScenarioConfig: reset", () => {
   });
 
   it("rejects an unknown path", () => {
-    expect(failure(DRAFT_ID, { reset: ["nope"] })).toMatchObject({
+    const error = failure(DRAFT_ID, { reset: ["nope"] });
+    expect(error).toMatchObject({
       status: 400,
       message: "Unknown config path: nope",
+      details: { code: "CONFIG_INVALID" },
     });
+    expect(error.details.problems).toEqual([
+      {
+        code: "UNKNOWN_PATH",
+        message: "Unknown config path: nope",
+        params: { path: "nope" },
+        path: "nope",
+      },
+    ]);
   });
 });
 
 describe("patchScenarioConfig: rejected changes", () => {
   it("rejects an unknown path", () => {
-    expect(failure(DRAFT_ID, { set: { "wms.nope": 1 } })).toMatchObject({ status: 400 });
+    expect(problemCodes(failure(DRAFT_ID, { set: { "wms.nope": 1 } }))).toEqual([
+      ["UNKNOWN_PATH", "wms.nope"],
+    ]);
   });
 
   it("rejects a path that points at a group of values", () => {
-    expect(failure(DRAFT_ID, { set: { wms: {} } })).toMatchObject({
+    const error = failure(DRAFT_ID, { set: { wms: {} } });
+    expect(error).toMatchObject({
       status: 400,
       message: "Can't set wms: it is not a single config value.",
     });
+    expect(problemCodes(error)).toEqual([["NOT_A_SINGLE_VALUE", "wms"]]);
   });
 
   it("rejects an unsafe path", () => {
-    expect(failure(DRAFT_ID, { set: { "wms.__proto__.x": 1 } })).toMatchObject({ status: 400 });
+    expect(problemCodes(failure(DRAFT_ID, { set: { "wms.__proto__.x": 1 } }))).toEqual([
+      ["UNKNOWN_PATH", "wms.__proto__.x"],
+    ]);
   });
 
-  it("rejects a value outside its range and names the path", () => {
-    expect(failure(DRAFT_ID, { set: { "wms.volumeMultiplier": 6 } })).toMatchObject({
-      status: 400,
-      message: expect.stringContaining("wms.volumeMultiplier"),
-    });
+  it("rejects a value outside its range, with its path", () => {
+    const error = failure(DRAFT_ID, { set: { "wms.volumeMultiplier": 6 } });
+    expect(error).toMatchObject({ status: 400, details: { code: "CONFIG_INVALID" } });
+    expect(error.details.problems).toEqual([
+      expect.objectContaining({
+        code: "INVALID_VALUE",
+        path: "wms.volumeMultiplier",
+        message: expect.stringContaining("wms.volumeMultiplier"),
+      }),
+    ]);
   });
 
   it("rejects a value of the wrong kind", () => {
-    expect(failure(DRAFT_ID, { set: { "agent.botCharging": "yes" } })).toMatchObject({
-      status: 400,
-    });
+    expect(problemCodes(failure(DRAFT_ID, { set: { "agent.botCharging": "yes" } }))).toEqual([
+      ["INVALID_VALUE", "agent.botCharging"],
+    ]);
   });
 
-  it("rejects a schedule that does not fill the run", () => {
+  it("rejects a schedule that does not fill the run, with the numbers", () => {
     const path = "station.stations.PPS-102.schedule";
-    expect(
-      failure(DRAFT_ID, { set: { [path]: [{ hours: 6, mode: "pick", teaBreaks: [] }] } }),
-    ).toMatchObject({
+    const error = failure(DRAFT_ID, {
+      set: { [path]: [{ hours: 6, mode: "pick", teaBreaks: [] }] },
+    });
+    expect(error).toMatchObject({
       status: 400,
       message: "PPS-102: the schedule adds up to 6h, but the run is 8h.",
     });
+    expect(error.details.problems).toEqual([
+      {
+        code: "SCHEDULE_TOTAL_MISMATCH",
+        message: "PPS-102: the schedule adds up to 6h, but the run is 8h.",
+        params: { stationId: "PPS-102", actualHours: 6, expectedHours: 8 },
+        path,
+      },
+    ]);
   });
 
   it("rejects an unknown station in an All-stations list", () => {
-    expect(failure(DRAFT_ID, { set: { "station.apply.schedule": ["PPS-999"] } })).toMatchObject({
-      status: 400,
-      message: "Unknown station: PPS-999.",
+    expect(
+      problemCodes(failure(DRAFT_ID, { set: { "station.apply.schedule": ["PPS-999"] } })),
+    ).toEqual([["UNKNOWN_STATION", "station.apply.schedule"]]);
+  });
+
+  it("lists every problem of a change, not just the first", () => {
+    const error = failure(DRAFT_ID, {
+      set: {
+        "wms.nope": 1,
+        wms: {},
+        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+      },
     });
+    // Path problems come first and stop the check; the value problems follow once they are fixed.
+    expect(problemCodes(error)).toEqual([
+      ["UNKNOWN_PATH", "wms.nope"],
+      ["NOT_A_SINGLE_VALUE", "wms"],
+    ]);
+    expect(error.message).toBe("Unknown config path: wms.nope (and 1 more problem)");
+
+    const values = failure(DRAFT_ID, {
+      set: {
+        "wms.volumeMultiplier": 6,
+        "agent.fleet.htm": -1,
+        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+      },
+    });
+    expect(problemCodes(values)).toEqual(
+      expect.arrayContaining([
+        ["INVALID_VALUE", "wms.volumeMultiplier"],
+        ["INVALID_VALUE", "agent.fleet.htm"],
+      ]),
+    );
+    expect(values.details.problems).toHaveLength(2);
+  });
+
+  it("lists every cross-field problem of a change at once", () => {
+    const error = failure(DRAFT_ID, {
+      set: {
+        "wms.dataWindow.startHour": 12,
+        "wms.dataWindow.endHour": 12,
+        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.PPS-102.schedule": [{ hours: 4, mode: "put", teaBreaks: [] }],
+      },
+    });
+    expect(problemCodes(error)).toEqual([
+      ["DATA_WINDOW_EMPTY", "wms.dataWindow"],
+      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.PPS-101.schedule"],
+      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.PPS-102.schedule"],
+    ]);
   });
 
   it("changes nothing when one change in the request is invalid", () => {
@@ -236,10 +334,11 @@ describe("patchScenarioConfig: rejected changes", () => {
     expect(config.getScenarioConfig(DRAFT_ID).overrides).toEqual({});
   });
 
-  it("rejects an edit of a scenario that is not a draft", () => {
+  it("rejects an edit of a scenario that is not a draft, with its own code", () => {
     expect(failure(COMPLETED_ID, { set: { "agent.botCharging": false } })).toMatchObject({
       status: 409,
       message: "Only draft scenarios can be edited.",
+      details: { code: "SCENARIO_NOT_EDITABLE", params: { status: "completed" } },
     });
   });
 

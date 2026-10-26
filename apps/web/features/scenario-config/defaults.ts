@@ -3,8 +3,14 @@ import { operationsCatalog } from "./schema";
 import type { ConfigValues, ScheduleBlock, StationConfig } from "./types";
 
 /**
- * The run length the mock config is built for. Defaults for another length would need the
- * schedules scaled to fit, which arrives together with an editable run duration.
+ * The run length the mock config is built for.
+ *
+ * The run length is read-only today. When it becomes editable, every stored station schedule
+ * (a whole array, so a schedule override too) would stop adding up to it. The intended
+ * migration is to scale them in proportion, as the design does when the duration changes:
+ * periods snap to half hours, any that no longer fit drop off the end, and the server returns
+ * the scaled config. Resetting the schedules, or refusing the change while schedule overrides
+ * exist, were the alternatives considered. None of this is built yet (review S2).
  */
 export const DEFAULT_RUN_DURATION_HOURS = 8;
 
@@ -26,15 +32,11 @@ const DEFAULT_SCHEDULES: Record<string, DefaultBlock[]> = {
   "PPS-106": [{ hours: 8, mode: "pick" }],
 };
 
-/** Pick fields start on their first option (toggles off); bin structure on front + back. */
+/** Pick fields start on the default the catalog declares for each one. */
 function defaultPick(): StationConfig["operations"]["pick"] {
   const { binStructure, groups } = operationsCatalog.pick;
-  const pick: Record<string, string | boolean> = {
-    [binStructure.key]: binStructure.options[binStructure.options.length - 1].value,
-  };
-  for (const field of groups.flatMap((group) => group.fields)) {
-    pick[field.key] = field.type === "toggle" ? false : field.options[0].value;
-  }
+  const pick: Record<string, string | boolean> = { [binStructure.key]: binStructure.default };
+  for (const field of groups.flatMap((group) => group.fields)) pick[field.key] = field.default;
   return pick;
 }
 
@@ -62,13 +64,10 @@ function defaultStation(id: string): StationConfig {
     },
     operations: {
       pick: defaultPick(),
-      put: {
-        category: "put",
-        sides: ["back"],
-        behavior: { front: "unstaged-put-front", back: "no-expectation-put-back" },
-        followUp: { front: null, back: null },
-      },
-      audit: Object.fromEntries(operationsCatalog.audit.fields.map((field) => [field.key, false])),
+      put: structuredClone(operationsCatalog.put.defaults),
+      audit: Object.fromEntries(
+        operationsCatalog.audit.fields.map((field) => [field.key, field.default]),
+      ),
     },
   };
 }

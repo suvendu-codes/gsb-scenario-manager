@@ -1,3 +1,5 @@
+import type { Problem, ProblemParams } from "./error";
+
 /**
  * What went wrong with a request:
  * - `network`: the request never reached the server
@@ -7,17 +9,37 @@
  */
 export type ApiErrorKind = "network" | "timeout" | "http" | "invalid-response";
 
+/** What an error response can add to its message: the fields of the API's error envelope. */
+export type ApiErrorDetails = {
+  code?: string;
+  params?: ProblemParams;
+  path?: string;
+  problems?: Problem[];
+};
+
 /** Error thrown by `request` for every failure, so callers only handle one error type. */
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   /** HTTP status code, or `0` when there was no response (network error or timeout). */
   readonly status: number;
+  /** The stable, machine-readable code the server sent, if its error body had one. */
+  readonly code?: string;
+  /** The values the server built its message from, if it sent them. */
+  readonly params?: ProblemParams;
+  /** Where the problem is, as a dot-notation path, if the server named one. */
+  readonly path?: string;
+  /** Every problem the server found, when it listed them; empty otherwise. */
+  readonly problems: Problem[];
 
-  constructor(kind: ApiErrorKind, status: number, message: string) {
+  constructor(kind: ApiErrorKind, status: number, message: string, details: ApiErrorDetails = {}) {
     super(message);
     this.name = "ApiError";
     this.kind = kind;
     this.status = status;
+    this.code = details.code;
+    this.params = details.params;
+    this.path = details.path;
+    this.problems = details.problems ?? [];
   }
 }
 

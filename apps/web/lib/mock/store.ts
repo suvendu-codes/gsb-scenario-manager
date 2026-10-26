@@ -1,4 +1,5 @@
 import { findSample } from "@/features/scenario-setup/samples";
+import type { ApiErrorDetails } from "@/lib/api/errors";
 import type {
   DatasetRecord,
   DatasetSlot,
@@ -56,14 +57,20 @@ const projectMaps: ProjectMap[] = [
   },
 ];
 
-/** Thrown by `createScenario` when the input is not allowed; carries the HTTP status to return. */
+/**
+ * Thrown by the mock when a request is not allowed. It carries the HTTP status to return, and
+ * optionally the API error envelope's stable `code`, `params`, `path` and list of `problems`.
+ * Without a `code`, the response gets a default one for its status.
+ */
 export class MockApiError extends Error {
   readonly status: number;
+  readonly details: ApiErrorDetails;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, details: ApiErrorDetails = {}) {
     super(message);
     this.name = "MockApiError";
     this.status = status;
+    this.details = details;
   }
 }
 
