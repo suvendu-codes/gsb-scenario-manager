@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { problemSchema } from "@/lib/api/error";
+
 import operationsJson from "./catalog/operations.json";
 
 /** The three modules of the scenario config panel. */
@@ -48,6 +50,8 @@ const choiceFieldSchema = z.object({
   label: z.string(),
   description: z.string().optional(),
   options: z.array(optionSchema).min(2),
+  /** The `value` of the option a station starts on. Declared, not implied by the option order. */
+  default: z.string(),
 });
 
 const toggleFieldSchema = z.object({
@@ -55,6 +59,8 @@ const toggleFieldSchema = z.object({
   type: z.literal("toggle"),
   label: z.string(),
   description: z.string().optional(),
+  /** Whether the switch starts on. */
+  default: z.boolean(),
 });
 
 const operationFieldSchema = z.discriminatedUnion("type", [choiceFieldSchema, toggleFieldSchema]);
@@ -68,7 +74,9 @@ const putFlowSchema = z.object({
 });
 
 /** The pick, put and audit fields the Operations section is built from. */
-export const operationsCatalogSchema = z.object({
+const putSideSchema = z.enum(["front", "back"]);
+
+const operationsShapeSchema = z.object({
   pick: z.object({
     binStructure: choiceFieldSchema,
     groups: z.array(
@@ -93,8 +101,63 @@ export const operationsCatalogSchema = z.object({
         options: z.array(z.object({ value: z.string(), label: z.string(), config: z.string() })),
       }),
     ),
+    /** The put settings a station starts with. Declared, not implied by the flow order. */
+    defaults: z.object({
+      category: z.string(),
+      sides: z.array(putSideSchema).min(1),
+      behavior: z.object({ front: z.string().nullable(), back: z.string().nullable() }),
+      followUp: z.object({ front: z.string().nullable(), back: z.string().nullable() }),
+    }),
   }),
   audit: z.object({ fields: z.array(toggleFieldSchema) }),
+});
+
+/**
+ * The pick, put and audit fields the Operations section is built from, with the default of
+ * each. The declared defaults are checked against the options, so a regenerated catalog that
+ * reorders options, or drops one a default points at, fails here instead of silently changing
+ * what stations start on.
+ */
+export const operationsCatalogSchema = operationsShapeSchema.superRefine((catalog, ctx) => {
+  const choices = [
+    catalog.pick.binStructure,
+    ...catalog.pick.groups.flatMap((group) => group.fields),
+  ].filter((field) => field.type === "choice");
+  for (const field of choices) {
+    if (!field.options.some((option) => option.value === field.default)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `The default "${field.default}" of ${field.key} is not one of its options.`,
+      });
+    }
+  }
+
+  const { defaults, categories, followUps } = catalog.put;
+  const category = categories.find((candidate) => candidate.value === defaults.category);
+  if (!category) {
+    ctx.addIssue({
+      code: "custom",
+      message: `The default put category "${defaults.category}" does not exist.`,
+    });
+    return;
+  }
+  for (const side of putSideSchema.options) {
+    const flowId = defaults.behavior[side];
+    if (flowId !== null && !(category.flows[side] ?? []).some((flow) => flow.id === flowId)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `The default ${side} put flow "${flowId}" is not a ${side} flow of ${defaults.category}.`,
+      });
+    }
+    const answer = defaults.followUp[side];
+    const allowed = Object.values(followUps).flatMap((q) => q.options.map((o) => o.value));
+    if (answer !== null && !allowed.includes(answer)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `The default ${side} follow-up "${answer}" is not an answer to any question.`,
+      });
+    }
+  }
 });
 
 /** The validated operations catalog. Parsing here also checks the generated JSON file. */
@@ -252,6 +315,10 @@ const stationHardwareSchema = z
 
 const stationIdListSchema = z.array(z.string());
 
+/**
+ * Per section (`schedule` and `structure`), a list of station ids. What an empty list means
+ * depends on which list it is, so the two are documented where they are used.
+ */
 const sectionListsSchema = z
   .object({ schedule: stationIdListSchema, structure: stationIdListSchema })
   .strict();
@@ -270,9 +337,19 @@ export const stationConfigSchema = z
 export const stationModuleSchema = z
   .object({
     global: stationGlobalSchema,
-    /** Per section, the stations an All-stations edit targets (empty means every station). */
+    /**
+     * Editor metadata, kept with the config as the design does: per section, the stations an
+     * All-stations edit reaches. **An empty list means every station.**
+     */
     apply: sectionListsSchema,
-    /** Per section, the stations that keep their own value, so All-stations edits skip them. */
+    /**
+     * Editor metadata, kept with the config as the design does: per section, the stations that
+     * keep their own value, so All-stations edits skip them. **An empty list means no station.**
+     *
+     * The run engine only needs the per-station values in `stations`; it can ignore `apply` and
+     * `override`. Whether core-service stores them, or the editor keeps them elsewhere, is still
+     * to be agreed (review S4).
+     */
     override: sectionListsSchema,
     stations: z.record(z.string(), stationConfigSchema),
   })
@@ -311,10 +388,13 @@ export const configValuesSchema = z
  */
 export const overridesSchema = z.record(z.string(), z.unknown());
 
-/** A problem that stops the scenario from running. */
-export const configIssueSchema = z.object({
+/**
+ * A problem that stops the scenario from running: the API's problem shape (stable `code`,
+ * English `message`, `params`, and a `path` when it is about one value) plus the module it
+ * belongs to.
+ */
+export const configIssueSchema = problemSchema.extend({
   module: z.enum(["datasets", "wms", "station", "agent"]),
-  message: z.string(),
 });
 
 /**
