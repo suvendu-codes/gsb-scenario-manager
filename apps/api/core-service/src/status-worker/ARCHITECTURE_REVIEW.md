@@ -24,7 +24,7 @@ The current design is in the [Event Schema Proposal](https://greyorange-work.atl
   recovery blocking, and persist command/outbox atomically.
 - Invalid envelopes and contract violations still block their Kafka partition; no DLQ or
   durable poison-event quarantine is introduced by the gap-holding path.
-- Fresh databases require schema creation only; no legacy execution reconciliation is needed.
+- Fresh databases use the single db/schema.sql initializer; no migration chain or legacy execution reconciliation is needed.
 - Legacy verdict storage remains read-only; schema versioning/deployment compatibility needs review.
 - Independent worker/Kafka monitoring and health alerts remain observability work.
 

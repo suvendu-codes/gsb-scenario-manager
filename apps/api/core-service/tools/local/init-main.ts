@@ -1,13 +1,20 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { readFile } from 'node:fs/promises';
 import { localResources } from './local-resources.js';
 
 async function main() {
   const { pool, kafka, config } = localResources();
   const admin = kafka.admin();
   try {
-    await migrate(drizzle(pool), { migrationsFolder: './drizzle' });
-    console.info(JSON.stringify({ event: 'local_migrations_complete' }));
+    // The same non-destructive baseline is used by local demo and isolated CI.
+    // Keep one connection for the complete SQL transaction, including failure cleanup.
+    const schemaSql = await readFile('db/schema.sql', 'utf8');
+    const client = await pool.connect();
+    try { await client.query(schemaSql); }
+    catch (error) {
+      try { await client.query('ROLLBACK'); } catch { /* Preserve the initialization failure. */ }
+      throw error;
+    } finally { client.release(); }
+    console.info(JSON.stringify({ event: 'local_schema_ready' }));
     await admin.connect();
     const topics = [...new Set([config.statusTopic, config.resultTopic])];
     const existing = new Set(await admin.listTopics());

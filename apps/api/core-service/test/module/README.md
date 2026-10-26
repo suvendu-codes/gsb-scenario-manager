@@ -1,9 +1,9 @@
 # Status worker module tests
 
-The suite currently expands 45 test families into 109 positive and negative cases.
+The suite currently expands 49 test families into 113 positive and negative cases.
 
 Run `pnpm test:module` from the repository root with Docker running. The runner
-creates isolated PostgreSQL and Kafka resources, applies all migrations, starts
+creates isolated PostgreSQL and Kafka resources, runs the single `db/schema.sql` initializer, starts
 the worker, runs the cases below, saves TAP/service logs in `test-results/module/`,
 and removes its containers and volumes. No real engine is required.
 
@@ -62,6 +62,10 @@ outbox relay are not exercised.
 
 | SW-44 | Committed-offset observation receives temporary Kafka coordinator errors 14, 15 and 16 | Retry the observation within the existing deadline; then confirm real persistence and offset advancement |
 | SW-45 | A rejected record's offset check receives the same coordinator errors | Retry only the read; still prove the record is uncommitted and no state/receipt was stored |
+| SW-46 | Run the schema initializer against an already initialized database containing execution data | Rows and receipts remain unchanged; no migration-history table is required; subsequent events still process |
+| SW-47 | Run initialization against a partial database containing only scenario data | Fail clearly; preserve existing data and do not create the missing tables |
+| SW-48 | Force a type-name conflict during a fresh initialization | Roll back all newly created objects; preserve the pre-existing type |
+| SW-49 | Initialize the same fresh database concurrently from two connections | Advisory lock serializes creation; both calls succeed with exactly three complete application tables |
 
 Unit tests supplement this suite with schema validation, command outcomes,
 terminal/result rules, timestamp-independent ordering, adapters, shutdown and logging.

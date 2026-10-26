@@ -14,7 +14,7 @@ pnpm local:demo
 ```
 
 This builds the backend image, starts PostgreSQL 16 and a single Kafka 4.1.2 broker,
-applies the Drizzle migrations, creates a three-partition topic, starts the standalone
+runs the single `apps/api/core-service/db/schema.sql` initializer, creates a three-partition topic, starts the standalone
 status worker, and runs the event generator. Worker and producer logs appear in the
 terminal. The first build downloads images and dependencies.
 
@@ -43,7 +43,7 @@ outbox. Events use the worker's currently implemented event contract. The demo u
 | `pnpm local:reset` | Stop containers and **delete all local stack database and Kafka data** |
 
 Services remain running after the demo. Use `local:up` after code changes to rebuild
-and restart the worker. Database migrations and topic creation can run repeatedly.
+and restart the worker. Schema initialization and topic creation can run repeatedly without deleting stored data.
 The separate Compose project `scenario-worker-local` isolates these resources
 from the main application Compose setup.
 
@@ -140,3 +140,15 @@ Docker build. Fast unit tests remain in the separate backend checks job.
 This suite covers the worker boundary and PostgreSQL constraints. It seeds trigger
 fixtures directly and uses a single broker; trigger/outbox integration, producer
 contract alignment, and multi-broker failover require separate tests.
+
+## Fresh database schema
+
+`apps/api/core-service/db/schema.sql` is the single executable baseline used by
+local startup and isolated CI. The TypeScript Drizzle definitions map that schema;
+Drizzle migration scripts/history are not used. Schema setup is atomic and serialized
+across simultaneous initializers. Repeating it validates an existing baseline and
+preserves execution data; a partial/incompatible database fails clearly.
+
+When changing the baseline during development, start a new disposable database or
+explicitly choose `pnpm local:reset` to delete local PostgreSQL/Kafka data. Startup
+does not automatically upgrade or erase an existing database.

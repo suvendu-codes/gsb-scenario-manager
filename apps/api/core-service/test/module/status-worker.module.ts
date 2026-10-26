@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { Pool } from 'pg';
 import kafkaJs from 'kafkajs';
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
@@ -505,4 +507,56 @@ test('SW-45: rejected-offset verification retries coordinator errors without acc
     await withCoordinatorErrors(() => worker.assertUnacknowledged(sent));
     assert.deepEqual(await h.run(f), before); assert.deepEqual(await receipts(f), []);
   } finally { await worker.stop(); }
+});
+
+
+async function withFreshDatabase(check: (pool: Pool) => Promise<void>) {
+  const name = 'module_bootstrap_' + randomUUID().replaceAll('-', '');
+  await h.resources.pool.query(`CREATE DATABASE "${name}"`);
+  const url = new URL(h.resources.pool.options.connectionString!); url.pathname = '/' + name;
+  const pool = new Pool({ connectionString: url.toString(), max: 2 });
+  try { await check(pool); }
+  finally { await pool.end(); await h.resources.pool.query(`DROP DATABASE "${name}"`); }
+}
+test('SW-46: repeating the single schema script preserves execution data and needs no migration history', async () => {
+  const f = await h.fixture(); await h.apply(h.status(f, 'accepted'));
+  const before = { run: await h.run(f), scenario: await h.scenario(f), receipts: await receipts(f) };
+  await h.resources.pool.query(await readFile('db/schema.sql', 'utf8'));
+  assert.deepEqual({ run: await h.run(f), scenario: await h.scenario(f), receipts: await receipts(f) }, before);
+  const history = await h.resources.pool.query("SELECT to_regclass('drizzle.__drizzle_migrations') AS history");
+  assert.equal(history.rows[0].history, null);
+  await h.apply(h.status(f, 'running', 2)); assert.equal((await h.run(f)).status, 'running');
+});
+test('SW-47: a partial existing schema is rejected without altering its data', async () => {
+  await withFreshDatabase(async pool => {
+    await pool.query("CREATE TABLE scenario(marker text); INSERT INTO scenario VALUES ('preserve')");
+    const client = await pool.connect();
+    try {
+      await assert.rejects(client.query(await readFile('db/schema.sql', 'utf8')), /Partial Scenario Manager schema/);
+    } finally { await client.query('ROLLBACK'); client.release(); }
+    assert.deepEqual((await pool.query('SELECT * FROM scenario')).rows, [{ marker: 'preserve' }]);
+    const missing = await pool.query("SELECT to_regclass('public.run') AS run, to_regclass('public.run_event_inbox') AS inbox");
+    assert.deepEqual(missing.rows[0], { run: null, inbox: null });
+  });
+});
+test('SW-48: a failed fresh initialization rolls back newly created schema objects', async () => {
+  await withFreshDatabase(async pool => {
+    await pool.query("CREATE TYPE run_engine AS ENUM ('existing')");
+    const client = await pool.connect();
+    try { await assert.rejects(client.query(await readFile('db/schema.sql', 'utf8')), { code: '42710' }); }
+    finally { await client.query('ROLLBACK'); client.release(); }
+    const objects = await pool.query("SELECT to_regtype('public.scenario_status') AS status, to_regclass('public.scenario') AS scenario");
+    assert.deepEqual(objects.rows[0], { status: null, scenario: null });
+    assert.equal((await pool.query("SELECT 'existing'::run_engine AS engine")).rows[0].engine, 'existing');
+  });
+});
+test('SW-49: concurrent initializers create one complete schema without a migration chain', async () => {
+  await withFreshDatabase(async pool => {
+    const sql = await readFile('db/schema.sql', 'utf8');
+    await Promise.all([pool.query(sql), pool.query(sql)]);
+    const tables = await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");
+    assert.deepEqual(tables.rows.map(r => r.tablename), ['run', 'run_event_inbox', 'scenario']);
+    const defaults = await pool.query("SELECT column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='run' AND column_name='status'");
+    assert.match(defaults.rows[0].column_default, /trigger_requested/);
+  });
 });

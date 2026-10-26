@@ -15,7 +15,7 @@ export const run = pgTable(
     retryOfRunId: uuid('retry_of_run_id'),
     engine: runEngine().notNull(),
     status: runStatus().notNull().default('trigger_requested'),
-    // Legacy verdict is read-only pending a reviewed cleanup migration.
+    // Earlier verdict storage is read-only pending a baseline/model cleanup.
     verdict: runVerdict(),
     pendingCommand: text('pending_command').$type<'run' | 'pause' | 'resume' | 'cancel'>(),
     commandSequence: bigint('command_sequence', { mode: 'number' }),

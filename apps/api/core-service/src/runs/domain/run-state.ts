@@ -1,4 +1,4 @@
-// Keep legacy setup/terminal labels readable during migration. New producers use
+// Earlier setup/terminal labels remain in the storage model. New producers use
 // the documented lifecycle; a failure reason such as interrupted is not a new state.
 export const runStatusValues = Object.freeze([
   'trigger_requested', 'accepted', 'queued', 'provisioning', 'setup_ready', 'running',
@@ -9,8 +9,8 @@ export const engineRunStatusValues = Object.freeze([
 ] as const);
 export const commandValues = Object.freeze(['run', 'pause', 'resume', 'cancel'] as const);
 export const decisionValues = Object.freeze(['accepted', 'rejected'] as const);
-// Legacy DB enum/column retained for a safe deployment; events no longer carry verdict.
-// TODO: remove legacy verdict storage after a reviewed data migration.
+// Earlier DB enum/column is read-only; events no longer carry verdict.
+// TODO: remove unused verdict storage in a reviewed baseline/model cleanup.
 export const runVerdictValues = Object.freeze(['success', 'failure', 'inconclusive'] as const);
 export const runEngineValues = Object.freeze(['emulator', 'simulator'] as const);
 

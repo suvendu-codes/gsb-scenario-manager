@@ -209,7 +209,7 @@ erDiagram
 
 An observation record may be absent until reporting begins; individual values may
 also be unknown until observed. Freshness, ordering, and progress-advancement
-semantics must be agreed with producers before finalizing fields or migrations.
+semantics must be agreed with producers before finalizing fields or schema changes.
 Receipt timestamps alone cannot distinguish a fresh report from queued old data.
 `last_progress_advanced_at` needs a defined time basis and clock-skew handling.
 Any observation state must be tied to the exact execution rather than only the
@@ -221,24 +221,24 @@ belong to their service/group/partition scope, not to an individual run. The imp
 
 ## Configuration and rollout
 
-Apply migrations through `drizzle/0003_status_worker_contract.sql` before enabling this contract.
-Migration 0003 replaces the unpublished command-state draft with separate pending-command
-fields, `trigger_requested`/`resuming`, sequence tracking, heartbeat observations,
-and `run_event_inbox`. It recreates the status enum transactionally, avoiding
-PostgreSQL's unsafe-new-enum-value restriction on a fresh install.
+Run the single baseline `apps/api/core-service/db/schema.sql` for a fresh database.
+It creates the current scenario, run and event-inbox tables, enums, indexes and
+constraints in one transaction. Local startup and CI call this same script automatically.
+There is no incremental migration chain, migration-history table or legacy-data backfill.
 
-This is a fresh, non-production service. No existing-data conversion or sequence-baseline
-reconciliation is required. New executions start with last_event_sequence=0 and expect
-engine sequence 1. The SQL files provide repeatable schema creation for local development
-and CI; they do not imply a production data migration plan.
+Repeated initialization checks the existing columns, enum labels and named safety
+constraints and preserves application data. A partial/incompatible schema fails
+rather than being converted or erased. For later schema changes, use a fresh disposable
+database or explicitly choose a local reset; initialization never drops stored data.
 
-Migration 0002 retains current-run ownership, same-scenario links, and the one-active-run
-constraint. Existing scenario labels remain running/paused/finished. Legacy queued,
-provisioning, interrupted and verdict storage remain readable for migration compatibility;
-new engine events use the documented statuses and no verdict. TODO: agree legacy cleanup.
+Manual setup from the repository root after starting PostgreSQL:
+
+```sh
+docker compose -f compose.local.yml exec -T postgres psql -U scene -d scene_local -v ON_ERROR_STOP=1 < apps/api/core-service/db/schema.sql
+```
 
 Set `STATUS_WORKER_ENABLED=true`, `KAFKA_BROKERS` (comma-separated),
-`KAFKA_STATUS_TOPIC`, and `KAFKA_RESULT_TOPIC`. Both settings default to `run.response` and should name the same response topic for status, result, and health events. Explicit legacy separate-topic settings remain supported during migration. Set `KAFKA_GROUP_ID` consistently across replicas; the default is
+`KAFKA_STATUS_TOPIC`, and `KAFKA_RESULT_TOPIC`. Both settings default to `run.response` and should name the same response topic for status, result, and health events. Explicit separate-topic overrides remain supported for development/testing. Set `KAFKA_GROUP_ID` consistently across replicas; the default is
 `scenario-manager-status-worker`. Topics must already exist. A new group reads
 from the beginning; an existing group resumes committed offsets.
 
@@ -501,7 +501,7 @@ pnpm local:demo
 ```
 
 This builds the backend image, starts PostgreSQL and a single-node Kafka broker,
-applies database migrations, creates the topic, starts the standalone status
+runs the single database schema initializer, creates the topic, starts the standalone status
 worker, and runs the mock engine event generator. The generator publishes real
 Kafka messages and verifies the resulting PostgreSQL records. Producer and worker
 logs appear in the terminal; look for `demo_passed`. The first run downloads
@@ -610,7 +610,7 @@ To mock only Kafka and update real local PostgreSQL rows:
 pnpm --filter core-service worker:mock --database --file /absolute/path/events.json
 ```
 
-Apply the migration first, configure the usual `DATABASE_URL` or `DB_*`
+Initialize the schema first, configure the usual `DATABASE_URL` or `DB_*`
 settings, and provide a JSON array of events whose correlation IDs and engines
 match existing run rows. This mode performs real database updates; it does
 not seed scenarios or runs. Both CLI modes reject `NODE_ENV=production`.

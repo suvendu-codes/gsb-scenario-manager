@@ -20,8 +20,7 @@ apps/
     tools/local/               Infrastructure initialization and event/mock CLIs
     test/module/               Tests requiring real PostgreSQL and Kafka
     test/fixtures/             Sample events
-    drizzle/                   Versioned migrations and metadata
-    db/schema.sql              SQL schema reference
+    db/schema.sql              Single fresh-database initializer
 packages/
   shared/                      Shared backend utilities
   shared-types/                Shared type definitions
@@ -52,8 +51,7 @@ Paths below are relative to `apps/api/core-service/`.
 | `tools/local/` | Infrastructure initialization, real Kafka event generator, and in-memory mock CLI |
 | `test/module/` | Module tests using real PostgreSQL and Kafka |
 | `test/fixtures/` | Sample event payloads |
-| `drizzle/` | Database migrations and migration metadata |
-| `db/schema.sql` | SQL schema reference |
+| `db/schema.sql` | Single fresh-database initializer |
 
 ### Status worker structure
 
@@ -174,8 +172,9 @@ a cluster, isolate their topics and permissions; different consumer groups alone
 do not isolate event streams. The platform team decides whether PostgreSQL uses
 separate instances or isolated databases on shared infrastructure. The app receives
 the appropriate connection string in either case. Producers must use the matching
-environment's Kafka topic, and database migrations must be applied to each target
-database before deploying code that depends on them.
+environment's Kafka topic. Initialize each fresh database with
+`apps/api/core-service/db/schema.sql` before enabling the service. This non-production
+baseline does not upgrade existing database layouts; see [local setup](LOCAL_DEVELOPMENT.md#fresh-database-schema).
 
 ### Configuration ownership in code
 
@@ -197,7 +196,7 @@ With Docker running, execute from the repository root:
 pnpm local:demo
 ```
 
-This starts real PostgreSQL and Kafka, applies migrations, starts the standalone
+This starts real PostgreSQL and Kafka, runs the single schema initializer, starts the standalone
 worker, and publishes sample events with database verification. Services remain
 running afterward.
 
