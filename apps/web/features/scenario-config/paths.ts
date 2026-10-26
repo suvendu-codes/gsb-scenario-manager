@@ -89,6 +89,10 @@ export function deepEqual(a: unknown, b: unknown): boolean {
  * that don't exist in the defaults, or that point at a group of values, are ignored. Neither
  * input is changed.
  *
+ * Ignoring an orphaned override is silent. That cannot happen yet: the mock's defaults never
+ * change and writes reject unknown paths. It becomes possible once defaults depend on the map,
+ * and the server should then report the orphaned paths (review S1, deferred with M1).
+ *
  * @param defaults - The scenario's default config.
  * @param overrides - Changes by dot-notation path.
  */
