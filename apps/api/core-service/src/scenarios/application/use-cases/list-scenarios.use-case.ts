@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { InvalidCursorError } from '../../../common/domain/domain-error.js';
 import { decodeCursor, encodeCursor } from '../../../common/dto/cursor.js';
 import type { Sort } from '../../../common/dto/sort.dto.js';
 import type { Scenario } from '../../domain/scenario.js';
@@ -37,12 +38,12 @@ export class ListScenariosUseCase {
       const c = decodeCursor<CursorPayload>(cursor);
       // A cursor is only valid for the sort it was issued under.
       if (c.f !== sort.field || c.d !== sort.direction) {
-        throw new BadRequestException('Cursor does not match the requested sort');
+        throw new InvalidCursorError('Cursor does not match the requested sort');
       }
-      if (!isValidCursorValue(c, sort.field)) throw new BadRequestException('Invalid cursor');
+      if (!isValidCursorValue(c, sort.field)) throw new InvalidCursorError();
       // Likewise only for the filter: keyset values from another result set would silently skip or repeat rows.
       if (!sameFilter(c.q, q)) {
-        throw new BadRequestException('Cursor does not match the requested filter');
+        throw new InvalidCursorError('Cursor does not match the requested filter');
       }
       after = { value: c.value, id: c.id };
     }

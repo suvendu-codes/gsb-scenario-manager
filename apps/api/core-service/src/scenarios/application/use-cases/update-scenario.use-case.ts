@@ -24,10 +24,11 @@ export class UpdateScenarioUseCase {
       input.configUri ?? (await this.scenarios.findCurrentVersion(scenario))?.configUri;
     if (!configUri) throw new ScenarioConfigNotFoundError(input.id);
 
-    return this.scenarios.update(input.id, {
+    const updated = await this.scenarios.update(input.id, {
       name: input.name,
       configUri,
       updatedBy: input.updatedBy,
     });
+    return { scenario: updated, configUri };
   }
 }

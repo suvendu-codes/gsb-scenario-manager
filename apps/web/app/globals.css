@@ -31,9 +31,25 @@
   --color-danger-hover: #a94a40;
   --color-danger-soft: #fdeceb;
   --color-danger-ink: #b3402a;
+  --color-error-ink: #9a3d1f;
+  --color-error-muted: #b56a5e;
+  --color-error-line: #eab3ac;
+  --color-track: #e8e7e4;
+  --color-chart-inbound: #33547e;
+  --color-disabled: #d0cfcb;
 
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Fills the validation progress bar from empty to full. */
+@keyframes val-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 html,

@@ -11,32 +11,45 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api/errors";
 
-import { useCreateScenario, useProjectMaps, useProjects } from "../hooks";
+import { useCreateScenario, useProjectMaps, useProjects, useUpdateScenario } from "../hooks";
 import { createScenarioSchema, SCENARIO_NAME_MAX_LENGTH } from "../schema";
-import type { CreateScenarioInput } from "../types";
-import { createScenarioFormStyles as styles } from "./CreateScenarioForm.styles";
+import type { CreateScenarioInput, Scenario } from "../types";
+import { scenarioFormStyles as styles } from "./ScenarioForm.styles";
 
-const DEFAULT_VALUES: CreateScenarioInput = { projectId: "", mapId: "", name: "" };
+const EMPTY_VALUES: CreateScenarioInput = { projectId: "", mapId: "", name: "" };
 
 /** Returns the hint shown in the footer, telling the user what to do next. */
-function getFooterNote(values: CreateScenarioInput, hasNameError: boolean): string {
+function getFooterNote(
+  values: CreateScenarioInput,
+  hasNameError: boolean,
+  isEditing: boolean,
+): string {
   if (hasNameError) return "Choose a different name";
   if (!values.projectId) return "Step 1 of 3 — select a project";
   if (!values.mapId) return "Step 2 of 3 — select a map";
   if (!values.name.trim()) return "Step 3 of 3 — name your scenario";
-  return "Ready to create";
+  return isEditing ? "Ready to save" : "Ready to create";
 }
 
+type ScenarioFormProps = {
+  /** The scenario to edit. Leave out to create a new one. */
+  scenario?: Scenario;
+  /** Called with the saved scenario after it is created or updated. */
+  onSaved: (scenario: Scenario) => void;
+};
+
 /**
- * Create-scenario form: Project, then Map (enabled once a project is chosen),
- * then Name. Submits `POST /scenarios`, shows a duplicate name as an inline
- * error, and calls `onCreated` on success.
+ * Scenario form: Project, then Map (enabled once a project is chosen), then Name.
+ * Without `scenario` it creates one (`POST /scenarios`); with `scenario` it edits that draft
+ * (`PATCH /scenarios/{id}`). A duplicate name is shown as an inline error.
  *
  * Render it inside a DialogContent; it supplies the dialog body and footer.
  *
- * @param onCreated - Called after the scenario is created.
+ * @param scenario - The scenario to edit, or nothing to create.
+ * @param onSaved - Called with the saved scenario.
  */
-export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): React.JSX.Element {
+export function ScenarioForm({ scenario, onSaved }: ScenarioFormProps): React.JSX.Element {
+  const isEditing = scenario !== undefined;
   const {
     register,
     handleSubmit,
@@ -48,7 +61,9 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
   } = useForm<CreateScenarioInput>({
     resolver: zodResolver(createScenarioSchema),
     mode: "onChange",
-    defaultValues: DEFAULT_VALUES,
+    defaultValues: scenario
+      ? { projectId: scenario.projectId, mapId: scenario.mapId, name: scenario.name }
+      : EMPTY_VALUES,
   });
 
   const values = useWatch({ control });
@@ -61,6 +76,8 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
   const projects = useProjects();
   const maps = useProjectMaps(projectId);
   const createScenario = useCreateScenario();
+  const updateScenario = useUpdateScenario(scenario?.id ?? "");
+  const save = isEditing ? updateScenario : createScenario;
 
   function clearServerErrors(): void {
     clearErrors("name");
@@ -69,8 +86,8 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
 
   function onSubmit(input: CreateScenarioInput): void {
     setFormError(null);
-    createScenario.mutate(input, {
-      onSuccess: onCreated,
+    save.mutate(input, {
+      onSuccess: onSaved,
       onError: (error) => {
         if (error instanceof ApiError && error.status === 409) {
           setError("name", { type: "server", message: error.message });
@@ -86,7 +103,9 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
       <DialogBody>
         <div>
           <Label htmlFor="scenario-project">Project</Label>
+          {/* The key re-applies the form's value once the options exist (matters when editing). */}
           <Select
+            key={projects.isSuccess ? "loaded" : "loading"}
             id="scenario-project"
             disabled={projects.isPending}
             {...register("projectId", {
@@ -115,6 +134,7 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
         <div>
           <Label htmlFor="scenario-map">Map</Label>
           <Select
+            key={`${projectId}-${maps.isSuccess ? "loaded" : "loading"}`}
             id="scenario-map"
             disabled={!projectId || maps.isPending}
             {...register("mapId", { onChange: clearServerErrors })}
@@ -166,11 +186,17 @@ export function CreateScenarioForm({ onCreated }: { onCreated: () => void }): Re
 
       <DialogFooter>
         <span className={styles.footerNote}>
-          {getFooterNote({ projectId, mapId, name }, errors.name?.type === "server")}
+          {getFooterNote({ projectId, mapId, name }, errors.name?.type === "server", isEditing)}
         </span>
         <div className={styles.footerActions}>
-          <Button type="submit" size="lg" disabled={!isValid || createScenario.isPending}>
-            {createScenario.isPending ? "Creating…" : "Create scenario"}
+          <Button type="submit" size="lg" disabled={!isValid || save.isPending}>
+            {save.isPending
+              ? isEditing
+                ? "Saving…"
+                : "Creating…"
+              : isEditing
+                ? "Save changes"
+                : "Create scenario"}
           </Button>
         </div>
       </DialogFooter>

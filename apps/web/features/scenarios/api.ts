@@ -53,3 +53,20 @@ export function createScenario(input: CreateScenarioInput): Promise<Scenario> {
     body: JSON.stringify(input),
   });
 }
+
+/**
+ * Edits a draft scenario's project, map and name (`PATCH /scenarios/{id}`).
+ *
+ * @param id - Id of the scenario to edit.
+ * @param input - The new project, map and name.
+ * @returns The updated scenario.
+ * @throws {ApiError} With status 409 if the name is taken on that map or the scenario is not a draft,
+ *   or 404 if the scenario, project or map does not exist.
+ */
+export function updateScenario(id: string, input: CreateScenarioInput): Promise<Scenario> {
+  return request(`/scenarios/${encodeURIComponent(id)}`, scenarioSchema, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}

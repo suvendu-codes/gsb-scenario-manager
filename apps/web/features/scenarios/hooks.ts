@@ -9,12 +9,13 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 
-import { createScenario, getProjectMaps, getProjects, getScenarios } from "./api";
+import { createScenario, getProjectMaps, getProjects, getScenarios, updateScenario } from "./api";
 import type { CreateScenarioInput, Project, ProjectMap, Scenario } from "./types";
 
 /** Query keys for scenario data, so mutations can invalidate the right queries. */
 export const scenarioKeys = {
   list: ["scenarios", "list"] as const,
+  detail: (scenarioId: string) => ["scenarios", "detail", scenarioId] as const,
   projects: ["projects"] as const,
   maps: (projectId: string) => ["projects", projectId, "maps"] as const,
 };
@@ -122,5 +123,27 @@ export function useCreateScenario(): UseMutationResult<Scenario, Error, CreateSc
   return useMutation({
     mutationFn: createScenario,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: scenarioKeys.list }),
+  });
+}
+
+/**
+ * Edits a draft scenario and refreshes the list and that scenario's detail when it succeeds.
+ *
+ * @param scenarioId - Id of the scenario to edit.
+ * @returns The mutation result; call `mutate` with the new project, map and name.
+ */
+export function useUpdateScenario(
+  scenarioId: string,
+): UseMutationResult<Scenario, Error, CreateScenarioInput> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateScenarioInput) => updateScenario(scenarioId, input),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: scenarioKeys.list }),
+        queryClient.invalidateQueries({ queryKey: scenarioKeys.detail(scenarioId) }),
+      ]);
+    },
   });
 }

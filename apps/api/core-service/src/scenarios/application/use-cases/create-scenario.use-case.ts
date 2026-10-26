@@ -8,7 +8,8 @@ export class CreateScenarioUseCase {
     @Inject(SCENARIO_REPOSITORY) private readonly scenarios: ScenarioRepository,
   ) {}
 
-  execute(input: NewScenario) {
-    return this.scenarios.create(input);
+  async execute(input: NewScenario) {
+    const scenario = await this.scenarios.create(input);
+    return { scenario, configUri: input.configUri };
   }
 }
