@@ -16,9 +16,13 @@
     "dev": "tsc -p tsconfig.json --watch",
     "prepare": "pnpm run build"
   },
+  "dependencies": {
+    "opossum": "9.0.0"
+  },
   "devDependencies": {
     "@nestjs/common": "^12.1.2",
     "@types/node": "^26.6.4",
+    "@types/opossum": "8.1.9",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
