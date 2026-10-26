@@ -10,7 +10,15 @@ import type { ConfigCatalog, StationInfo } from "../types";
  * `catalog.test.ts` checks these ranges against the schema that validates the values.
  */
 
-/** Stations of the mock site, as the registry describes them. */
+/**
+ * Stations of the mock site, as the registry describes them.
+ *
+ * MOCK: this is one fixed list for every map, and it ships inside the catalog. The real list
+ * depends on the map and comes from the station registry, so the stations should move out of
+ * the catalog, and the functions that read `STATION_IDS` (defaults, validation, the config
+ * store, the station edit logic) should take the list as a parameter. Deferred until the
+ * registry's fields are agreed (review M1).
+ */
 const STATIONS: StationInfo[] = [
   {
     id: "PPS-101",

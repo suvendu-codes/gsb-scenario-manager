@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { buildDefaults } from "../defaults";
 import { getAtPath, hasPath, resolveConfig } from "../paths";
-import { configValuesSchema, operationsCatalog, SCHEDULER_WEIGHTS } from "../schema";
+import {
+  configValuesSchema,
+  operationsCatalog,
+  operationsCatalogSchema,
+  SCHEDULER_WEIGHTS,
+} from "../schema";
 import type { CatalogField } from "../types";
 import { configCatalog, STATION_IDS } from "./index";
+import operationsJson from "./operations.json";
 import { configCatalogSchema } from "./schema";
 
 const defaults = buildDefaults();
@@ -30,14 +36,100 @@ describe("defaults", () => {
     expect(Object.keys(defaults.station.stations)).toEqual([...STATION_IDS]);
   });
 
-  it("start every pick field on its first option, toggles off", () => {
-    const pick = defaults.station.stations[STATION].operations.pick;
-    expect(pick.binStructure).toBe("front-back");
+  it("start every pick and audit field on the default the catalog declares", () => {
+    const station = defaults.station.stations[STATION];
+    expect(station.operations.pick.binStructure).toBe(operationsCatalog.pick.binStructure.default);
     for (const group of operationsCatalog.pick.groups) {
       for (const field of group.fields) {
-        expect(pick[field.key]).toBe(field.type === "toggle" ? false : field.options[0].value);
+        expect(station.operations.pick[field.key], field.key).toBe(field.default);
       }
     }
+    for (const field of operationsCatalog.audit.fields) {
+      expect(station.operations.audit[field.key], field.key).toBe(field.default);
+    }
+  });
+
+  it("start put on the put defaults the catalog declares", () => {
+    expect(defaults.station.stations[STATION].operations.put).toEqual(
+      operationsCatalog.put.defaults,
+    );
+  });
+});
+
+describe("declared operations defaults", () => {
+  /** A copy of the generated catalog that `change` can edit. */
+  function catalogWith(change: (json: typeof operationsJson) => void) {
+    const copy = structuredClone(operationsJson);
+    change(copy);
+    return operationsCatalogSchema.safeParse(copy);
+  }
+
+  it("are accepted for the generated catalog", () => {
+    expect(operationsCatalogSchema.safeParse(operationsJson).success).toBe(true);
+  });
+
+  it("every choice's default is one of its options", () => {
+    const choices = operationsCatalog.pick.groups
+      .flatMap((g) => g.fields)
+      .filter((f) => f.type === "choice");
+    expect(choices.length).toBeGreaterThan(0);
+    for (const field of choices) {
+      expect(
+        field.options.map((o) => o.value),
+        field.key,
+      ).toContain(field.default);
+    }
+  });
+
+  it("rejects a choice default that is not one of its options", () => {
+    const result = catalogWith((json) => {
+      const field = json.pick.groups[0].fields[0];
+      field.default = "no-such-option";
+    });
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.issues[0].message).toMatch(/is not one of its options/);
+  });
+
+  it("rejects a bin structure default that is not one of its options", () => {
+    expect(
+      catalogWith((json) => {
+        json.pick.binStructure.default = "nope";
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects put defaults that name a flow or category that does not exist", () => {
+    expect(
+      catalogWith((json) => {
+        json.put.defaults.behavior.back = "no-such-flow";
+      }).success,
+    ).toBe(false);
+    expect(
+      catalogWith((json) => {
+        json.put.defaults.behavior.front = "staged-tote-put-back";
+      }).success,
+    ).toBe(false);
+    expect(
+      catalogWith((json) => {
+        json.put.defaults.category = "nope";
+      }).success,
+    ).toBe(false);
+    expect(
+      catalogWith((json) => {
+        json.put.defaults.followUp.back = "Nope";
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps working when the options are reordered, because the default is declared", () => {
+    const reordered = structuredClone(operationsJson);
+    const field = reordered.pick.groups[0].fields.find((f) => f.type === "choice");
+    if (!field || field.type !== "choice") throw new Error("no choice field");
+    const declared = field.default;
+    field.options.reverse();
+    const parsed = operationsCatalogSchema.parse(reordered);
+    const same = parsed.pick.groups[0].fields.find((f) => f.key === field.key);
+    expect(same?.type === "choice" && same.default).toBe(declared);
   });
 });
 
