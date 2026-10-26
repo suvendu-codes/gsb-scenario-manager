@@ -2,7 +2,8 @@ import { z } from "zod";
 
 import { API_BASE_URL } from "@/lib/env";
 
-import { ApiError } from "./errors";
+import { parseErrorBody } from "./error";
+import { ApiError, type ApiErrorDetails } from "./errors";
 import { errorInterceptors, requestInterceptors } from "./interceptors";
 import { getRetryPlan, sleep, type RetryOptions } from "./retry-policy";
 import { DEFAULT_TIMEOUT_MS, fetchWithTimeout } from "./timeout";
@@ -15,16 +16,29 @@ export type RequestOptions = RequestInit & {
   retry?: RetryOptions;
 };
 
-/** Reads `{ message }` from an error response body, falling back to the status text. */
-async function readErrorMessage(response: Response): Promise<string> {
+/**
+ * Reads an error response: the API's error envelope when the body follows it, just `{ message }`
+ * when only that is there, and the status text when the body is empty or not JSON.
+ */
+async function readError(
+  response: Response,
+): Promise<{ message: string; details: ApiErrorDetails }> {
   try {
     const body: unknown = await response.json();
-    const parsed = z.object({ message: z.string() }).safeParse(body);
-    if (parsed.success) return parsed.data.message;
+    const envelope = parseErrorBody(body);
+    if (envelope) {
+      const { message, ...details } = envelope;
+      return { message, details };
+    }
+    const messageOnly = z.object({ message: z.string() }).safeParse(body);
+    if (messageOnly.success) return { message: messageOnly.data.message, details: {} };
   } catch {
     // Body was empty or not JSON; use the status text below.
   }
-  return response.statusText || `Request failed with status ${response.status}`;
+  return {
+    message: response.statusText || `Request failed with status ${response.status}`,
+    details: {},
+  };
 }
 
 /** One attempt: interceptors, fetch with timeout, error mapping and validation. */
@@ -56,7 +70,8 @@ async function send<S extends z.ZodTypeAny>(
   }
 
   if (!response.ok) {
-    return fail(new ApiError("http", response.status, await readErrorMessage(response)));
+    const { message, details } = await readError(response);
+    return fail(new ApiError("http", response.status, message, details));
   }
 
   let body: unknown;
