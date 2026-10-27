@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { StatusPill } from "@/features/scenarios/components/StatusPill";
 import type { ScenarioStatus } from "@/features/scenarios/types";
 
-import type { SaveStatus } from "../use-config-editor";
+import type { SaveState, SaveStatus } from "../use-config-editor";
 import { configHeaderStyles as styles } from "./ConfigHeader.styles";
 
 type ConfigHeaderProps = {
@@ -16,17 +16,21 @@ type ConfigHeaderProps = {
   /** "Project · Map", shown above the name. */
   context: string;
   save: SaveStatus;
+  /** False while a failed save is being recovered from; undo and redo are off then. */
+  editable: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
 };
 
-const SAVE_TEXT = {
+const SAVE_TEXT: Record<SaveState, string> = {
   saved: "Saves automatically",
   saving: "Saving…",
+  reloading: "Reloading…",
   error: "Couldn’t save",
-} as const;
+  "out-of-sync": "Not in sync",
+};
 
 /**
  * The top of the config screen: back to setup, the scenario's name and status, whether the
@@ -37,6 +41,7 @@ const SAVE_TEXT = {
  * @param status - The scenario's status.
  * @param context - The project and map names.
  * @param save - Whether changes are saved.
+ * @param editable - Whether edits are accepted right now.
  * @param canUndo - Whether there is an edit to undo.
  * @param canRedo - Whether there is an edit to redo.
  * @param onUndo - Called when Undo is clicked.
@@ -48,6 +53,7 @@ export function ConfigHeader({
   status,
   context,
   save,
+  editable,
   canUndo,
   canRedo,
   onUndo,
@@ -71,7 +77,10 @@ export function ConfigHeader({
       </div>
       <div className={styles.actions}>
         <span
-          className={cn(styles.save, save.state === "error" && styles.saveError)}
+          className={cn(
+            styles.save,
+            (save.state === "error" || save.state === "out-of-sync") && styles.saveError,
+          )}
           role="status"
           title={save.error ?? undefined}
         >
@@ -82,7 +91,7 @@ export function ConfigHeader({
             type="button"
             className={styles.historyButton}
             aria-label="Undo"
-            disabled={!canUndo}
+            disabled={!editable || !canUndo}
             onClick={onUndo}
           >
             <Undo2 className={styles.historyIcon} aria-hidden="true" />
@@ -91,7 +100,7 @@ export function ConfigHeader({
             type="button"
             className={styles.historyButton}
             aria-label="Redo"
-            disabled={!canRedo}
+            disabled={!editable || !canRedo}
             onClick={onRedo}
           >
             <Redo2 className={styles.historyIcon} aria-hidden="true" />

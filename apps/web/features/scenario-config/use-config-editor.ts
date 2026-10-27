@@ -1,22 +1,21 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
-import { useConfigCatalog, useScenarioConfig, useUpdateScenarioConfig } from "./hooks";
+import { scenarioConfigSource, useConfigCatalog, useScenarioConfig } from "./hooks";
 import { resolveConfig } from "./paths";
 import { diffToPatch } from "./state/changes";
 import {
-  applyEdit,
-  applyRedo,
-  applyUndo,
-  initialEditorState,
-  type EditorState,
-  type EditorStep,
-} from "./state/editor-history";
-import type { ConfigCatalog, ConfigIssue, ConfigValues, Overrides, PatchConfigBody } from "./types";
+  sessionForScenario,
+  type EditSession,
+  type SaveStatus,
+  type SessionSnapshot,
+} from "./state/edit-session";
+import { applyEdit, applyRedo, applyUndo } from "./state/editor-history";
+import type { ConfigCatalog, ConfigIssue, ConfigValues, Overrides } from "./types";
 
-/** Where saving stands: everything saved, a save in progress, or the last save failed. */
-export type SaveStatus = { state: "saved" | "saving" | "error"; error: string | null };
+export type { SaveState, SaveStatus } from "./state/edit-session";
 
 /** What the config panel needs to show and change a scenario's config. */
 export type ConfigEditor = {
@@ -28,10 +27,12 @@ export type ConfigEditor = {
   overrides: Overrides;
   /** The config with the overrides applied: what the scenario will run with. */
   config: ConfigValues | null;
-  /** Problems that would stop the run, as of the last save. */
+  /** Problems that would stop the run, as of the last answer from the server. */
   issues: ConfigIssue[];
   runDurationHours: number | null;
   save: SaveStatus;
+  /** False while a failed save is being recovered from; edits are ignored then. */
+  editable: boolean;
   canUndo: boolean;
   canRedo: boolean;
   /** Changes the config: `recipe` gets the current config and returns the edited one. */
@@ -40,125 +41,84 @@ export type ConfigEditor = {
   reset: (paths: string[]) => void;
   undo: () => void;
   redo: () => void;
+  /** Loads what the server has again, when saving is `out-of-sync`. */
+  reload: () => void;
 };
 
 const NO_OVERRIDES: Overrides = {};
 const NO_ISSUES: ConfigIssue[] = [];
+const noSubscription = () => () => {};
+const noSnapshot = () => null;
 
 /**
- * The state and actions of the config panel for one scenario. Edits show immediately and are
- * saved one after another in order, so a slow save can't overwrite a newer edit. If a save
- * fails, the screen goes back to what the server has and the error is reported in `save`.
+ * The state and actions of the config panel for one scenario. Saving, failure recovery and
+ * undo live in an edit session (`state/edit-session.ts`); this hook starts one per scenario,
+ * so changing `scenarioId` never shows or sends another scenario's edits.
  *
  * @param scenarioId - The scenario being configured.
  */
 export function useConfigEditor(scenarioId: string): ConfigEditor {
+  const queryClient = useQueryClient();
   const catalogQuery = useConfigCatalog();
   const configQuery = useScenarioConfig(scenarioId);
-  const update = useUpdateScenarioConfig(scenarioId);
-
-  const [editor, setEditor] = useState<EditorState | null>(null);
-  const [serverIssues, setServerIssues] = useState<ConfigIssue[] | null>(null);
-  const [save, setSave] = useState<SaveStatus>({ state: "saved", error: null });
-
-  // The latest editor state, readable right after an edit before React has re-rendered.
-  const editorRef = useRef<EditorState | null>(null);
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  const pending = useRef(0);
-  // Bumped when a save fails, so edits queued behind it are dropped.
-  const generation = useRef(0);
-
   const data = configQuery.data;
-  const state = editor ?? (data ? initialEditorState(data.overrides) : null);
+
+  // One session per scenario: a new scenario drops the old one with all its state.
+  const [session, setSession] = useState<EditSession | null>(null);
+  const live = sessionForScenario(session, scenarioId, data, (id) =>
+    scenarioConfigSource(queryClient, id),
+  );
+  if (live !== session) setSession(live);
+
+  const snapshot: SessionSnapshot | null = useSyncExternalStore(
+    live?.subscribe ?? noSubscription,
+    live?.getSnapshot ?? noSnapshot,
+    live?.getSnapshot ?? noSnapshot,
+  );
+
   const defaults = data?.defaults ?? null;
-  const overrides = state?.overrides ?? NO_OVERRIDES;
+  const overrides = snapshot?.editor.overrides ?? NO_OVERRIDES;
   const config = useMemo(
     () => (defaults ? resolveConfig(defaults, overrides) : null),
     [defaults, overrides],
   );
+  const save = snapshot?.save ?? { state: "saved", error: null };
 
-  function enqueueSave(patch: PatchConfigBody): void {
-    const savedGeneration = generation.current;
-    pending.current += 1;
-    setSave({ state: "saving", error: null });
-
-    queue.current = queue.current.then(async () => {
-      try {
-        if (savedGeneration !== generation.current) return;
-        const saved = await update.mutateAsync(patch);
-        setServerIssues(saved.issues);
-      } catch (error) {
-        generation.current += 1;
-        setSave({
-          state: "error",
-          error: error instanceof Error ? error.message : "Could not save the change.",
-        });
-        const fresh = await configQuery.refetch();
-        if (fresh.data) {
-          const reloaded = initialEditorState(fresh.data.overrides);
-          editorRef.current = reloaded;
-          setEditor(reloaded);
-          setServerIssues(fresh.data.issues);
-        }
-      } finally {
-        pending.current -= 1;
-        if (pending.current === 0) {
-          setSave((current) =>
-            current.state === "error" ? current : { state: "saved", error: null },
-          );
-        }
-      }
-    });
-  }
-
-  function commit(step: EditorStep | null): void {
-    if (!step) return;
-    editorRef.current = step.state;
-    setEditor(step.state);
-    if (step.send) enqueueSave(step.send);
-  }
-
-  function current(): EditorState | null {
-    return editorRef.current ?? (data ? initialEditorState(data.overrides) : null);
-  }
-
-  const status =
-    catalogQuery.isError || configQuery.isError
-      ? "error"
-      : catalogQuery.data && data
-        ? "ready"
-        : "loading";
+  // A failed refetch keeps the loaded data; only a load that never succeeded is an error.
+  // (A failed reload after a failed save shows as the `out-of-sync` save state instead.)
+  const loadFailed = (catalogQuery.isError && !catalogQuery.data) || (configQuery.isError && !data);
+  const status = loadFailed ? "error" : catalogQuery.data && live ? "ready" : "loading";
 
   return {
     status,
-    error: catalogQuery.error ?? configQuery.error ?? null,
+    error: loadFailed ? (catalogQuery.error ?? configQuery.error) : null,
     catalog: catalogQuery.data ?? null,
     defaults,
     overrides,
     config,
-    issues: serverIssues ?? data?.issues ?? NO_ISSUES,
+    issues: snapshot?.issues ?? NO_ISSUES,
     runDurationHours: data?.runDurationHours ?? null,
     save,
-    canUndo: (state?.undo.length ?? 0) > 0,
-    canRedo: (state?.redo.length ?? 0) > 0,
+    editable: save.state !== "reloading" && save.state !== "out-of-sync",
+    canUndo: (snapshot?.editor.undo.length ?? 0) > 0,
+    canRedo: (snapshot?.editor.redo.length ?? 0) > 0,
     edit: (recipe) => {
-      const base = current();
-      if (!base || !defaults) return;
-      const effective = resolveConfig(defaults, base.overrides);
-      const patch = diffToPatch(effective, recipe(effective));
-      if (patch) commit(applyEdit(base, defaults, patch));
+      if (!defaults) return;
+      live?.apply((editor) => {
+        const effective = resolveConfig(defaults, editor.overrides);
+        const patch = diffToPatch(effective, recipe(effective));
+        return patch ? applyEdit(editor, defaults, patch) : null;
+      });
     },
     reset: (paths) => {
-      const base = current();
-      if (base && defaults) commit(applyEdit(base, defaults, { reset: paths }));
+      if (defaults) live?.apply((editor) => applyEdit(editor, defaults, { reset: paths }));
     },
     undo: () => {
-      const base = current();
-      if (base && defaults) commit(applyUndo(base, defaults));
+      if (defaults) live?.apply((editor) => applyUndo(editor, defaults));
     },
     redo: () => {
-      const base = current();
-      if (base && defaults) commit(applyRedo(base, defaults));
+      if (defaults) live?.apply((editor) => applyRedo(editor, defaults));
     },
+    reload: () => live?.reload(),
   };
 }
