@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseMutationResult,
-  type UseQueryResult,
-} from "@tanstack/react-query";
+import { useQuery, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 
 import { getConfigCatalog, getScenarioConfig, patchScenarioConfig } from "./api";
-import type { ConfigCatalog, PatchConfigBody, ScenarioConfig } from "./types";
+import type { SessionSource } from "./state/edit-session";
+import type { ConfigCatalog, ScenarioConfig } from "./types";
 
 /** Query keys for the scenario config. */
 export const configKeys = {
@@ -42,20 +37,25 @@ export function useScenarioConfig(scenarioId: string): UseQueryResult<ScenarioCo
 }
 
 /**
- * Sends a config change and stores the server's answer in the cached config.
+ * How an edit session saves and reloads one scenario's config. Both answers are written to the
+ * cached config, so other readers of `useScenarioConfig` see what the server has.
  *
+ * @param queryClient - The app's query client.
  * @param scenarioId - The scenario id.
- * @returns The mutation result; call `mutateAsync` with the patch.
  */
-export function useUpdateScenarioConfig(
-  scenarioId: string,
-): UseMutationResult<ScenarioConfig, Error, PatchConfigBody> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (patch: PatchConfigBody) => patchScenarioConfig(scenarioId, patch),
-    onSuccess: (config) => {
-      queryClient.setQueryData(configKeys.scenario(scenarioId), config);
+export function scenarioConfigSource(queryClient: QueryClient, scenarioId: string): SessionSource {
+  const key = configKeys.scenario(scenarioId);
+  return {
+    save: async (patch) => {
+      const saved = await patchScenarioConfig(scenarioId, patch);
+      queryClient.setQueryData(key, saved);
+      return saved;
     },
-  });
+    load: () =>
+      queryClient.fetchQuery({
+        queryKey: key,
+        queryFn: () => getScenarioConfig(scenarioId),
+        staleTime: 0,
+      }),
+  };
 }
