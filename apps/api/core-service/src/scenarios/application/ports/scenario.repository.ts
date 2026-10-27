@@ -10,30 +10,27 @@ export interface ScenarioListFilter {
   sort: Sort<ScenarioSortField>;
 }
 
-export interface ScenarioCursor {
-  value: string; // ISO date for created_at/updated_at, raw string for name
-  id: string;
-}
-
 export interface ScenarioPageFilter {
   status?: ScenarioStatus;
   mapId?: string;
   projectId?: string;
   sort: Sort<ScenarioSortField>;
-  /** The repository fetches limit + 1 rows so the caller can detect a next page. */
+  page: number;
   limit: number;
-  after?: ScenarioCursor;
 }
 
 export interface ScenarioChanges {
   name?: string;
-  configUri: string;
+  /** Omitted to keep the current blob URI. */
+  configUri?: string;
+  /** Inline config; replaces the stored body and bumps the version. */
+  config?: Record<string, unknown>;
   updatedBy: string;
 }
 
 export interface ScenarioRepository {
   listByMap(mapId: string, filter: ScenarioListFilter): Promise<Scenario[]>;
-  list(filter: ScenarioPageFilter): Promise<Scenario[]>;
+  list(filter: ScenarioPageFilter): Promise<{ items: Scenario[]; total: number }>;
   findById(id: string): Promise<Scenario | null>;
   findCurrentVersion(scenario: Scenario): Promise<ScenarioVersion | null>;
   /** @throws DuplicateScenarioNameError when (mapId, name) is taken. */

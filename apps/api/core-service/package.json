@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@google-cloud/storage": "^8.4.0",
     "@nestjs/common": "^12.1.2",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.1.2",
