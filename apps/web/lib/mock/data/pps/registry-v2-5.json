@@ -1,0 +1,169 @@
+[
+  {
+    "location": "2181500276",
+    "status": "disconnected",
+    "queue_barcodes": ["2179850568", "2179850414", "2179850276", "2181500276", "2183150276"],
+    "pick_position": "2181500276",
+    "pick_direction": 2,
+    "put_docking_positions": [],
+    "allowed_modes": ["put"],
+    "pps_points": [{ "position_id": 1, "coordinate": "[57,291]", "type": "rtp" }],
+    "docking_stations": [],
+    "type": "ppp_manual",
+    "eligible_system": ["rtp"],
+    "version": 2,
+    "pps_id": 1,
+    "pps_url": "http://localhost:3000/pps/1/api/"
+  },
+  {
+    "location": "2174900276",
+    "status": "disconnected",
+    "queue_barcodes": ["2173250568", "2173250414", "2173250276", "2174900276", "2176550276"],
+    "pick_position": "2174900276",
+    "pick_direction": 2,
+    "put_docking_positions": [],
+    "allowed_modes": ["put"],
+    "pps_points": [{ "position_id": 1, "coordinate": "[65,291]", "type": "rtp" }],
+    "docking_stations": [],
+    "type": "ppp_manual",
+    "eligible_system": ["rtp"],
+    "version": 2,
+    "pps_id": 2,
+    "pps_url": "http://localhost:3000/pps/2/api/"
+  },
+  {
+    "location": "2168300276",
+    "status": "disconnected",
+    "queue_barcodes": ["2166650568", "2166650414", "2166650276", "2168300276", "2169950276"],
+    "pick_position": "2168300276",
+    "pick_direction": 2,
+    "put_docking_positions": [],
+    "allowed_modes": ["put"],
+    "pps_points": [{ "position_id": 1, "coordinate": "[73,291]", "type": "rtp" }],
+    "docking_stations": [],
+    "type": "ppp_manual",
+    "eligible_system": ["rtp"],
+    "version": 2,
+    "pps_id": 3,
+    "pps_url": "http://localhost:3000/pps/3/api/"
+  },
+  {
+    "location": "2156750276",
+    "status": "disconnected",
+    "queue_barcodes": [
+      "2155100414",
+      "2153450414",
+      "2151800414",
+      "2151800276",
+      "2153450276",
+      "2155100276",
+      "2156750276",
+      "2158400276",
+      "2160050276",
+      "2160050414"
+    ],
+    "pick_position": "2156750276",
+    "pick_direction": 2,
+    "put_docking_positions": [],
+    "allowed_modes": ["put"],
+    "pps_points": [{ "position_id": 1, "coordinate": "[88,291]", "type": "rtp" }],
+    "docking_stations": [
+      {
+        "dock_station_id": "STPRTP0027",
+        "rollcage_type_id": "Type1",
+        "group_id": 3,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      },
+      {
+        "dock_station_id": "STPRTP0025",
+        "rollcage_type_id": "Type1",
+        "group_id": 1,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      },
+      {
+        "dock_station_id": "STPRTP0028",
+        "rollcage_type_id": "Type1",
+        "group_id": 4,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      },
+      {
+        "dock_station_id": "STPRTP0026",
+        "rollcage_type_id": "Type1",
+        "group_id": 2,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      }
+    ],
+    "type": "manual",
+    "eligible_system": ["rtp"],
+    "version": 2,
+    "pps_id": 4,
+    "pps_url": "http://localhost:3000/pps/4/api/"
+  },
+  {
+    "location": "2148500276",
+    "status": "disconnected",
+    "queue_barcodes": [
+      "2146850414",
+      "2145200414",
+      "2143550414",
+      "2143550276",
+      "2145200276",
+      "2146850276",
+      "2148500276",
+      "2150150276",
+      "2150150414"
+    ],
+    "pick_position": "2148500276",
+    "pick_direction": 2,
+    "put_docking_positions": [],
+    "allowed_modes": ["put"],
+    "pps_points": [{ "position_id": 1, "coordinate": "[99,291]", "type": "rtp" }],
+    "docking_stations": [
+      {
+        "dock_station_id": "STPRTP0021",
+        "rollcage_type_id": "Type1",
+        "group_id": 1,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      },
+      {
+        "dock_station_id": "STPRTP0022",
+        "rollcage_type_id": "Type1",
+        "group_id": 2,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      },
+      {
+        "dock_station_id": "STPRTP0024",
+        "rollcage_type_id": "Type1",
+        "group_id": 4,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      },
+      {
+        "dock_station_id": "STPRTP0023",
+        "rollcage_type_id": "Type1",
+        "group_id": 3,
+        "tags": [],
+        "docking_type": "auto",
+        "dock_station_type": "rollcage"
+      }
+    ],
+    "type": "manual",
+    "eligible_system": ["rtp"],
+    "version": 2,
+    "pps_id": 5,
+    "pps_url": "http://localhost:3000/pps/5/api/"
+  }
+]

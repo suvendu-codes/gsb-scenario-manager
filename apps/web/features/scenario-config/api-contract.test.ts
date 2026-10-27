@@ -26,12 +26,15 @@ describeConfigApiContract("mock", async (): Promise<ContractContext> => {
     draftId: DRAFT_ID,
     nonDraftId: COMPLETED_ID,
     unknownId: UNKNOWN_ID,
+    map: { projectId: "coupang-daegu", mapId: "ecom-rtp" },
+    unknownMap: { projectId: "coupang-daegu", mapId: "no-such-map" },
   };
 });
 
 /*
  * The same contract against a running service. Set CONFIG_API_URL to its base URL (the value
- * NEXT_PUBLIC_API_BASE_URL would have), plus CONFIG_API_DRAFT_ID and CONFIG_API_NON_DRAFT_ID.
+ * NEXT_PUBLIC_API_BASE_URL would have), plus CONFIG_API_DRAFT_ID, CONFIG_API_NON_DRAFT_ID,
+ * CONFIG_API_PROJECT_ID and CONFIG_API_MAP_ID.
  * The draft's overrides are reset before each test.
  */
 const realUrl = process.env.CONFIG_API_URL;
@@ -44,6 +47,11 @@ describe.skipIf(!realUrl)("against CONFIG_API_URL", () => {
       draftId: process.env.CONFIG_API_DRAFT_ID ?? "",
       nonDraftId: process.env.CONFIG_API_NON_DRAFT_ID ?? "",
       unknownId: UNKNOWN_ID,
+      map: {
+        projectId: process.env.CONFIG_API_PROJECT_ID ?? "",
+        mapId: process.env.CONFIG_API_MAP_ID ?? "",
+      },
+      unknownMap: { projectId: process.env.CONFIG_API_PROJECT_ID ?? "", mapId: "no-such-map" },
     };
   });
 });

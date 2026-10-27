@@ -27,6 +27,16 @@ const ROUTES: Route[] = [
     load: () => import("@/app/api/config/catalog/route"),
   },
   {
+    pattern: /^\/projects\/([^/]+)\/maps\/([^/]+)\/pps$/,
+    params: ["id", "mapId"],
+    load: () => import("@/app/api/projects/[id]/maps/[mapId]/pps/route"),
+  },
+  {
+    pattern: /^\/projects\/([^/]+)\/maps\/([^/]+)\/sizer$/,
+    params: ["id", "mapId"],
+    load: () => import("@/app/api/projects/[id]/maps/[mapId]/sizer/route"),
+  },
+  {
     pattern: /^\/scenarios\/([^/]+)\/config$/,
     params: ["id"],
     load: () => import("@/app/api/scenarios/[id]/config/route"),

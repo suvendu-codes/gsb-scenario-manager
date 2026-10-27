@@ -1,0 +1,17 @@
+{
+  "map_id": "<map_id>",
+  "bot_types": [
+    {
+      "type": "quicktron_htm",
+      "name": "Quicktron HTM",
+      "image_url": null,
+      "count": 40
+    },
+    {
+      "type": "quicktron_vtm",
+      "name": "Quicktron VTM",
+      "image_url": null,
+      "count": 12
+    }
+  ]
+}
