@@ -8,7 +8,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 
-import { getConfigCatalog, getScenarioConfig, patchScenarioConfig } from "./api";
+import { configApi } from "./api";
 import type { ConfigCatalog, PatchConfigBody, ScenarioConfig } from "./types";
 
 /** Query keys for the scenario config. */
@@ -24,7 +24,7 @@ export const configKeys = {
 export function useConfigCatalog(): UseQueryResult<ConfigCatalog, Error> {
   return useQuery({
     queryKey: configKeys.catalog,
-    queryFn: getConfigCatalog,
+    queryFn: () => configApi.getCatalog(),
     staleTime: Infinity,
   });
 }
@@ -37,7 +37,7 @@ export function useConfigCatalog(): UseQueryResult<ConfigCatalog, Error> {
 export function useScenarioConfig(scenarioId: string): UseQueryResult<ScenarioConfig, Error> {
   return useQuery({
     queryKey: configKeys.scenario(scenarioId),
-    queryFn: () => getScenarioConfig(scenarioId),
+    queryFn: () => configApi.getScenarioConfig(scenarioId),
   });
 }
 
@@ -53,7 +53,7 @@ export function useUpdateScenarioConfig(
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (patch: PatchConfigBody) => patchScenarioConfig(scenarioId, patch),
+    mutationFn: (patch: PatchConfigBody) => configApi.patchScenarioConfig(scenarioId, patch),
     onSuccess: (config) => {
       queryClient.setQueryData(configKeys.scenario(scenarioId), config);
     },

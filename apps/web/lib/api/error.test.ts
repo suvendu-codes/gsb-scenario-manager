@@ -27,6 +27,67 @@ describe("parseErrorBody", () => {
   });
 });
 
+describe("parseErrorBody: nested error shape", () => {
+  it("reads code, message and request id", () => {
+    expect(
+      parseErrorBody({
+        error: { code: "not_found", message: "No such scenario", request_id: "r-1" },
+      }),
+    ).toEqual({ code: "not_found", message: "No such scenario", requestId: "r-1" });
+  });
+
+  it("turns details.errors into problems with their paths", () => {
+    const body = {
+      error: {
+        code: "validation_failed",
+        message: "2 fields are invalid",
+        details: {
+          errors: [
+            { path: "wms.volume_multiplier", reason: "out_of_range", max: 2.5 },
+            { reason: "missing" },
+          ],
+        },
+      },
+    };
+    expect(parseErrorBody(body)).toEqual({
+      code: "validation_failed",
+      message: "2 fields are invalid",
+      problems: [
+        {
+          code: "out_of_range",
+          message: "wms.volume_multiplier: out_of_range",
+          params: { max: 2.5 },
+          path: "wms.volume_multiplier",
+        },
+        { code: "missing", message: "missing" },
+      ],
+    });
+  });
+
+  it("turns details.issues into problems and other scalar details into params", () => {
+    const body = {
+      error: {
+        code: "scenario_invalid",
+        message: "Not ready",
+        details: { scenario_id: "s-1", issues: [{ code: "no_dataset", message: "Attach one" }] },
+      },
+    };
+    expect(parseErrorBody(body)).toEqual({
+      code: "scenario_invalid",
+      message: "Not ready",
+      params: { scenario_id: "s-1" },
+      problems: [{ code: "no_dataset", message: "Attach one" }],
+    });
+  });
+
+  it("skips detail entries it cannot read and rejects a body without code and message", () => {
+    const body = { error: { code: "x", message: "y", details: { errors: ["bad", 3] } } };
+    expect(parseErrorBody(body)).toEqual({ code: "x", message: "y" });
+    expect(parseErrorBody({ error: { message: "no code" } })).toBeNull();
+    expect(parseErrorBody({ error: "text" })).toBeNull();
+  });
+});
+
 describe("summarizeProblems", () => {
   const problem = (message: string) => ({ code: "X", message });
 
