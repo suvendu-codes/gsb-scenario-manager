@@ -261,7 +261,8 @@ export function writeStationStructure(
 
 /**
  * Chooses which stations All-stations edits of a section target. Stations that join the
- * targets lose their own value and take the shared one, when there is one.
+ * targets take the shared value and stop keeping their own. When the targets share no value,
+ * the joiners keep their own value and stay marked as keeping it.
  *
  * @param ids - The chosen stations; none, or all of them, means every station.
  */
@@ -275,15 +276,18 @@ export function setSharedTargets(
   const previous = applyTargets(config, section);
   const resolved = nextIds.length > 0 ? nextIds : [...STATION_IDS];
 
-  let out = withList(config, "apply", section, nextIds);
+  const out = withList(config, "apply", section, nextIds);
   const added = resolved.filter((id) => !previous.includes(id));
   if (added.length === 0) return out;
 
-  out = clearStationOverride(out, section, added);
+  // A joiner only loses its own value when it takes the shared one. With nothing shared to take,
+  // it keeps its value and its flag, so the next All-stations edit can't overwrite it unseen.
   if (section === "schedule") {
     const shared = sharedBlocks(config, editableStations(config, "schedule"));
-    return shared ? withStationBlocks(out, added, shared) : out;
+    if (!shared) return out;
+    return clearStationOverride(withStationBlocks(out, added, shared), section, added);
   }
   const ref = sharedStructureId(config);
-  return ref ? copyStructure(out, ref, added) : out;
+  if (!ref) return out;
+  return clearStationOverride(copyStructure(out, ref, added), section, added);
 }
