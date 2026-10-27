@@ -60,19 +60,29 @@ export function changeSides(put: Put, sides: Side[]): Put {
   return next.length === 0 ? put : { ...put, sides: next };
 }
 
+/** The flow a station has chosen for one side, if it is one of its category's flows. */
+function chosenFlow(catalog: OperationsCatalog, put: Put, side: Side): PutFlow | undefined {
+  return putFlowsFor(catalog, put.category, side).find((flow) => flow.id === put.behavior[side]);
+}
+
 /**
  * Sets the flow of one side. The follow-up answer is reset to the first option of the new
  * flow's question, or cleared if the flow has none.
+ *
+ * A flow that the station's category does not offer is ignored, so an edit made for several
+ * stations at once can never give one of them a flow it can't run.
  *
  * @param put - The current put settings.
  * @param side - The side to change.
  * @param flowId - The id of the chosen flow.
  * @param catalog - The operations catalog.
+ * @returns The new put settings, or `put` unchanged if its category has no such flow.
  */
 export function changeFlow(put: Put, side: Side, flowId: string, catalog: OperationsCatalog): Put {
   const flow = putFlowsFor(catalog, put.category, side).find(
     (candidate) => candidate.id === flowId,
   );
+  if (!flow) return put;
   return {
     ...put,
     behavior: { ...put.behavior, [side]: flowId },
@@ -80,7 +90,45 @@ export function changeFlow(put: Put, side: Side, flowId: string, catalog: Operat
   };
 }
 
-/** Sets the answer to the follow-up question of one side. */
-export function changeFollowUp(put: Put, side: Side, answer: string): Put {
+/**
+ * Sets the answer to the follow-up question of one side.
+ *
+ * An answer that is not an option of the question the station's own flow asks is ignored, so
+ * sharing an answer across stations with different flows can't give one a meaningless answer.
+ *
+ * @returns The new put settings, or `put` unchanged if the answer does not fit its flow.
+ */
+export function changeFollowUp(
+  put: Put,
+  side: Side,
+  answer: string,
+  catalog: OperationsCatalog,
+): Put {
+  const question = chosenFlow(catalog, put, side)?.followUp;
+  const options = question ? (catalog.put.followUps[question]?.options ?? []) : [];
+  if (!options.some((option) => option.value === answer)) return put;
   return { ...put, followUp: { ...put.followUp, [side]: answer } };
+}
+
+/** What the put settings of the stations being edited together have in common. */
+export type SharedPut = {
+  /** The category they all have, or null when it differs between them. */
+  category: string | null;
+  /** Per side, whether they all have the same flow there. */
+  sameFlow: Record<Side, boolean>;
+};
+
+/**
+ * Compares the put settings of the stations an edit targets. Flows can only be edited together
+ * when the category is shared, and a follow-up answer only when the flow on that side is.
+ *
+ * @param puts - The put settings of each targeted station (at least one).
+ */
+export function sharedPut(puts: Put[]): SharedPut {
+  const [first] = puts;
+  const same = (read: (put: Put) => unknown) => puts.every((put) => read(put) === read(first));
+  return {
+    category: same((put) => put.category) ? first.category : null,
+    sameFlow: { front: same((put) => put.behavior.front), back: same((put) => put.behavior.back) },
+  };
 }

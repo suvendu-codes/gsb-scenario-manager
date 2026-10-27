@@ -10,6 +10,7 @@ import {
   changeFollowUp,
   changeSides,
   putFlowsFor,
+  sharedPut,
   usedSides,
   type Put,
 } from "./put-edits";
@@ -97,8 +98,109 @@ describe("changeFlow and changeFollowUp", () => {
       changeFlow(defaultPut, "back", "staged-rollcage-put-back", catalog),
       "back",
       "UD",
+      catalog,
     );
     expect(next.followUp.back).toBe("UD");
     expect(isValid(next)).toBe(true);
+  });
+
+  it("ignores a flow the station's category does not offer", () => {
+    const induction = changeCategory(defaultPut, "induction", catalog);
+    expect(changeFlow(induction, "back", "staged-tote-put-back", catalog)).toBe(induction);
+  });
+
+  it("ignores an answer that is not an option of the station's own question", () => {
+    const rollcage = changeFlow(defaultPut, "back", "staged-rollcage-put-back", catalog);
+    const tote = changeFlow(defaultPut, "back", "staged-tote-put-back", catalog);
+    expect(changeFollowUp(rollcage, "back", "Gravity", catalog)).toBe(rollcage);
+    expect(changeFollowUp(tote, "back", "UD", catalog)).toBe(tote);
+  });
+});
+
+describe("editing several stations' put settings together", () => {
+  /** Defaults with each listed station's put settings changed by its recipe. */
+  function configWith(puts: Record<string, (put: Put) => Put>) {
+    const config = buildDefaults();
+    for (const [id, recipe] of Object.entries(puts)) {
+      const operations = config.station.stations[id].operations;
+      operations.put = recipe(operations.put);
+    }
+    return config;
+  }
+
+  /** What an All-stations edit does: the same recipe for every target. */
+  function editAll(
+    config: ReturnType<typeof buildDefaults>,
+    ids: string[],
+    recipe: (put: Put) => Put,
+  ) {
+    const next = structuredClone(config);
+    for (const id of ids) {
+      const operations = next.station.stations[id].operations;
+      operations.put = recipe(operations.put);
+    }
+    return next;
+  }
+
+  const putProblems = (config: ReturnType<typeof buildDefaults>) =>
+    validateConfig(config, 8).filter((problem) => problem.code === "PUT_FLOW_NOT_ALLOWED");
+
+  it("sees mixed categories, and a shared flow edit leaves the other category alone", () => {
+    const config = configWith({
+      "PPS-101": (put) => changeCategory(put, "put", catalog),
+      "PPS-102": (put) => changeCategory(put, "induction", catalog),
+    });
+    const ids = ["PPS-101", "PPS-102"];
+    expect(
+      sharedPut(ids.map((id) => config.station.stations[id].operations.put)).category,
+    ).toBeNull();
+
+    const next = editAll(config, ids, (put) =>
+      changeFlow(put, "back", "staged-tote-put-back", catalog),
+    );
+
+    expect(next.station.stations["PPS-101"].operations.put.behavior.back).toBe(
+      "staged-tote-put-back",
+    );
+    expect(next.station.stations["PPS-102"].operations.put).toEqual(
+      config.station.stations["PPS-102"].operations.put,
+    );
+    expect(putProblems(next)).toEqual([]);
+  });
+
+  it("sees mixed flows, and a shared answer only reaches stations whose flow asks it", () => {
+    const config = configWith({
+      "PPS-101": (put) =>
+        changeFlow(
+          changeCategory(put, "put", catalog),
+          "back",
+          "staged-rollcage-put-back",
+          catalog,
+        ),
+      "PPS-102": (put) => changeCategory(put, "induction", catalog),
+      "PPS-103": (put) =>
+        changeFlow(changeCategory(put, "put", catalog), "back", "staged-tote-put-back", catalog),
+    });
+    const ids = ["PPS-101", "PPS-103"];
+    const shared = sharedPut(ids.map((id) => config.station.stations[id].operations.put));
+    expect(shared).toEqual({ category: "put", sameFlow: { front: true, back: false } });
+
+    const next = editAll(config, ["PPS-101", "PPS-102", "PPS-103"], (put) =>
+      changeFollowUp(put, "back", "UD", catalog),
+    );
+
+    expect(next.station.stations["PPS-101"].operations.put.followUp.back).toBe("UD");
+    expect(next.station.stations["PPS-102"].operations.put.followUp.back).toBe("Manual");
+    expect(next.station.stations["PPS-103"].operations.put.followUp.back).toBeNull();
+    expect(configValuesSchema.safeParse(next).success).toBe(true);
+    expect(putProblems(next)).toEqual([]);
+  });
+
+  it("agrees when every station has the same category and flows", () => {
+    const put = changeCategory(defaultPut, "put", catalog);
+    expect(sharedPut([put, structuredClone(put)])).toEqual({
+      category: "put",
+      sameFlow: { front: true, back: true },
+    });
   });
 });
