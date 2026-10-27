@@ -62,7 +62,7 @@ function SetupContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.Ele
         <>
           <SimulationDuration hours={durationHours} onChange={setDurationHours} />
           <OrderProfile datasets={scenario.datasets} />
-          <ContinueBar />
+          <ContinueBar scenarioId={scenario.id} />
         </>
       )}
 
