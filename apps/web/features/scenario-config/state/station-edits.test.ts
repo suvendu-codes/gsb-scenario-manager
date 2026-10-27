@@ -166,6 +166,22 @@ describe("choosing which stations an All-stations edit targets", () => {
     expect(setSharedTargets(config, "schedule", []).station.apply.schedule).toEqual([]);
   });
 
+  it("a station that joins targets with no shared schedule keeps its own, still marked", () => {
+    let config = setSharedTargets(sharedConfig(), "schedule", ["PPS-101", "PPS-102"]);
+    config = writeStationSchedule(config, "PPS-101", blocks([8, "put"]));
+    config = writeStationSchedule(config, "PPS-102", blocks([8, "audit"]));
+    config = writeStationSchedule(config, "PPS-104", blocks([4, "put"], [4, "audit"]));
+    expect(sharedBlocks(config, editableStations(config, "schedule"))).toBeNull();
+
+    config = setSharedTargets(config, "schedule", ["PPS-101", "PPS-102", "PPS-104"]);
+
+    expect(schedule(config, "PPS-104")).toEqual(blocks([4, "put"], [4, "audit"]));
+    expect(overriddenStations(config, "schedule")).toContain("PPS-104");
+    expect(writeSharedSchedule(config, pickAll).station.stations["PPS-104"].schedule).toEqual(
+      blocks([4, "put"], [4, "audit"]),
+    );
+  });
+
   it("a station that joins the targets takes the shared schedule and loses its own", () => {
     let config = setSharedTargets(sharedConfig(), "schedule", ["PPS-101", "PPS-102"]);
     config = writeSharedSchedule(config, blocks([8, "put"]));
