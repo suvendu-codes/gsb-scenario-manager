@@ -36,6 +36,7 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
         status={scenario.status}
         context={`${projectName} · ${mapName}`}
         save={editor.save}
+        editable={editor.editable}
         canUndo={editor.canUndo}
         canRedo={editor.canRedo}
         onUndo={editor.undo}
@@ -46,6 +47,17 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
           Couldn’t save the last change: {editor.save.error} The panel now shows what the server
           has.
         </p>
+      )}
+      {editor.save.state === "out-of-sync" && (
+        <div className={styles.alertRow} role="alert">
+          <p>
+            Couldn’t save the last change: {editor.save.error} The panel may not match what the
+            server has, so editing is paused.
+          </p>
+          <Button variant="ghost" size="sm" onClick={editor.reload}>
+            Reload
+          </Button>
+        </div>
       )}
       <div className={styles.body}>
         <section className={styles.timeline} aria-label="Scenario timeline">
