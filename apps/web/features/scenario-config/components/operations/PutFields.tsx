@@ -12,6 +12,7 @@ import {
   changeFollowUp,
   changeSides,
   putFlowsFor,
+  sharedPut,
   usedSides,
   type Put,
 } from "./put-edits";
@@ -19,11 +20,16 @@ import { putFieldsStyles as styles } from "./PutFields.styles";
 
 const SIDE_LABELS = { front: "Front", back: "Back" } as const;
 const NONE = "";
+const MIXED = "mixed";
 
 /**
  * The put settings: the category (Put, Induction or Extraction), for Put the sides it works on,
  * and for each side the put flow with its follow-up question when the flow has one. Switching
  * category starts each side on the first flow of the new category.
+ *
+ * When several stations are edited together and their categories differ, the category shows as
+ * mixed and the flows stay hidden until one category is chosen for all of them. A flow that
+ * differs shows as mixed, and its follow-up question is hidden until one flow is chosen.
  *
  * @param context - The operations context.
  */
@@ -33,6 +39,9 @@ export function PutFields({ context }: { context: OperationsContext }): React.JS
   const put = editor.config.station.stations[referenceId].operations.put;
   const paths = context.targets.map((id) => operationPath(id, "put"));
   const changed = paths.some((path) => isCustomized(editor.overrides, path));
+  const shared = sharedPut(
+    context.targets.map((id) => editor.config.station.stations[id].operations.put),
+  );
 
   function update(recipe: (current: Put) => Put): void {
     editor.edit((config) => {
@@ -49,6 +58,11 @@ export function PutFields({ context }: { context: OperationsContext }): React.JS
     <div className={styles.root}>
       <FieldShell
         label="Put category"
+        hint={
+          shared.category === null
+            ? "These stations use different categories. Choose one to set their flows together."
+            : undefined
+        }
         changed={changed}
         onReset={() => editor.reset(paths)}
         layout="stacked"
@@ -56,12 +70,12 @@ export function PutFields({ context }: { context: OperationsContext }): React.JS
         <SegmentedControl
           label="Put category"
           options={catalog.put.categories.map((c) => ({ value: c.value, label: c.label }))}
-          value={put.category}
+          value={shared.category ?? NONE}
           onChange={(category) => update((current) => changeCategory(current, category, catalog))}
         />
       </FieldShell>
 
-      {put.category === "put" && (
+      {shared.category === "put" && (
         <FieldShell
           label="Sides"
           hint="The sides of the station where put happens."
@@ -81,11 +95,13 @@ export function PutFields({ context }: { context: OperationsContext }): React.JS
         </FieldShell>
       )}
 
-      {usedSides(put).map((side) => {
+      {(shared.category === null ? [] : usedSides(put)).map((side) => {
         const flows = putFlowsFor(catalog, put.category, side);
         const flowId = put.behavior[side];
         const flow = flows.find((candidate) => candidate.id === flowId);
-        const question = flow?.followUp ? catalog.put.followUps[flow.followUp] : undefined;
+        const mixedFlow = !shared.sameFlow[side];
+        const question =
+          !mixedFlow && flow?.followUp ? catalog.put.followUps[flow.followUp] : undefined;
         const answer = put.followUp[side];
         const label = put.category === "put" ? `Put flow · ${SIDE_LABELS[side]}` : "Put flow";
 
@@ -96,12 +112,17 @@ export function PutFields({ context }: { context: OperationsContext }): React.JS
               <Select
                 aria-label={label}
                 className={styles.select}
-                value={flowId ?? NONE}
+                value={mixedFlow ? MIXED : (flowId ?? NONE)}
                 onChange={(event) =>
                   update((current) => changeFlow(current, side, event.target.value, catalog))
                 }
               >
-                {flowId === null && (
+                {mixedFlow && (
+                  <option value={MIXED} disabled>
+                    Mixed
+                  </option>
+                )}
+                {!mixedFlow && flowId === null && (
                   <option value={NONE} disabled>
                     Choose a flow…
                   </option>
@@ -123,7 +144,9 @@ export function PutFields({ context }: { context: OperationsContext }): React.JS
                   label={question.question}
                   options={question.options}
                   value={answer ?? question.options[0].value}
-                  onChange={(value) => update((current) => changeFollowUp(current, side, value))}
+                  onChange={(value) =>
+                    update((current) => changeFollowUp(current, side, value, catalog))
+                  }
                 />
               </FieldShell>
             )}
