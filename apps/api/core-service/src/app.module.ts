@@ -5,11 +5,12 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { DomainErrorFilter } from './common/presentation/http-exception.filter.js';
 import { BotsModule } from './bots/bots.module.js';
 import { DbModule } from './db/db.module.js';
+import { MapsModule } from './maps/maps.module.js';
 import { PpsModule } from './pps/pps.module.js';
 import { ScenariosModule } from './scenarios/scenarios.module.js';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DbModule, ScenariosModule, BotsModule, PpsModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DbModule, ScenariosModule, BotsModule, PpsModule, MapsModule],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
