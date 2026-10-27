@@ -84,16 +84,14 @@ export function useConfigEditor(scenarioId: string): ConfigEditor {
   );
   const save = snapshot?.save ?? { state: "saved", error: null };
 
-  const status =
-    catalogQuery.isError || configQuery.isError
-      ? "error"
-      : catalogQuery.data && live
-        ? "ready"
-        : "loading";
+  // A failed refetch keeps the loaded data; only a load that never succeeded is an error.
+  // (A failed reload after a failed save shows as the `out-of-sync` save state instead.)
+  const loadFailed = (catalogQuery.isError && !catalogQuery.data) || (configQuery.isError && !data);
+  const status = loadFailed ? "error" : catalogQuery.data && live ? "ready" : "loading";
 
   return {
     status,
-    error: catalogQuery.error ?? configQuery.error ?? null,
+    error: loadFailed ? (catalogQuery.error ?? configQuery.error) : null,
     catalog: catalogQuery.data ?? null,
     defaults,
     overrides,
