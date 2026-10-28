@@ -11,6 +11,16 @@ export interface StatusWorkerAdapters {
   runRepository: AdapterProvider<RunEventRepository>;
 }
 
+/*
+ * NestJS "module" = a bundle of classes (providers) that Nest creates and connects for us.
+ * `provide: EVENT_SOURCE` / `RUN_EVENT_REPOSITORY` register the two replaceable slots under a
+ * token; classes that declare `@Inject(EVENT_SOURCE)` receive whatever implementation the caller
+ * passed to register(). ProcessRunEventUseCase and StatusWorker are always the same.
+ *
+ * Object graph Nest builds:
+ *   StatusWorker  --needs-->  EventSource (Kafka)            [pulls messages in]
+ *                 --needs-->  ProcessRunEventUseCase --needs--> RunEventRepository (PostgreSQL)
+ */
 @Module({})
 export class StatusWorkerModule {
   static register(adapters: StatusWorkerAdapters): DynamicModule {

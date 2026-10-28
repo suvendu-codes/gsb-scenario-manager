@@ -19,8 +19,10 @@ const row: typeof run.$inferSelect = {
   createdAt: new Date(), updatedAt: new Date(), completedAt: null,
 };
 
-function fixture(rows: (typeof row)[] = [row], currentRunId = row.id) {
-  const owner = { id: row.scenarioId, currentRunId, status: 'running' };
+// The scenario starts as 'paused' so that the 'running' events below are a REAL scenario
+// status change. The repository skips the scenario write when the status would not change.
+function fixture(rows: (typeof row)[] = [row], currentRunId = row.id, scenarioStatus = 'paused') {
+  const owner = { id: row.scenarioId, currentRunId, status: scenarioStatus };
   const lock = vi.fn().mockResolvedValueOnce([owner]).mockResolvedValueOnce(rows);
   const limit = vi.fn().mockResolvedValue(rows.map((r) => ({ scenarioId: r.scenarioId })));
   const selectWhere = vi.fn().mockImplementation(() => {
@@ -76,6 +78,20 @@ describe('DrizzleRunEventRepository', () => {
     await expect(f.repository.apply(event)).resolves.toBe('updated');
     expect(f.tx.update).toHaveBeenCalledTimes(1);
     expect(f.tx.update).toHaveBeenCalledWith(run);
+  });
+  it('does not write the scenario when the mapped status is unchanged', async () => {
+    const f = fixture([row], row.id, 'running');
+    await expect(f.repository.apply(event)).resolves.toBe('updated');
+    expect(f.tx.update.mock.calls.map(([table]) => table)).toEqual([run]);
+  });
+  it('does not write the scenario for a heartbeat on the current run', async () => {
+    const f = fixture([{ ...row, status: 'running' }], row.id, 'running');
+    const heartbeat: RunEvent = {
+      event_type: 'run.heartbeat', correlation_id: 'cid', engine: 'emulator',
+      emitted_at: '2026-10-09T12:54:00Z', progress: { n: 1 },
+    };
+    await expect(f.repository.apply(heartbeat)).resolves.toBe('updated');
+    expect(f.tx.update.mock.calls.map(([table]) => table)).toEqual([run]);
   });
   it('propagates scenario write failures so the transaction can roll back both writes', async () => {
     const f = fixture();

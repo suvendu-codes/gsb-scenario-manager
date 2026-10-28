@@ -3,6 +3,13 @@ import { RunEventRejectedError } from '../../domain/run-event-rejection.js';
 
 export const RUN_EVENT_REPOSITORY = Symbol('RUN_EVENT_REPOSITORY');
 
+/*
+ * Return value of apply(), i.e. what happened to the event:
+ *   'updated' - state was changed (the run, maybe the scenario)
+ *   'ignored' - harmless no-op: an exact duplicate / stale heartbeat. Still acknowledged.
+ *   'held'    - the event arrived ahead of a missing earlier sequence; stored for later replay.
+ * Anything else is an exception => the Kafka message is NOT acknowledged (see StatusWorker).
+ */
 export interface RunEventRepository {
   /** Atomically load by correlation ID, apply shared applyRunEvent rules, and persist.
    * Resolve only after durable commit (or a confirmed no-op); propagate failures.

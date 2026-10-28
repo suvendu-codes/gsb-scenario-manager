@@ -27,7 +27,7 @@ export class InMemoryRunEventRepository implements RunEventRepository {
     // No awaits between read and writes: one synchronous in-memory operation.
     if (plan.receipt) this.receipts.set(current.id, [...receipts, structuredClone(plan.receipt)]);
     this.rows.set(current.correlationId, updated);
-    if (status !== null) this.scenarios.set(owner.id, { ...owner, status });
+    if (status !== null && status !== owner.status) this.scenarios.set(owner.id, { ...owner, status });
     return plan.outcome;
   }
   snapshot() { return structuredClone([...this.rows.values()]); }

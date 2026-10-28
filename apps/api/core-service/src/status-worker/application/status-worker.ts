@@ -3,6 +3,21 @@ import { EVENT_SOURCE, type EventDelivery, type EventSource } from './ports/even
 import { ProcessRunEventUseCase } from './process-run-event.use-case.js';
 import { RunEventRejectedError } from '../domain/run-event-rejection.js';
 
+/**
+ * The orchestrator: it connects "a message arrived" to "process it, then acknowledge it".
+ *
+ * Reading guide (the order things happen):
+ *   1. onModuleInit()  - Nest calls this once at startup => asks the event source to start and
+ *                        gives it handleMessage() as the callback. (Entry: worker-main.ts / app.module.ts)
+ *   2. handleMessage() - called by Kafka for EVERY message:
+ *        a. processEvent.execute()  parse + validate + save to PostgreSQL   (one DB transaction)
+ *        b. delivery.acknowledge()  tell Kafka we are done (commit offset)  (only if (a) succeeded)
+ *        c. any exception           log it and RE-THROW => message stays unacknowledged => redelivered
+ *   3. beforeApplicationShutdown() - on SIGTERM/SIGINT: stop consuming cleanly.
+ *
+ * `@Injectable()` / `@Inject(...)` are NestJS decorators: they tell Nest "build this class for me and
+ * pass these constructor arguments in" (dependency injection). Nothing here is called manually.
+ */
 @Injectable()
 export class StatusWorker implements OnModuleInit, BeforeApplicationShutdown {
   // OBSERVABILITY PLAN (SMF-482; not runtime instrumentation): proposed metric
@@ -46,7 +61,13 @@ export class StatusWorker implements OnModuleInit, BeforeApplicationShutdown {
     let stage: 'processing' | 'acknowledgement' = 'processing';
     this.logger.log({ ...context, event: 'run_event_received' });
     try {
+      // Step A: validate and persist. Resolves 'updated' | 'ignored' | 'held' only AFTER the DB
+      // transaction committed. Throws for anything we must not silently skip (bad JSON, unknown
+      // run, identity mismatch, DB down, ...).
       const outcome = await this.processEvent.execute(delivery.body);
+      // Step B: the data is safe in PostgreSQL, so now it is OK to tell Kafka we are done.
+      // If the process dies exactly here, Kafka redelivers and the duplicate is detected (no harm).
+      // 'ignored' and 'held' outcomes are acknowledged too: they are intentional, durable results.
       stage = 'acknowledgement';
       await delivery.acknowledge();
       this.logger.log({

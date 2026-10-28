@@ -1,6 +1,6 @@
 # Status worker module tests
 
-The suite currently expands 49 test families into 113 positive and negative cases.
+The suite currently expands 52 test families into 116 positive and negative cases.
 
 Run `pnpm test:module` from the repository root with Docker running. The runner
 creates isolated PostgreSQL and Kafka resources, runs the single `db/schema.sql` initializer, starts
@@ -66,6 +66,9 @@ outbox relay are not exercised.
 | SW-47 | Run initialization against a partial database containing only scenario data | Fail clearly; preserve existing data and do not create the missing tables |
 | SW-48 | Force a type-name conflict during a fresh initialization | Roll back all newly created objects; preserve the pre-existing type |
 | SW-49 | Initialize the same fresh database concurrently from two connections | Advisory lock serializes creation; both calls succeed with exactly three complete application tables |
+| SW-50 | Send a heartbeat for a running current run | Heartbeat fields are stored on the run; the scenario row is not updated at all (row version unchanged) |
+| SW-51 | Send accepted, setup_ready, running, then paused for a current run whose scenario is already running | The first three leave the scenario row untouched; only the pause (a real change) updates it to paused |
+| SW-52 | Hold sequences 5 and 4 behind a missing 3, then deliver 3 as a terminal failure | 3 commits and is acknowledged (run failed, scenario finished); the held 4 and 5 are invalid after a terminal state, stay stored with recovery still required, and a later valid event is stored and acknowledged instead of blocking the run |
 
 Unit tests supplement this suite with schema validation, command outcomes,
 terminal/result rules, timestamp-independent ordering, adapters, shutdown and logging.

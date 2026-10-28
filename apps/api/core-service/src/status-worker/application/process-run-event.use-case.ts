@@ -2,6 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { parseRunEvent } from '../domain/run-event.js';
 import { RUN_EVENT_REPOSITORY, type RunEventRepository } from './ports/run-event.repository.js';
 
+/**
+ * "Use case" = the one business action this worker performs: take raw bytes from the queue and
+ * turn them into a state change. It has two steps and deliberately knows nothing about Kafka or SQL:
+ *   1. parseRunEvent()   (domain/run-event.ts)  bytes -> validated, typed RunEvent (zod schema). Throws on junk.
+ *   2. runs.apply(event) (repository)           load run, apply rules, save, in ONE database transaction.
+ */
 @Injectable()
 export class ProcessRunEventUseCase {
   private readonly logger = new Logger(ProcessRunEventUseCase.name);

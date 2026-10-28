@@ -7,7 +7,16 @@ export interface ScenarioRunState {
   status: ScenarioStatus;
 }
 
-/** Only the explicitly selected current execution may change its scenario. */
+/**
+ * Only the explicitly selected current execution may change its scenario.
+ *
+ * Mapping from a run's status to the scenario's status shown to users:
+ *   completed / failed / interrupted / cancelled  ->  finished
+ *   paused / resuming                             ->  paused
+ *   everything else (accepted, setup_ready, running, ...) -> running
+ * Returns null ("do not touch the scenario") when the run is not the scenario's current_run_id,
+ * e.g. a late event from an old retry. The caller additionally skips the write if the value is unchanged.
+ */
 export function scenarioStatusForRun(scenario: ScenarioRunState, run: RunState): ScenarioStatus | null {
   if (scenario.id !== run.scenarioId || scenario.currentRunId !== run.id) return null;
   switch (run.status) {

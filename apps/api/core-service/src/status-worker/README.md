@@ -303,6 +303,13 @@ Invalid messages, mismatched identities, unknown correlations, and database
 failures are not acknowledged. This intentionally blocks progress on the
 affected partition until corrected; consumer restarts can also delay other
 partitions. There is no automatic discard or DLQ.
+A held receipt that fails on replay is different: it was already stored, so it must not
+block valid events. If a held event breaks the rules once the gap closes (for example a
+non-terminal status held behind a sequence that turns out to be terminal), the worker
+commits the valid events before it, keeps the bad receipt in `run_event_inbox`, leaves
+`recovery_required = true` and acknowledges the incoming record. Later events for that run
+are stored but not applied, and commands stay blocked, until an operator repairs the run
+(module test SW-52). An explicit quarantine marker on the receipt is SMF-503/504 work.
 Monitor the worker's `run_event_not_acknowledged` logs (topic, partition,
 offset only), and consumer group lag. A permanent bad record requires an
 operator-approved repair/replay or offset intervention. Agree on a DLQ policy

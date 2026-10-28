@@ -560,3 +560,54 @@ test('SW-49: concurrent initializers create one complete schema without a migrat
     assert.match(defaults.rows[0].column_default, /trigger_requested/);
   });
 });
+
+
+/**
+ * PostgreSQL's hidden `xmin` column changes on EVERY UPDATE of a row, even when the new values equal
+ * the old ones. Comparing columns would miss a no-op write, so SW-50/51 compare this row version.
+ */
+async function scenarioVersion(f: Fixture) {
+  const { rows } = await h.resources.pool.query('SELECT xmin::text AS version FROM scenario WHERE id=$1', [f.scenarioId]);
+  return rows[0].version as string;
+}
+test('SW-50: heartbeat on the current run never writes the scenario row', async () => {
+  const f = await h.fixture(); await running(f);
+  const before = await scenarioVersion(f);
+  await h.apply({ event_type: 'run.heartbeat', correlation_id: f.correlationId, engine: f.engine, emitted_at: h.now(), progress: { n: 1 } });
+  // The heartbeat was really processed (run row updated) ...
+  assert.ok((await h.run(f)).heartbeatReceivedAt);
+  // ... yet the scenario row was not touched at all.
+  assert.equal(await scenarioVersion(f), before);
+});
+test('SW-51: only a real scenario status change writes the scenario row', async () => {
+  const f = await h.fixture(); await h.apply(h.status(f, 'accepted', 1));
+  const before = await scenarioVersion(f);
+  // accepted -> setup_ready -> running all map to scenario "running", which it already is.
+  await h.apply(h.status(f, 'setup_ready', 2)); await h.apply(h.status(f, 'running', 3));
+  assert.equal((await h.run(f)).status, 'running'); assert.equal(await scenarioVersion(f), before);
+  // A genuine change (running -> paused) must still be written, in the same transaction.
+  await h.apply(h.status(f, 'paused', 4));
+  assert.equal((await h.scenario(f)).status, 'paused'); assert.notEqual(await scenarioVersion(f), before);
+});
+test('SW-52: a held event that is invalid on replay does not block the run or undo the valid events before it', async () => {
+  const f = await h.fixture(); await running(f);                       // sequences 1 and 2 applied
+  const worker = await h.isolated();                                    // own consumer: a regression must not poison the shared one
+  try {
+    for (const event of [h.status(f, 'running', 5), h.status(f, 'running', 4)]) {   // held behind the missing sequence 3
+      await h.acknowledged(await worker.send(JSON.stringify(event)), worker.groupId);
+    }
+    assert.equal((await h.run(f)).lastEventSequence, 2); assert.equal((await h.run(f)).recoveryRequired, true);
+    // Sequence 3 is terminal, so replaying the held non-terminal 4 and 5 is a contract violation.
+    // The valid event 3 must still commit and be acknowledged instead of being rolled back forever.
+    await h.acknowledged(await worker.send(JSON.stringify(h.status(f, 'failed', 3))), worker.groupId);
+    const saved = await h.run(f);
+    assert.equal(saved.status, 'failed'); assert.equal(saved.lastEventSequence, 3);
+    assert.equal(saved.recoveryRequired, true);                         // 4 and 5 are still unresolved: commands stay blocked
+    assert.equal((await h.scenario(f)).status, 'finished');             // scenario change committed with the valid prefix
+    assert.deepEqual((await receipts(f)).map(r => Number(r.sequence)), [1, 2, 3, 4, 5]);
+    // A later valid event for the same run is stored without error and acknowledged.
+    await h.acknowledged(await worker.send(JSON.stringify(h.result(f, 6))), worker.groupId);
+    assert.equal((await h.run(f)).lastEventSequence, 3); assert.equal((await h.run(f)).resultEventAt, null);
+    assert.deepEqual((await receipts(f)).map(r => Number(r.sequence)), [1, 2, 3, 4, 5, 6]);
+  } finally { await worker.stop(); }
+});
