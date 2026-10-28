@@ -340,25 +340,12 @@ const stationStructureSchema = z
   })
   .strict();
 
-/** Hardware settings; a station only uses the ones its type has (gravity induction or EasyLoop). */
-const stationHardwareSchema = z
-  .object({
-    inductionSpeed: z.number().int().min(4).max(30),
-    singulationGap: z.number().int().min(10).max(60).multipleOf(5),
-    jamAutoRecovery: z.boolean(),
-    loopSpeed: z.number().int().min(20).max(100).multipleOf(5),
-    trayCapacity: z.number().int().min(10).max(80).multipleOf(5),
-    recirculation: z.enum(["immediate", "delayed", "manual"]),
-  })
-  .strict();
-
 export const stationConfigSchema = z
   .object({
     /** Empty when the station is not assigned any mode. */
     schedule: z.array(scheduleBlockSchema).max(MAX_SCHEDULE_BLOCKS),
     structure: stationStructureSchema,
     setup: stationSetupSchema,
-    hardware: stationHardwareSchema,
     operations: z
       .object({ pick: pickConfigSchema, put: putConfigSchema, audit: auditConfigSchema })
       .strict(),

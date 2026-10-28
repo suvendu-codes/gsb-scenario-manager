@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ScheduleBlock } from "../../types";
-import {
-  formatHours,
-  formatRange,
-  newBreakId,
-  scheduleSummary,
-  scheduleTotal,
-} from "./schedule-text";
+import { formatHours, formatRange, newBreakId, scheduleTotal } from "./schedule-text";
 
 const block = (hours: number, mode: ScheduleBlock["mode"]): ScheduleBlock => ({
   hours,
@@ -28,18 +22,12 @@ describe("formatHours and formatRange", () => {
   });
 });
 
-describe("scheduleTotal and scheduleSummary", () => {
+describe("scheduleTotal", () => {
   const blocks = [block(4, "pick"), block(3.5, "put"), block(0.5, "audit")];
 
   it("counts the blocks and adds up the hours", () => {
     expect(scheduleTotal(blocks)).toBe("3 blocks · 8h");
     expect(scheduleTotal([block(8, "pick")])).toBe("1 block · 8h");
-  });
-
-  it("lists each block's mode and length, or says it is not assigned", () => {
-    expect(scheduleSummary(blocks)).toBe("Pick 4h · Put 3.5h · Audit 0.5h");
-    expect(scheduleSummary([block(8, "audit")])).toBe("Audit 8h");
-    expect(scheduleSummary([])).toBe("Not assigned");
   });
 });
 

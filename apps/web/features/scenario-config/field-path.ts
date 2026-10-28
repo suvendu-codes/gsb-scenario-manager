@@ -56,10 +56,7 @@ export function resolveField(field: CatalogField, stationId?: string): CatalogFi
 }
 
 /**
- * Whether a field should be shown: its `visibleWhen` condition holds, and it is not a hardware
- * field. The site registry says nothing about gravity induction or EasyLoop hardware, and the
- * new design drops those sections, so their fields are not shown (they are removed in the
- * cleanup PR).
+ * Whether a field should be shown: its `visibleWhen` condition holds.
  *
  * @param field - A field with its paths already resolved.
  * @param config - The current config.
@@ -68,5 +65,5 @@ export function isFieldVisible(field: CatalogField, config: ConfigValues): boole
   if (field.visibleWhen && getAtPath(config, field.visibleWhen.path) !== field.visibleWhen.equals) {
     return false;
   }
-  return field.stationFeature === undefined;
+  return true;
 }

@@ -109,14 +109,6 @@ function defaultStation(station: StationSeed): StationConfig {
       staffedBackSeats: 1,
     },
     setup: { variance: { pick: 0, put: 0, audit: 0 }, queueLimit: 10, rebalancing: true },
-    hardware: {
-      inductionSpeed: 12,
-      singulationGap: 25,
-      jamAutoRecovery: true,
-      loopSpeed: 70,
-      trayCapacity: 40,
-      recirculation: "immediate",
-    },
     operations: {
       pick: defaultPick(),
       put: structuredClone(operationsCatalog.put.defaults),

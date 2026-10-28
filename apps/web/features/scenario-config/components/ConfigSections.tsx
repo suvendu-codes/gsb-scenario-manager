@@ -26,7 +26,7 @@ type ConfigSectionsProps = {
 /**
  * Draws catalog sections and their fields from the catalog, with the current values: each
  * field gets its control, its changed dot and reset button. Fields that don't apply (their
- * `visibleWhen` condition fails, or they are hardware fields) are left out.
+ * `visibleWhen` condition fails) are left out.
  *
  * @param sections - The sections to draw.
  * @param editor - The loaded config editor.

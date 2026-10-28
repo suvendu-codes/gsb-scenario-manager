@@ -28,8 +28,6 @@ const fieldBase = {
   label: z.string(),
   hint: z.string().optional(),
   visibleWhen: conditionSchema.optional(),
-  /** Per-station field that only makes sense for stations whose type has this hardware. */
-  stationFeature: z.enum(["gravityInduction", "easyLoop"]).optional(),
 };
 
 /** One control of the config panel. */
