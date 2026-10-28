@@ -1,18 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import type { ScenarioConfigReader } from '../application/ports/scenario-config.reader.js';
-import { ScenarioConfigUnreadableError } from '../domain/errors.js';
-
-const GCS_URI = /^gs:\/\/([^/]+)\/(.+)$/;
+import { appConfig } from '../../config.js';
+import { ScenarioConfigUnreadableError, ScenarioConfigUriInvalidError } from '../domain/errors.js';
+import { parseScenarioConfigUri } from '../domain/scenario-config-uri.js';
 
 @Injectable()
 export class GcsScenarioConfigReader implements ScenarioConfigReader {
   private readonly storage = new Storage();
 
   async read(uri: string): Promise<Record<string, unknown>> {
-    const match = GCS_URI.exec(uri);
-    if (!match) throw new ScenarioConfigUnreadableError(uri, 'not a gs://<bucket>/<object> URI');
-    const [, bucket, object] = match;
+    // Also guards rows stored before the DTO validated configUri.
+    const location = parseScenarioConfigUri(uri, appConfig.scenarioConfig);
+    if (!location) throw new ScenarioConfigUriInvalidError();
+    const { bucket, object } = location;
 
     let parsed: unknown;
     try {

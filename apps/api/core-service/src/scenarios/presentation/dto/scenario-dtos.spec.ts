@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CloneScenarioDto } from './clone-scenario.dto.js';
 import { CreateScenarioDto } from './create-scenario.dto.js';
 import { ListAllScenariosQuery } from './list-all-scenarios.query.js';
 import { PatchScenarioDto } from './update-scenario.dto.js';
+
+vi.mock('../../../config.js', () => ({
+  appConfig: { scenarioConfig: { bucket: 'scenario-bucket', prefix: 'scenarios/' } },
+}));
 
 const uuid = '3f2b8c1e-9d4a-4b6e-8a1f-2c7d5e9b0a13';
 
@@ -71,13 +75,26 @@ describe('PatchScenarioDto', () => {
   it('accepts an empty body and each field alone', () => {
     expect(parse({}).success).toBe(true);
     expect(parse({ name: 'New name' }).success).toBe(true);
-    expect(parse({ configUri: 'gs://bucket/config.json' }).success).toBe(true);
+    expect(parse({ configUri: 'gs://scenario-bucket/scenarios/config.json' }).success).toBe(true);
   });
 
   it.each(['name', 'configUri'])('rejects an empty %s', (field) => {
     const result = parse({ [field]: '' });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
+  });
+
+  it.each([
+    'gs://other-bucket/scenarios/config.json',
+    'gs://scenario-bucket/other/config.json',
+    'gs://scenario-bucket/scenarios/../other/config.json',
+    'https://storage.googleapis.com/scenario-bucket/scenarios/config.json',
+    'file:///etc/passwd',
+    'scenarios/config.json',
+  ])('rejects out-of-scope configUri %s', (configUri) => {
+    const result = parse({ configUri });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toEqual(['configUri']);
   });
 
   it.each(['name', 'configUri'])('rejects a non-string %s', (field) => {

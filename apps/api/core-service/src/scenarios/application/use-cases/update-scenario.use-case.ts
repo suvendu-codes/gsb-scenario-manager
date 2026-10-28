@@ -32,14 +32,22 @@ export class UpdateScenarioUseCase {
     const configUri = input.configUri ?? current?.configUri;
     if (!configUri && !current?.config) throw new ScenarioConfigNotFoundError(input.id);
 
-    const patched = input.config
-      ? applyConfigPatch(current?.config ?? (await this.configs.read(configUri!)), input.config)
-      : undefined;
+    // A new configUri replaces the inline body (see nextStoredConfig), so the patch applies to that blob.
+    const repointed = input.configUri !== undefined && input.configUri !== current?.configUri;
+    // Only fetched when no inline body will be used; the patch itself is applied under a row lock in the repository.
+    const baseline =
+      input.config && (repointed || !current?.config) ? await this.configs.read(configUri!) : undefined;
 
+    let patched: ReturnType<typeof applyConfigPatch> | undefined;
     const updated = await this.scenarios.update(input.id, {
       name: input.name,
       configUri: configUri || undefined,
-      config: patched?.config,
+      patchConfig: input.config
+        ? (stored) => {
+            patched = applyConfigPatch(stored ?? baseline ?? {}, input.config!);
+            return patched.config;
+          }
+        : undefined,
       updatedBy: input.updatedBy,
     });
     return { scenario: updated, changes: patched?.changes ?? [], modules: patched?.modules ?? [] };

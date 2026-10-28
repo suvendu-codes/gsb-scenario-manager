@@ -25,6 +25,11 @@ export interface ScenarioChanges {
   configUri?: string;
   /** Inline config; replaces the stored body and bumps the version. */
   config?: Record<string, unknown>;
+  /**
+   * Computes the new inline config from the stored one. Runs under a row lock, so concurrent
+   * patches serialize and each sees the previous result. Receives undefined when nothing is stored inline.
+   */
+  patchConfig?: (current: Record<string, unknown> | undefined) => Record<string, unknown>;
   updatedBy: string;
 }
 

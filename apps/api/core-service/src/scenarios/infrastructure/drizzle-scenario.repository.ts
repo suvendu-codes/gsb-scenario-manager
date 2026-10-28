@@ -119,27 +119,30 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
 
   async update(id: string, changes: ScenarioChanges) {
     try {
-      const [current] = await this.db.select().from(scenario).where(eq(scenario.id, id)).limit(1);
-      if (!current) throw new ScenarioNotFoundError(id);
-      toScenario(current).assertEditable();
-      const stored = readConfig(current);
+      // FOR UPDATE serializes concurrent writers on this row, so a patch is always applied to the latest config.
+      return await this.db.transaction(async (tx) => {
+        const [current] = await tx
+          .select()
+          .from(scenario)
+          .where(eq(scenario.id, id))
+          .limit(1)
+          .for('update');
+        if (!current) throw new ScenarioNotFoundError(id);
+        toScenario(current).assertEditable();
+        const config = nextStoredConfig(readConfig(current), changes);
 
-      const [updated] = await this.db
-        .update(scenario)
-        .set({
-          name: changes.name ?? current.name,
-          config: {
-            ...stored,
-            configUri: changes.configUri ?? stored.configUri,
-            ...(changes.config && { body: changes.config, version: (stored.version ?? 1) + 1 }),
-            updatedBy: changes.updatedBy,
-          },
-          updatedAt: new Date(),
-        })
-        .where(and(eq(scenario.id, id), eq(scenario.status, ScenarioStatus.Draft)))
-        .returning();
-      if (!updated) throw new ScenarioLockedError(id, current.status, 'updated');
-      return toScenario(updated);
+        const [updated] = await tx
+          .update(scenario)
+          .set({
+            name: changes.name ?? current.name,
+            config,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(scenario.id, id), eq(scenario.status, ScenarioStatus.Draft)))
+          .returning();
+        if (!updated) throw new ScenarioLockedError(id, current.status, 'updated');
+        return toScenario(updated);
+      });
     } catch (error) {
       throw translate(error, undefined, changes.name);
     }
@@ -157,6 +160,23 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
     if (!current) throw new ScenarioNotFoundError(id);
     throw new ScenarioLockedError(id, current.status, 'deleted');
   }
+}
+
+/**
+ * Pointing configUri somewhere new makes that blob the source of truth: the stored inline body and its
+ * version are dropped (otherwise the body would keep winning on read), and a patch applies to the new blob.
+ */
+export function nextStoredConfig(stored: StoredConfig, changes: ScenarioChanges): StoredConfig {
+  const repointed = changes.configUri !== undefined && changes.configUri !== stored.configUri;
+  const base: StoredConfig = repointed ? { ...stored, body: undefined, version: undefined } : stored;
+  const body = changes.patchConfig ? changes.patchConfig(base.body) : changes.config;
+
+  return {
+    ...base,
+    configUri: changes.configUri ?? stored.configUri,
+    ...(body && { body, version: (base.version ?? 1) + 1 }),
+    updatedBy: changes.updatedBy,
+  };
 }
 
 const readConfig = (row: typeof scenario.$inferSelect): StoredConfig => {

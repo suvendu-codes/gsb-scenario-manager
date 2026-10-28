@@ -45,3 +45,9 @@ export class ScenarioConfigUnreadableError extends DomainError {
     super(`Scenario config at ${uri} could not be read: ${reason}`, 'bad_gateway');
   }
 }
+
+export class ScenarioConfigUriInvalidError extends DomainError {
+  constructor() {
+    super('configUri must be a gs:// URI inside the configured scenario config location', 'invalid');
+  }
+}
