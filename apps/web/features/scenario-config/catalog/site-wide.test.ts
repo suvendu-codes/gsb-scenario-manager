@@ -14,7 +14,6 @@ describe("site-wide station settings (design v2)", () => {
       "Pick scheduler",
       "Replenishment threshold",
       "Time in error",
-      "Queue and rebalancing",
     ]);
     expect(siteWide[1].fields.map((field) => field.label)).toEqual([
       "Class A",
@@ -28,7 +27,7 @@ describe("site-wide station settings (design v2)", () => {
     expect(global.timeInErrorPct).toBe(5);
     expect(global.replenishment).toEqual({ a: 20, b: 20, c: 20 });
     expect(global).not.toHaveProperty("errorInjection");
-    expect(global.limits).not.toHaveProperty("replenishmentThresholdPct");
+    expect(global).not.toHaveProperty("limits");
   });
 
   it("checks the ranges", () => {

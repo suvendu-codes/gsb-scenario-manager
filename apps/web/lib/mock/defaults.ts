@@ -108,6 +108,7 @@ function defaultStation(station: StationSeed): StationConfig {
       binClearingSide: "back",
       staffedBackSeats: 1,
     },
+    setup: { variance: { pick: 0, put: 0, audit: 0 }, queueLimit: 10, rebalancing: true },
     hardware: {
       inductionSpeed: 12,
       singulationGap: 25,
@@ -154,7 +155,6 @@ export function buildDefaults(
       global: {
         timeInErrorPct: 5,
         replenishment: { a: 20, b: 20, c: 20 },
-        orderHandling: { crossStationRebalance: true },
         pickScheduler: {
           weights: {
             ppf: 5,
@@ -165,7 +165,6 @@ export function buildDefaults(
             skuConsolidation: 2,
           },
         },
-        limits: { queueLimitPerStation: 10 },
       },
       stations: Object.fromEntries(
         stations.map((station) => [station.id, defaultStation(station)]),

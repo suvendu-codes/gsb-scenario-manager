@@ -28,12 +28,12 @@ describe("searchSettings", () => {
       module: "station",
       moduleLabel: "Stations & operators",
       section: "Queue and rebalancing",
-      label: "Queue limit per station",
+      label: "Queue limit",
     });
   });
 
   it("needs every word to match, in any order", () => {
-    expect(labels("limit queue")).toContain("Queue limit per station");
+    expect(labels("limit queue")).toContain("Queue limit");
     expect(labels("queue banana")).toEqual([]);
   });
 

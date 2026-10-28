@@ -72,6 +72,18 @@ export function StationSection({
       };
     }
 
+    // Other station values in a type view reach every station of the type.
+    const own = `station.stations.${referenceId}.`;
+    if (isGroup && field.path.startsWith(own)) {
+      const paths = group.map((id) => `station.stations.${id}.${field.path.slice(own.length)}`);
+      return {
+        ...base,
+        changed: paths.some((path) => isCustomized(overrides, path)),
+        write: (next) =>
+          editor.edit((c) => paths.reduce((acc, path) => setValueAtPath(acc, path, next), c)),
+        reset: () => editor.reset(paths),
+      };
+    }
     return {
       ...base,
       changed: isCustomized(overrides, field.path),
