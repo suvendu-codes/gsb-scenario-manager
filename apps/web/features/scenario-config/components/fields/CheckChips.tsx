@@ -10,6 +10,8 @@ type CheckChipsProps = {
   /** The values that are checked. */
   value: string[];
   disabled?: boolean;
+  /** How many must stay checked. */
+  minSelected?: number;
   onChange: (value: string[]) => void;
 };
 
@@ -21,6 +23,7 @@ type CheckChipsProps = {
  * @param options - The choices.
  * @param value - The checked values.
  * @param disabled - Disables every chip.
+ * @param minSelected - How many must stay checked; the last checked chips can't be unchecked.
  * @param onChange - Called with the new list of checked values.
  */
 export function CheckChips({
@@ -28,8 +31,10 @@ export function CheckChips({
   options,
   value,
   disabled,
+  minSelected = 0,
   onChange,
 }: CheckChipsProps): React.JSX.Element {
+  const atMinimum = value.length <= minSelected;
   function toggle(optionValue: string): void {
     const checked = new Set(value);
     if (checked.has(optionValue)) checked.delete(optionValue);
@@ -45,7 +50,7 @@ export function CheckChips({
             type="checkbox"
             className={styles.input}
             checked={value.includes(option.value)}
-            disabled={disabled}
+            disabled={disabled || (atMinimum && value.includes(option.value))}
             onChange={() => toggle(option.value)}
           />
           <span className={styles.box} aria-hidden="true">

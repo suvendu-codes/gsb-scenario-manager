@@ -123,12 +123,12 @@ describe("patchScenarioConfig: set", () => {
     expect(result.overrides).toEqual({ [path]: schedule });
   });
 
-  it("puts order types in their usual order", () => {
+  it("puts order types in their usual order, so a reordered default is no change", () => {
     const result = config.patchScenarioConfig(DRAFT_ID, {
-      set: { "wms.orderTypes": ["audit", "inbound"] },
+      set: { "wms.orderTypes": ["outbound", "inbound"] },
     });
 
-    expect(result.overrides["wms.orderTypes"]).toEqual(["inbound", "audit"]);
+    expect(result.overrides).not.toHaveProperty("wms.orderTypes");
   });
 
   it("stores the All-stations lists", () => {
