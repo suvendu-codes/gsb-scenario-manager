@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 
 /** The `globalThis` keys the mock stores keep their data under. */
-const MOCK_STORE_KEYS = ["mockScenarios", "mockDatasets", "mockConfigs"];
+const MOCK_STORE_KEYS = ["mockScenarios", "mockDatasets", "mockConfigs", "mockRuns"];
 
 /** Where the mock API is mounted, the same as the app's default `API_BASE_URL`. */
 const MOUNT = "/api";
@@ -35,6 +35,21 @@ const ROUTES: Route[] = [
     pattern: /^\/projects\/([^/]+)\/maps\/([^/]+)\/sizer$/,
     params: ["id", "mapId"],
     load: () => import("@/app/api/projects/[id]/maps/[mapId]/sizer/route"),
+  },
+  {
+    pattern: /^\/scenarios\/([^/]+)\/runs$/,
+    params: ["id"],
+    load: () => import("@/app/api/scenarios/[id]/runs/route"),
+  },
+  {
+    pattern: /^\/scenarios\/([^/]+)\/run$/,
+    params: ["id"],
+    load: () => import("@/app/api/scenarios/[id]/run/route"),
+  },
+  {
+    pattern: /^\/runs\/([^/]+)$/,
+    params: ["correlationId"],
+    load: () => import("@/app/api/runs/[correlationId]/route"),
   },
   {
     pattern: /^\/scenarios\/([^/]+)\/config$/,

@@ -15,4 +15,7 @@ export const configHeaderStyles = {
     "flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper-2 hover:text-ink disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent focus-visible:outline-2 focus-visible:outline-accent",
   historyIcon: "size-4",
   run: "rounded-lg px-4 py-2 text-[13px]",
+  runState:
+    "rounded-lg border border-info-line bg-info-soft px-3 py-1.5 text-[12.5px] font-semibold text-info",
+  runFailed: "border-error-line bg-danger-soft text-danger-ink",
 } as const;

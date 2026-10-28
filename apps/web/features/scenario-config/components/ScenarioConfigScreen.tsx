@@ -11,6 +11,7 @@ import type { ScenarioDetail } from "@/features/scenario-setup/types";
 import { ApiError } from "@/lib/api/errors";
 
 import { useConfigEditor } from "../use-config-editor";
+import { useScenarioRun, useTriggerRun } from "@/features/scenario-run/hooks";
 import { ConfigHeader } from "./ConfigHeader";
 import { isReady, type PanelSelection } from "../panel";
 import { ConfigPanel } from "./ConfigPanel";
@@ -20,10 +21,14 @@ import { scenarioConfigScreenStyles as styles } from "./ScenarioConfigScreen.sty
 
 /** The screen once the scenario has loaded: header, the timeline's place, and the config panel. */
 function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.Element {
-  const editor = useConfigEditor(scenario.id, {
-    projectId: scenario.projectId,
-    mapId: scenario.mapId,
-  });
+  const locked = scenario.status !== "draft";
+  const editor = useConfigEditor(
+    scenario.id,
+    { projectId: scenario.projectId, mapId: scenario.mapId },
+    { locked },
+  );
+  const trigger = useTriggerRun(scenario.id);
+  const run = useScenarioRun(scenario.id, locked);
   const [selection, setSelection] = useState<PanelSelection>({ area: "overview" });
 
   const projects = useProjects();
@@ -45,7 +50,34 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
         canRedo={editor.canRedo}
         onUndo={editor.undo}
         onRedo={editor.redo}
+        run={{
+          status: run.data?.status ?? null,
+          starting: trigger.isPending,
+          canStart: !locked && editor.status === "ready" && editor.save.state === "saved",
+          onStart: () => trigger.mutate(),
+        }}
       />
+      {trigger.error && (
+        <div className={styles.alert} role="alert">
+          <p>
+            {trigger.error.code === "scenario_invalid"
+              ? "This scenario can’t run yet:"
+              : `Couldn’t start the run: ${trigger.error.message}`}
+          </p>
+          {trigger.error.problems.length > 0 && (
+            <ul className={styles.alertList}>
+              {trigger.error.problems.map((problem) => (
+                <li key={`${problem.code}-${problem.path ?? ""}`}>{problem.message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {locked && (
+        <p className={styles.notice} role="status">
+          This scenario has been run, so its settings can no longer be changed.
+        </p>
+      )}
       {editor.save.state === "error" && (
         <p className={styles.alert} role="alert">
           Couldn’t save the last change: {editor.save.error} The panel now shows what the server
@@ -131,18 +163,6 @@ export function ScenarioConfigScreen({ scenarioId }: { scenarioId: string }): Re
     );
   }
 
-  if (detail.data.status !== "draft") {
-    return (
-      <PageMessage
-        title="This scenario can’t be edited"
-        description="Only draft scenarios can be configured."
-      >
-        <Link href="/scenarios" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-          Back to scenarios
-        </Link>
-      </PageMessage>
-    );
-  }
-
+  // A scenario that has been run is shown read-only, with its run in the header.
   return <ConfigContent scenario={detail.data} />;
 }
