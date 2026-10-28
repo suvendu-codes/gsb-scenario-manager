@@ -1,6 +1,7 @@
 import type { PanelSelection, ReadyConfigEditor } from "../../panel";
 import { AgentsCard } from "./AgentsCard";
 import { scenarioTimelineStyles as styles } from "./ScenarioTimeline.styles";
+import { StationsCard } from "./StationsCard";
 import { WmsCard } from "./WmsCard";
 
 type ScenarioTimelineProps = {
@@ -30,6 +31,7 @@ export function ScenarioTimeline({
         selected={selection.area === "wms"}
         onOpen={() => onSelect({ area: "wms" })}
       />
+      <StationsCard editor={editor} selection={selection} onSelect={onSelect} />
       <AgentsCard
         editor={editor}
         selected={selection.area === "agent"}
