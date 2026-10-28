@@ -1,9 +1,5 @@
 import { isCustomized } from "../../state/customized";
-import {
-  clearStationOverride,
-  overriddenStations,
-  updateStations,
-} from "../../state/station-edits";
+import { keepingOwn, updateStations } from "../../state/station-edits";
 import type { ConfigValues, Overrides, StationConfig } from "../../types";
 
 type StructureKey = keyof StationConfig["structure"];
@@ -23,7 +19,7 @@ export function structureKeyOf(path: string): StructureKey | null {
 }
 
 /**
- * Puts one station back to its default settings and lets it follow All-stations edits again.
+ * Puts one station back to its default settings.
  *
  * @param config - The current config.
  * @param defaults - The default config.
@@ -34,19 +30,22 @@ export function resetStation(
   defaults: ConfigValues,
   id: string,
 ): ConfigValues {
-  const reset = updateStations(config, [id], () => structuredClone(defaults.station.stations[id]));
-  return clearStationOverride(clearStationOverride(reset, "schedule", [id]), "structure", [id]);
+  return updateStations(config, [id], () => structuredClone(defaults.station.stations[id]));
 }
 
-/** True when a station has changed settings, or keeps its own schedule or structure. */
+/**
+ * True when a station has changed settings, or keeps its own schedule or structure within its
+ * group (its type's stations).
+ */
 export function isStationCustomized(
   config: ConfigValues,
   overrides: Overrides,
   id: string,
+  group: readonly string[],
 ): boolean {
   return (
     isCustomized(overrides, `station.stations.${id}`) ||
-    overriddenStations(config, "schedule").includes(id) ||
-    overriddenStations(config, "structure").includes(id)
+    keepingOwn(config, group, "schedule").includes(id) ||
+    keepingOwn(config, group, "structure").includes(id)
   );
 }

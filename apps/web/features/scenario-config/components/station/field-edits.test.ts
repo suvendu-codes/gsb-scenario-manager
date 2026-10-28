@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { buildDefaults } from "@/lib/mock/defaults";
 import {
-  markStationOverride,
+  copySchedule,
   updateStations,
-  writeSharedStructure,
+  writeGroupStructure,
+  writeStationStructure,
 } from "../../state/station-edits";
 import { isStationCustomized, resetStation, structureKeyOf } from "./field-edits";
+
+const ALL = ["PPS-101", "PPS-102", "PPS-103", "PPS-104", "PPS-105", "PPS-106"];
 
 describe("structureKeyOf", () => {
   it("reads the key from a station structure path", () => {
@@ -28,26 +31,20 @@ describe("structureKeyOf", () => {
 describe("resetStation", () => {
   const defaults = buildDefaults();
 
-  it("puts one station back to its defaults and lets it follow All-stations edits again", () => {
-    let config = updateStations(defaults, ["PPS-102"], (station) => ({
+  it("puts one station back to its defaults", () => {
+    const config = updateStations(defaults, ["PPS-102"], (station) => ({
       ...station,
+      schedule: [],
       structure: { ...station.structure, backOperator: "shuttle" },
-      hardware: { ...station.hardware, loopSpeed: 90 },
     }));
-    config = markStationOverride(
-      markStationOverride(config, "schedule", "PPS-102"),
-      "structure",
-      "PPS-102",
-    );
 
     const reset = resetStation(config, defaults, "PPS-102");
 
     expect(reset.station.stations["PPS-102"]).toEqual(defaults.station.stations["PPS-102"]);
-    expect(reset.station.override).toEqual({ schedule: [], structure: [] });
   });
 
   it("leaves the other stations alone", () => {
-    const config = writeSharedStructure(defaults, { backOperator: "shuttle" });
+    const config = writeGroupStructure(defaults, ALL, { backOperator: "shuttle" });
     const reset = resetStation(config, defaults, "PPS-101");
     expect(reset.station.stations["PPS-101"].structure.backOperator).toBe("manual");
     expect(reset.station.stations["PPS-102"].structure.backOperator).toBe("shuttle");
@@ -57,25 +54,22 @@ describe("resetStation", () => {
 describe("isStationCustomized", () => {
   const defaults = buildDefaults();
 
-  it("is true for changed settings or a kept-own schedule or structure", () => {
-    expect(isStationCustomized(defaults, {}, "PPS-101")).toBe(false);
+  it("is true for changed settings, or a schedule or structure that differs from its group", () => {
+    expect(isStationCustomized(defaults, {}, "PPS-101", ["PPS-101"])).toBe(false);
     expect(
       isStationCustomized(
         defaults,
-        { "station.stations.PPS-101.hardware.loopSpeed": 90 },
+        { "station.stations.PPS-101.structure.backOperator": "shuttle" },
         "PPS-101",
+        ["PPS-101"],
       ),
     ).toBe(true);
-    expect(
-      isStationCustomized(
-        defaults,
-        { "station.stations.PPS-101.hardware.loopSpeed": 90 },
-        "PPS-102",
-      ),
-    ).toBe(false);
 
-    const marked = markStationOverride(defaults, "structure", "PPS-103");
-    expect(isStationCustomized(marked, {}, "PPS-103")).toBe(true);
-    expect(isStationCustomized(marked, {}, "PPS-104")).toBe(false);
+    // Same schedule everywhere, so only the structure of PPS-103 differs from its group.
+    const shared = copySchedule(defaults, "PPS-101", ALL);
+    const own = writeStationStructure(shared, "PPS-103", { frontOperation: "dual" });
+    expect(isStationCustomized(own, {}, "PPS-103", ALL)).toBe(true);
+    expect(isStationCustomized(own, {}, "PPS-104", ALL)).toBe(false);
+    expect(isStationCustomized(own, {}, "PPS-103", ["PPS-103"])).toBe(false);
   });
 });

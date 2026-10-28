@@ -15,7 +15,7 @@ export const ORDER_TYPES = ["inbound", "outbound"] as const;
 /** The modes a station works in. A station not working at all has an empty schedule. */
 export const STATION_MODES = ["pick", "put", "audit"] as const;
 
-/** The two station sections where an All-stations edit skips stations that keep their own value. */
+/** The two station sections where a station can keep its own value within its type. */
 export const STATION_SECTIONS = ["schedule", "structure"] as const;
 
 export const TEA_PATTERNS = ["staggered", "random"] as const;
@@ -345,16 +345,6 @@ const stationHardwareSchema = z
   })
   .strict();
 
-const stationIdListSchema = z.array(z.string());
-
-/**
- * Per section (`schedule` and `structure`), a list of station ids. What an empty list means
- * depends on which list it is, so the two are documented where they are used.
- */
-const sectionListsSchema = z
-  .object({ schedule: stationIdListSchema, structure: stationIdListSchema })
-  .strict();
-
 export const stationConfigSchema = z
   .object({
     /** Empty when the station is not assigned any mode. */
@@ -370,20 +360,6 @@ export const stationConfigSchema = z
 export const stationModuleSchema = z
   .object({
     global: stationGlobalSchema,
-    /**
-     * Editor metadata, kept with the config as the design does: per section, the stations an
-     * All-stations edit reaches. **An empty list means every station.**
-     */
-    apply: sectionListsSchema,
-    /**
-     * Editor metadata, kept with the config as the design does: per section, the stations that
-     * keep their own value, so All-stations edits skip them. **An empty list means no station.**
-     *
-     * The run engine only needs the per-station values in `stations`; it can ignore `apply` and
-     * `override`. Whether core-service stores them, or the editor keeps them elsewhere, is still
-     * to be agreed (review S4).
-     */
-    override: sectionListsSchema,
     stations: z.record(z.string(), stationConfigSchema),
   })
   .strict();

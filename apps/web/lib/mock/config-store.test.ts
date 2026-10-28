@@ -135,14 +135,6 @@ describe("patchScenarioConfig: set", () => {
     expect(result.overrides).not.toHaveProperty("wms.orderTypes");
   });
 
-  it("stores the All-stations lists", () => {
-    const result = config.patchScenarioConfig(DRAFT_ID, {
-      set: { "station.override.schedule": ["3", "1"] },
-    });
-
-    expect(result.overrides["station.override.schedule"]).toEqual(["1", "3"]);
-  });
-
   it("updates the issues from the new config", () => {
     const result = config.patchScenarioConfig(DRAFT_ID, { set: { "wms.orderTypes": [] } });
 
@@ -275,12 +267,6 @@ describe("patchScenarioConfig: rejected changes", () => {
         path,
       },
     ]);
-  });
-
-  it("rejects an unknown station in an All-stations list", () => {
-    expect(
-      problemCodes(failure(DRAFT_ID, { set: { "station.apply.schedule": ["PPS-999"] } })),
-    ).toEqual([["UNKNOWN_STATION", "station.apply.schedule"]]);
   });
 
   it("lists every problem of a change, not just the first", () => {

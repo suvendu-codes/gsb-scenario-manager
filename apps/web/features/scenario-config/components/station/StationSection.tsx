@@ -2,14 +2,9 @@ import { getAtPath } from "../../paths";
 import { isFieldVisible, resolveField, setValueAtPath } from "../../field-path";
 import type { FieldContext } from "../../panel";
 import { isCustomized } from "../../state/customized";
-import {
-  editableStations,
-  writeSharedStructure,
-  writeStationStructure,
-} from "../../state/station-edits";
+import { followers, writeGroupStructure, writeStationStructure } from "../../state/station-edits";
 import type { CatalogField, CatalogSection, StationConfig } from "../../types";
 import { CatalogFieldControl } from "../CatalogField";
-import { ApplyTo } from "./ApplyTo";
 import { structureKeyOf } from "./field-edits";
 import { OverrideNotice } from "./OverrideNotice";
 import { stationSectionStyles as styles } from "./StationSection.styles";
@@ -26,10 +21,10 @@ type Structure = StationConfig["structure"];
 
 /**
  * A section of the station panel. Sections that can be kept per station (schedule and
- * structure) start with the "Apply to" list in the All-stations view and with a note when
- * stations keep their own value. Structure edits follow the design's rules: an All-stations
- * edit reaches only the stations that share, and editing one station marks it as keeping its own.
- * A section whose fields all belong to hardware the station lacks is not drawn.
+ * structure) start with a note when stations keep their own value. Structure edits follow the
+ * design's rules: a type edit reaches only the type's stations that share its values, and a
+ * station whose value then differs from most of its type keeps its own. A section with no
+ * field to show is not drawn.
  *
  * @param section - The catalog section.
  * @param view - The station panel's view.
@@ -40,7 +35,7 @@ export function StationSection({
   view,
   children,
 }: StationSectionProps): React.JSX.Element | null {
-  const { editor, referenceId, isAll, station } = view;
+  const { editor, referenceId, isGroup, station, group } = view;
   const { config, defaults, overrides } = editor;
 
   const fields = children
@@ -59,14 +54,14 @@ export function StationSection({
     if (key && section.overrideSection === "structure") {
       const patchFor = (next: unknown): Partial<Structure> =>
         ({ [key]: next }) as Partial<Structure>;
-      if (isAll) {
+      if (isGroup) {
         return {
           ...base,
-          changed: editableStations(config, "structure").some((id) =>
+          changed: followers(config, group, "structure").some((id) =>
             isCustomized(overrides, `station.stations.${id}.structure.${key}`),
           ),
-          write: (next) => editor.edit((c) => writeSharedStructure(c, patchFor(next))),
-          reset: () => editor.edit((c) => writeSharedStructure(c, patchFor(defaultValue))),
+          write: (next) => editor.edit((c) => writeGroupStructure(c, group, patchFor(next))),
+          reset: () => editor.edit((c) => writeGroupStructure(c, group, patchFor(defaultValue))),
         };
       }
       return {
@@ -90,7 +85,6 @@ export function StationSection({
     <section className={styles.root} aria-label={section.label}>
       <h3 className={styles.title}>{section.label}</h3>
       {section.description && <p className={styles.description}>{section.description}</p>}
-      {overrideSection && isAll && <ApplyTo section={overrideSection} view={view} />}
       {overrideSection && <OverrideNotice section={overrideSection} view={view} />}
       {children ?? (
         <div className={styles.fields}>

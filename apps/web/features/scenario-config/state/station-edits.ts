@@ -2,18 +2,22 @@ import { deepEqual } from "../paths";
 import type { ConfigValues, ScheduleBlock, StationConfig } from "../types";
 
 /**
- * Pure edits for the Station Config module, ported from the design. Each takes a config and
- * returns a new one (the input is not changed). A station that keeps its own value for a
- * section is listed in `station.override`; an edit made for all stations skips those, and
- * `station.apply` narrows which stations an All-stations edit targets (empty means all).
+ * Pure edits for the Stations module, as the design has them. Each takes a config and returns a
+ * new one (the input is not changed).
+ *
+ * Stations are edited in groups: a station type, or every station. Within a group, the value most
+ * of its stations have is the group's shared value; a station with a different value "keeps its
+ * own". Nothing about that is stored: it is worked out from the values, so a station rejoins its
+ * group as soon as its value matches again. A group edit changes the stations that follow the
+ * shared value and skips those that keep their own.
  */
 
-/** The two sections where All-stations edits skip stations that keep their own value. */
+/** The two sections where group edits skip stations that keep their own value. */
 export type StationSection = "schedule" | "structure";
 
 type Structure = StationConfig["structure"];
 
-/** Structure values an All-stations edit can set together. */
+/** Structure values a group edit can set together. */
 export const STRUCTURE_KEYS = [
   "frontOperation",
   "pickingDestination",
@@ -33,22 +37,7 @@ export function stationIds(config: ConfigValues): string[] {
   return Object.keys(config.station.stations);
 }
 
-function ordered(config: ConfigValues, ids: readonly string[]): string[] {
-  return stationIds(config).filter((id) => ids.includes(id));
-}
-
-function withList(
-  config: ConfigValues,
-  kind: "apply" | "override",
-  section: StationSection,
-  ids: readonly string[],
-): ConfigValues {
-  const next = structuredClone(config);
-  next.station[kind][section] = ordered(config, ids);
-  return next;
-}
-
-/** Applies `recipe` to each listed station. Use for edits that have no override tracking. */
+/** Applies `recipe` to each listed station. */
 export function updateStations(
   config: ConfigValues,
   ids: readonly string[],
@@ -59,62 +48,62 @@ export function updateStations(
   return next;
 }
 
-/** The stations an All-stations edit of this section targets (all of them when none is picked). */
-export function applyTargets(config: ConfigValues, section: StationSection): string[] {
-  const picked = ordered(config, config.station.apply[section]);
-  return picked.length > 0 ? picked : stationIds(config);
+function pickStructure(structure: Structure): Structure {
+  return Object.fromEntries(STRUCTURE_KEYS.map((key) => [key, structure[key]])) as Structure;
 }
 
-/** The stations that keep their own value for this section. */
-export function overriddenStations(config: ConfigValues, section: StationSection): string[] {
-  return ordered(config, config.station.override[section]);
+/** The value of a section for one station, as compared within a group. */
+function sectionValue(config: ConfigValues, id: string, section: StationSection): unknown {
+  const station = config.station.stations[id];
+  return section === "schedule" ? station.schedule : pickStructure(station.structure);
 }
 
-/** The stations an All-stations edit actually changes: its targets, minus those with their own value. */
-export function editableStations(config: ConfigValues, section: StationSection): string[] {
-  const skip = overriddenStations(config, section);
-  return applyTargets(config, section).filter((id) => !skip.includes(id));
-}
-
-/** Marks a station as keeping its own value for this section. */
-export function markStationOverride(
+/**
+ * The stations of a group that share its most common value for a section: the largest set of
+ * stations with equal values (on a tie, the one with the earliest station). Empty for an empty
+ * group.
+ *
+ * @param config - The config.
+ * @param group - The stations of the group, in order.
+ * @param section - `schedule` or `structure`.
+ */
+export function followers(
   config: ConfigValues,
+  group: readonly string[],
   section: StationSection,
-  id: string,
-): ConfigValues {
-  const current = overriddenStations(config, section);
-  return current.includes(id) ? config : withList(config, "override", section, [...current, id]);
+): string[] {
+  const sets: string[][] = [];
+  for (const id of group) {
+    const value = sectionValue(config, id, section);
+    const set = sets.find((ids) => deepEqual(sectionValue(config, ids[0], section), value));
+    if (set) set.push(id);
+    else sets.push([id]);
+  }
+  return sets.reduce<string[]>((best, ids) => (ids.length > best.length ? ids : best), []);
 }
 
-/** Lets stations follow All-stations edits again for this section. */
-export function clearStationOverride(
+/** The stations of a group that keep their own value for a section. */
+export function keepingOwn(
   config: ConfigValues,
+  group: readonly string[],
   section: StationSection,
-  ids: readonly string[],
-): ConfigValues {
-  const keep = overriddenStations(config, section).filter((id) => !ids.includes(id));
-  return withList(config, "override", section, keep);
+): string[] {
+  const shared = followers(config, group, section);
+  return group.filter((id) => !shared.includes(id));
 }
 
-/** The schedule all of these stations share, or null if they differ (or none are given). */
-export function sharedBlocks(config: ConfigValues, ids: readonly string[]): ScheduleBlock[] | null {
-  if (ids.length === 0) return null;
-  const [first, ...rest] = ids.map((id) => config.station.stations[id].schedule);
-  return rest.every((blocks) => deepEqual(blocks, first)) ? first : null;
+/** The schedule a group shares, or null for an empty group. */
+export function sharedBlocks(
+  config: ConfigValues,
+  group: readonly string[],
+): ScheduleBlock[] | null {
+  const [first] = followers(config, group, "schedule");
+  return first ? config.station.stations[first].schedule : null;
 }
 
-function structureMatches(a: Structure, b: Structure): boolean {
-  return STRUCTURE_KEYS.every((key) => a[key] === b[key]);
-}
-
-/** A station whose structure all the editable stations share, or null if they differ. */
-export function sharedStructureId(config: ConfigValues): string | null {
-  const ids = editableStations(config, "structure");
-  if (ids.length === 0) return null;
-  const stations = config.station.stations;
-  return ids.every((id) => structureMatches(stations[id].structure, stations[ids[0]].structure))
-    ? ids[0]
-    : null;
+/** A station whose structure is the one the group shares, or null for an empty group. */
+export function sharedStructureId(config: ConfigValues, group: readonly string[]): string | null {
+  return followers(config, group, "structure")[0] ?? null;
 }
 
 function withStationBlocks(
@@ -128,23 +117,6 @@ function withStationBlocks(
   }));
 }
 
-/** Copies one station's structure onto others. */
-export function copyStructure(
-  config: ConfigValues,
-  fromId: string,
-  ids: readonly string[],
-): ConfigValues {
-  const source = config.station.stations[fromId].structure;
-  return updateStations(config, ids, (station) => ({
-    ...station,
-    structure: { ...station.structure, ...pickStructure(source) },
-  }));
-}
-
-function pickStructure(structure: Structure): Structure {
-  return Object.fromEntries(STRUCTURE_KEYS.map((key) => [key, structure[key]])) as Structure;
-}
-
 /** Keeps structure values consistent: positions 1-2, staffed seats within what exists. */
 function normaliseStructure(structure: Structure): Structure {
   const frontPositions = Math.min(Math.max(structure.frontPositions, 1), 2);
@@ -156,140 +128,93 @@ function normaliseStructure(structure: Structure): Structure {
   };
 }
 
-/**
- * Sets the schedule of one station. If it now equals what the other editable stations share, it
- * rejoins them; otherwise it is marked as keeping its own schedule.
- */
+/** Sets the schedule of one station. Whether it then keeps its own follows from the values. */
 export function writeStationSchedule(
   config: ConfigValues,
   id: string,
   blocks: ScheduleBlock[],
 ): ConfigValues {
-  const next = withStationBlocks(config, [id], blocks);
-  const others = editableStations(config, "schedule").filter((other) => other !== id);
-  const shared = sharedBlocks(config, others);
-  return shared && deepEqual(blocks, shared)
-    ? clearStationOverride(next, "schedule", [id])
-    : markStationOverride(next, "schedule", id);
+  return withStationBlocks(config, [id], blocks);
 }
 
-/** Sets the schedule of every station an All-stations edit changes. */
-export function writeSharedSchedule(config: ConfigValues, blocks: ScheduleBlock[]): ConfigValues {
-  return withStationBlocks(config, editableStations(config, "schedule"), blocks);
+/** Sets the schedule of every station of a group that follows the group's shared schedule. */
+export function writeGroupSchedule(
+  config: ConfigValues,
+  group: readonly string[],
+  blocks: ScheduleBlock[],
+): ConfigValues {
+  return withStationBlocks(config, followers(config, group, "schedule"), blocks);
 }
 
-/**
- * Gives stations the schedule of another station, and lets them follow All-stations edits.
- *
- * @param sourceId - The station to copy from.
- * @param ids - The stations to copy to; empty means all of them.
- */
-export function applyStationSchedule(
+/** Gives every station of a group one station's schedule, so none keeps its own. */
+export function copySchedule(
   config: ConfigValues,
   sourceId: string,
-  ids: readonly string[],
+  group: readonly string[],
 ): ConfigValues {
-  const targets = ids.length > 0 ? ids : stationIds(config);
-  const blocks = config.station.stations[sourceId].schedule;
-  return clearStationOverride(withStationBlocks(config, targets, blocks), "schedule", targets);
+  return withStationBlocks(config, group, config.station.stations[sourceId].schedule);
 }
 
-/** Gives every station one station's schedule and targets all stations again. */
-export function copyScheduleToAll(config: ConfigValues, sourceId: string): ConfigValues {
-  const blocks = config.station.stations[sourceId].schedule;
-  const all = stationIds(config);
-  const next = clearStationOverride(withStationBlocks(config, all, blocks), "schedule", all);
-  return setSharedTargets(next, "schedule", all);
-}
-
-/**
- * Makes a station follow the shared schedule again.
- *
- * @returns The new config, or null when the other stations don't share one schedule.
- */
-export function revertStationSchedule(config: ConfigValues, id: string): ConfigValues | null {
-  const shared = sharedBlocks(config, editableStations(config, "schedule"));
-  if (!shared) return null;
-  return clearStationOverride(withStationBlocks(config, [id], shared), "schedule", [id]);
-}
-
-/**
- * Makes a station follow the shared structure again.
- *
- * @returns The new config, or null when the other stations don't share one structure.
- */
-export function revertStationStructure(config: ConfigValues, id: string): ConfigValues | null {
-  const ref = sharedStructureId(config);
-  if (!ref) return null;
-  return clearStationOverride(copyStructure(config, ref, [id]), "structure", [id]);
-}
-
-/** Changes structure values for every station an All-stations edit targets. */
-export function writeSharedStructure(
+/** Changes structure values for one station. */
+export function writeStationStructure(
   config: ConfigValues,
+  id: string,
   patch: Partial<Structure>,
 ): ConfigValues {
-  return updateStations(config, editableStations(config, "structure"), (station) => ({
+  return updateStations(config, [id], (station) => ({
+    ...station,
+    structure: normaliseStructure({ ...station.structure, ...patch }),
+  }));
+}
+
+/** Changes structure values for every station of a group that follows its shared structure. */
+export function writeGroupStructure(
+  config: ConfigValues,
+  group: readonly string[],
+  patch: Partial<Structure>,
+): ConfigValues {
+  return updateStations(config, followers(config, group, "structure"), (station) => ({
     ...station,
     structure: normaliseStructure({ ...station.structure, ...patch }),
   }));
 }
 
 /**
- * Changes structure values for one station. If it now matches the other editable stations it
- * rejoins them; otherwise it is marked as keeping its own structure.
+ * The schedule the rest of a station's group shares: what `revertToShared` would give it. Null
+ * when the station is alone in its group.
  */
-export function writeStationStructure(
+export function sharedScheduleFor(
   config: ConfigValues,
+  group: readonly string[],
   id: string,
-  patch: Partial<Structure>,
-): ConfigValues {
-  const structure = normaliseStructure({ ...config.station.stations[id].structure, ...patch });
-  const next = updateStations(config, [id], (station) => ({ ...station, structure }));
-
-  const others = editableStations(config, "structure").filter((other) => other !== id);
-  const stations = config.station.stations;
-  const matchesOthers =
-    others.length > 0 &&
-    others.every((other) =>
-      structureMatches(stations[other].structure, stations[others[0]].structure),
-    ) &&
-    structureMatches(structure, stations[others[0]].structure);
-  return matchesOthers
-    ? clearStationOverride(next, "structure", [id])
-    : markStationOverride(next, "structure", id);
+): ScheduleBlock[] | null {
+  const others = group.filter((other) => other !== id);
+  return sharedBlocks(config, others);
 }
 
 /**
- * Chooses which stations All-stations edits of a section target. Stations that join the
- * targets take the shared value and stop keeping their own. When the targets share no value,
- * the joiners keep their own value and stay marked as keeping it.
+ * Makes a station take its group's shared value for a section again.
  *
- * @param ids - The chosen stations; none, or all of them, means every station.
+ * @param config - The config.
+ * @param group - The station's group.
+ * @param id - The station.
+ * @param section - `schedule` or `structure`.
  */
-export function setSharedTargets(
+export function revertToShared(
   config: ConfigValues,
+  group: readonly string[],
+  id: string,
   section: StationSection,
-  ids: readonly string[],
 ): ConfigValues {
-  const all = stationIds(config);
-  const chosen = ordered(config, ids);
-  const nextIds = chosen.length === 0 || chosen.length === all.length ? [] : chosen;
-  const previous = applyTargets(config, section);
-  const resolved = nextIds.length > 0 ? nextIds : all;
-
-  const out = withList(config, "apply", section, nextIds);
-  const added = resolved.filter((id) => !previous.includes(id));
-  if (added.length === 0) return out;
-
-  // A joiner only loses its own value when it takes the shared one. With nothing shared to take,
-  // it keeps its value and its flag, so the next All-stations edit can't overwrite it unseen.
+  const others = group.filter((other) => other !== id);
+  const [source] = followers(config, others, section);
+  if (!source) return config;
   if (section === "schedule") {
-    const shared = sharedBlocks(config, editableStations(config, "schedule"));
-    if (!shared) return out;
-    return clearStationOverride(withStationBlocks(out, added, shared), section, added);
+    return withStationBlocks(config, [id], config.station.stations[source].schedule);
   }
-  const ref = sharedStructureId(config);
-  if (!ref) return out;
-  return clearStationOverride(copyStructure(out, ref, added), section, added);
+  const structure = pickStructure(config.station.stations[source].structure);
+  return updateStations(config, [id], (station) => ({
+    ...station,
+    structure: { ...station.structure, ...structure },
+  }));
 }

@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Check, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,12 @@ import { useScenarioDetail } from "@/features/scenario-setup/hooks";
 import { datasetSummary } from "../dataset-summary";
 import { ALL_STATIONS, type PanelSelection, type ReadyConfigEditor } from "../panel";
 import { searchSettings } from "../search";
+import { stationTypes } from "../station-types";
 import { isCustomized } from "../state/customized";
 import type { ModuleId } from "../types";
 import { overviewPanelStyles as styles } from "./OverviewPanel.styles";
+import { typeSelection } from "./station/station-view";
+import { isTypeCustomized } from "./station/StationTypeList";
 
 /** What to show when a module is chosen: the station module opens on "All stations". */
 function selectionFor(module: ModuleId): PanelSelection {
@@ -52,6 +55,7 @@ export function OverviewPanel({
   const detail = useScenarioDetail(scenarioId);
   const hits = useMemo(() => searchSettings(editor.catalog, query), [editor.catalog, query]);
   const searching = query.trim() !== "";
+  const types = useMemo(() => stationTypes(editor.stations), [editor.stations]);
 
   return (
     <div className={styles.root}>
@@ -175,21 +179,47 @@ export function OverviewPanel({
             <h3 className={styles.sectionTitle}>Configure</h3>
             <ul className={styles.modules}>
               {editor.catalog.modules.map((module) => (
-                <li key={module.id} className={styles.module}>
-                  <span className={styles.moduleLabel}>{module.label}</span>
-                  {isCustomized(editor.overrides, module.id) && (
-                    <span className={styles.customDot} role="img" aria-label="Customized" />
-                  )}
-                  <button
-                    type="button"
-                    className={styles.configure}
-                    aria-label={`Configure ${module.label}`}
-                    onClick={() => onSelect(selectionFor(module.id))}
-                  >
-                    Configure
-                    <ChevronRight className={styles.configureIcon} aria-hidden="true" />
-                  </button>
-                </li>
+                <Fragment key={module.id}>
+                  <li className={styles.module}>
+                    <span className={styles.moduleLabel}>{module.label}</span>
+                    {isCustomized(editor.overrides, module.id) && (
+                      <span className={styles.customDot} role="img" aria-label="Customized" />
+                    )}
+                    <button
+                      type="button"
+                      className={styles.configure}
+                      aria-label={`Configure ${module.label}`}
+                      onClick={() => onSelect(selectionFor(module.id))}
+                    >
+                      Configure
+                      <ChevronRight className={styles.configureIcon} aria-hidden="true" />
+                    </button>
+                  </li>
+                  {module.id === "station" &&
+                    types.map((type) => (
+                      <li key={type.id} className={cn(styles.module, styles.typeRow)}>
+                        <span className={styles.typeLabel}>{type.label}</span>
+                        <span className={styles.typeCount}>×{type.stationIds.length}</span>
+                        {isTypeCustomized(editor, type) && (
+                          <span
+                            className={styles.customDot}
+                            role="img"
+                            aria-label="Customized"
+                            title="A station of this type is customized or keeps its own values"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          className={styles.configure}
+                          aria-label={`Configure ${type.label}`}
+                          onClick={() => onSelect(typeSelection(type.id))}
+                        >
+                          Configure
+                          <ChevronRight className={styles.configureIcon} aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                </Fragment>
               ))}
             </ul>
           </section>

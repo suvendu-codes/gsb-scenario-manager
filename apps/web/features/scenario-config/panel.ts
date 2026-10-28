@@ -6,9 +6,16 @@ import type { CatalogField, CatalogModule, ConfigCatalog, ConfigValues, ModuleId
 /** The `station` value that means "all stations" in a panel selection. */
 export const ALL_STATIONS = "all";
 
-/** What the right-hand panel shows: the overview, or one module (the station module also has a station). */
+/**
+ * What the right-hand panel shows: the overview, or one module. The station module shows all
+ * stations (`station: ALL_STATIONS`), one station type (`stationType`), or one station.
+ */
 export type PanelSelection =
-  { area: "overview" } | { area: "wms" } | { area: "agent" } | { area: "station"; station: string };
+  | { area: "overview" }
+  | { area: "wms" }
+  | { area: "agent" }
+  | { area: "station"; station: string }
+  | { area: "station"; stationType: string };
 
 /** A config editor whose data has loaded, so nothing in it is null. */
 export type ReadyConfigEditor = ConfigEditor & {

@@ -1,17 +1,11 @@
 "use client";
 
 import { Copy } from "lucide-react";
-import { useState } from "react";
-
-import { Select } from "@/components/ui/select";
-
 import {
-  applyStationSchedule,
-  applyTargets,
-  copyScheduleToAll,
-  editableStations,
+  copySchedule,
+  followers,
   sharedBlocks,
-  writeSharedSchedule,
+  writeGroupSchedule,
   writeStationSchedule,
 } from "../../state/station-edits";
 import { MAX_SCHEDULE_BLOCKS } from "../../schema";
@@ -26,62 +20,11 @@ import {
   splitBlock,
 } from "../../state/schedule-blocks";
 import type { ScheduleBlock, StationMode } from "../../types";
-import { FieldShell } from "../fields/FieldShell";
-import { listStations } from "../station/override-message";
 import type { StationSectionRenderer, StationView } from "../station/station-view";
 import { scheduleEditorStyles as styles } from "./ScheduleEditor.styles";
 import { allowedModesFor } from "./allowed-modes";
 import { ScheduleBlockCard } from "./ScheduleBlockCard";
-import { MODE_LABELS, scheduleSummary, scheduleTotal } from "./schedule-text";
-
-/**
- * What the All-stations view shows while the stations it reaches don't share one schedule:
- * a note, and a way to give them all the schedule of one station.
- */
-function NoSharedSchedule({ view }: { view: StationView }): React.JSX.Element {
-  const { editor } = view;
-  const [source, setSource] = useState(view.referenceId);
-  const stations = editor.stations;
-  const targets = applyTargets(editor.config, "schedule");
-  const reachesAll = targets.length === stations.length;
-
-  return (
-    <div className={styles.none}>
-      <p className={styles.noneText}>
-        These stations don’t share one schedule, so there is nothing to edit here yet. Apply one
-        schedule, or open a station to change just that one.
-      </p>
-      <FieldShell label="Schedule to copy" layout="stacked">
-        <Select
-          aria-label="Schedule to copy"
-          className={styles.select}
-          value={source}
-          onChange={(event) => setSource(event.target.value)}
-        >
-          {stations.map((station) => (
-            <option key={station.id} value={station.id}>
-              {station.label} ·{" "}
-              {scheduleSummary(editor.config.station.stations[station.id].schedule)}
-            </option>
-          ))}
-        </Select>
-      </FieldShell>
-      <button
-        type="button"
-        className={styles.apply}
-        onClick={() =>
-          editor.edit((config) =>
-            reachesAll
-              ? copyScheduleToAll(config, source)
-              : applyStationSchedule(config, source, targets),
-          )
-        }
-      >
-        {reachesAll ? "Apply to all stations" : `Apply to ${listStations(targets)}`}
-      </button>
-    </div>
-  );
-}
+import { MODE_LABELS, scheduleTotal } from "./schedule-text";
 
 /** Why a block can't be split, for the disabled button's tooltip. */
 function splitNote(blocks: ScheduleBlock[], i: number, allowed: readonly StationMode[]): string {
@@ -123,26 +66,27 @@ function Unassigned({
 }
 
 /**
- * The schedule of one station, or of all the stations an edit reaches when they share one: up
- * to three blocks, each with its own mode (only modes the site registry allows), hours and
- * breaks. Edits in the All-stations view change every station that follows the shared schedule;
- * editing one station marks it as keeping its own unless the result matches the shared schedule
- * again.
+ * The schedule of one station, or of a station type's stations that share its schedule: up to
+ * three blocks, each with its own mode (only modes the site registry allows), hours and breaks.
+ * A type edit changes every station of the type that follows its shared schedule; a station
+ * whose schedule then differs from most of its type keeps its own.
  *
  * @param view - The station panel's view.
  */
-export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Element {
-  const { editor, isAll, station } = view;
+export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Element | null {
+  const { editor, isGroup, station, group } = view;
   const { config } = editor;
-  const targets = isAll ? editableStations(config, "schedule") : [station];
+  const targets = isGroup ? followers(config, group, "schedule") : [station];
   const allowed = allowedModesFor(editor.stations, targets);
 
-  const blocks = isAll ? sharedBlocks(config, targets) : config.station.stations[station].schedule;
-  if (!blocks) return <NoSharedSchedule view={view} />;
+  const blocks = isGroup ? sharedBlocks(config, group) : config.station.stations[station].schedule;
+  if (!blocks) return null;
 
   function write(next: ScheduleBlock[]): void {
     editor.edit((current) =>
-      isAll ? writeSharedSchedule(current, next) : writeStationSchedule(current, station, next),
+      isGroup
+        ? writeGroupSchedule(current, group, next)
+        : writeStationSchedule(current, station, next),
     );
   }
 
@@ -174,14 +118,14 @@ export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Eleme
       ))}
       <div className={styles.footer}>
         <span className={styles.total}>{scheduleTotal(blocks)}</span>
-        {!isAll && (
+        {!isGroup && group.length > 1 && (
           <button
             type="button"
             className={styles.copy}
-            onClick={() => editor.edit((current) => copyScheduleToAll(current, station))}
+            onClick={() => editor.edit((current) => copySchedule(current, station, group))}
           >
             <Copy className={styles.copyIcon} aria-hidden="true" />
-            Copy to all stations
+            Copy to all {view.type?.label} stations
           </button>
         )}
       </div>

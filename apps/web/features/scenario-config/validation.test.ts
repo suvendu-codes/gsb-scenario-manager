@@ -178,27 +178,6 @@ describe("validateConfig", () => {
     ]);
   });
 
-  it("rejects All-stations lists that name unknown or repeated stations", () => {
-    const config = withConfig((c) => {
-      c.station.apply.schedule = ["PPS-999"];
-      c.station.override.structure = ["PPS-101", "PPS-101"];
-    });
-    expect(validateConfig(config, RUN)).toEqual([
-      {
-        code: "UNKNOWN_STATION",
-        message: "Unknown station: PPS-999.",
-        params: { list: "apply", section: "schedule", stationIds: "PPS-999" },
-        path: "station.apply.schedule",
-      },
-      {
-        code: "STATION_LISTED_TWICE",
-        message: "A station is listed twice.",
-        params: { list: "override", section: "structure" },
-        path: "station.override.structure",
-      },
-    ]);
-  });
-
   it("rejects a put flow that does not belong to the category and side", () => {
     const config = withConfig((c) => {
       c.station.stations["PPS-104"].operations.put.behavior.back = "unstaged-put-front";

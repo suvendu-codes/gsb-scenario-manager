@@ -253,7 +253,7 @@ export const configCatalog: ConfigCatalog = {
           id: "schedule",
           label: "Schedule",
           description:
-            "Each period runs one mode and always fills the run — lengthening one shortens the next. Tea breaks are short station pauses; staggered ones don’t stop every station at once.",
+            "Up to three blocks, one mode each, that fill the run. Regular breaks repeat through a block; tea breaks are short pauses, staggered so stations don’t all stop at once.",
           scope: "eachStation",
           overrideSection: "schedule",
           fields: [{ type: "schedule", path: `${STATION}.schedule`, label: "Schedule" }],
