@@ -14,7 +14,13 @@ describe("searchSettings", () => {
 
   it("finds a setting by part of its label, ignoring case", () => {
     expect(labels("VOLUME")).toContain("Volume multiplier");
-    expect(labels("charging")).toEqual(["Bot charging"]);
+    // Label matches first, then fields whose section name ("Bot charging and turning") matches.
+    expect(labels("charging")).toEqual([
+      "HTM charging time",
+      "VTM charging time",
+      "HTM turning time",
+      "VTM turning time",
+    ]);
   });
 
   it("says which module and section the setting is in", () => {
@@ -33,8 +39,8 @@ describe("searchSettings", () => {
 
   it("also matches the help text and the section name", () => {
     expect(labels("pick-before")).toContain("PBT window");
-    expect(searchSettings(configCatalog, "availability").map((hit) => hit.label)).toContain(
-      "Bot outage",
+    expect(searchSettings(configCatalog, "bot types").map((hit) => hit.label)).toContain(
+      "Quicktron HTM",
     );
   });
 

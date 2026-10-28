@@ -153,7 +153,12 @@ export function buildDefaults(
         stations.map((station) => [station.id, defaultStation(station)]),
       ),
     },
-    agent: { fleet: { htm: count("htm"), vtm: count("vtm") }, botOutagePct: 5, botCharging: true },
+    agent: {
+      fleet: { htm: count("htm"), vtm: count("vtm") },
+      botOutagePct: 5,
+      charging: { htm: 10, vtm: 10 },
+      turning: { htm: 3, vtm: 3 },
+    },
   };
 }
 
