@@ -7,7 +7,6 @@ import type {
   catalogSectionSchema,
   configCatalogSchema,
   schedulerPresetSchema,
-  stationInfoSchema,
 } from "./catalog/schema";
 import {
   agentConfigSchema,
@@ -57,5 +56,4 @@ export type CatalogModule = z.infer<typeof catalogModuleSchema>;
 export type CatalogSection = z.infer<typeof catalogSectionSchema>;
 export type CatalogField = z.infer<typeof catalogFieldSchema>;
 export type SchedulerPreset = z.infer<typeof schedulerPresetSchema>;
-export type StationInfo = z.infer<typeof stationInfoSchema>;
 export type BotType = z.infer<typeof botTypeSchema>;

@@ -1,101 +1,15 @@
 import { operationsCatalog } from "../schema";
-import type { ConfigCatalog, StationInfo } from "../types";
+import type { ConfigCatalog } from "../types";
 
 /**
  * The config catalog served by the mock `GET /api/config/catalog`: the field definitions the
- * config panel is built from, the scheduler presets, the stations and the bot types.
+ * config panel is built from, the scheduler presets and the bot types. Stations are not here:
+ * they depend on the map and come from its PPS lookup.
  *
  * Ranges, labels and help text follow the design's config panel. Pick, put and audit fields
  * are generated from the design into `operations.json`. The consistency test in
  * `catalog.test.ts` checks these ranges against the schema that validates the values.
  */
-
-/**
- * Stations of the mock site, as the registry describes them.
- *
- * MOCK: this is one fixed list for every map, and it ships inside the catalog. The real list
- * depends on the map and comes from the station registry, so the stations should move out of
- * the catalog, and the functions that read `STATION_IDS` (defaults, validation, the config
- * store, the station edit logic) should take the list as a parameter. Deferred until the
- * registry's fields are agreed (review M1).
- */
-const STATIONS: StationInfo[] = [
-  {
-    id: "PPS-101",
-    type: "Standard PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: false,
-    category: "Fixed",
-    location: "A-01.2",
-    pickDirection: 0,
-    status: "connected",
-    eligibleSystem: "rtp",
-    registryUrl: "/v1/pps/pps-101",
-  },
-  {
-    id: "PPS-102",
-    type: "Easyloop PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: true,
-    category: "Fixed",
-    location: "A-04.1",
-    pickDirection: 1,
-    status: "connected",
-    eligibleSystem: "rtp",
-    registryUrl: "/v1/pps/pps-102",
-  },
-  {
-    id: "PPS-103",
-    type: "Roll Cage PPS",
-    hasGravityInduction: true,
-    hasEasyLoop: false,
-    category: "Dynamic",
-    location: "B-03.7",
-    pickDirection: 0,
-    status: "disconnected",
-    eligibleSystem: "rtp",
-    registryUrl: "/v1/pps/pps-103",
-  },
-  {
-    id: "PPS-104",
-    type: "Standard PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: false,
-    category: "Fixed",
-    location: "B-01.4",
-    pickDirection: 0,
-    status: "connected",
-    eligibleSystem: "relay",
-    registryUrl: "/v1/pps/pps-104",
-  },
-  {
-    id: "PPS-105",
-    type: "Easyloop PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: true,
-    category: "Dynamic",
-    location: "C-02.3",
-    pickDirection: 1,
-    status: "connected",
-    eligibleSystem: "relay",
-    registryUrl: "/v1/pps/pps-105",
-  },
-  {
-    id: "PPS-106",
-    type: "Roll Cage PPS",
-    hasGravityInduction: true,
-    hasEasyLoop: false,
-    category: "Fixed",
-    location: "C-05.9",
-    pickDirection: 0,
-    status: "connected",
-    eligibleSystem: "p2p",
-    registryUrl: "/v1/pps/pps-106",
-  },
-];
-
-/** Ids of the stations of the mock site, in display order. */
-export const STATION_IDS: readonly string[] = STATIONS.map((station) => station.id);
 
 const STATION = "station.stations.{stationId}";
 
@@ -605,7 +519,6 @@ export const configCatalog: ConfigCatalog = {
       weights: { ppf: 2, pbt: 1, pbtBreached: 1, pbtRisk: 1, largeOrders: 5, skuConsolidation: 1 },
     },
   ],
-  stations: STATIONS,
   botTypes: [
     { id: "htm", label: "Quicktron HTM", imageUrl: null },
     { id: "vtm", label: "Quicktron VTM", imageUrl: null },

@@ -13,9 +13,7 @@ export type OperationsContext = {
 export function operationsContextFor(view: StationView): OperationsContext {
   return {
     view,
-    targets: view.isAll
-      ? view.editor.catalog.stations.map((station) => station.id)
-      : [view.station],
+    targets: view.isAll ? view.editor.stations.map((station) => station.id) : [view.station],
   };
 }
 

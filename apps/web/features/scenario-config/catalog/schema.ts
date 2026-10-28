@@ -104,19 +104,6 @@ export const schedulerPresetSchema = z.object({
 });
 
 /** A station as the site registry describes it. Shown for reference; not editable here. */
-export const stationInfoSchema = z.object({
-  id: z.string(),
-  type: z.string(),
-  hasGravityInduction: z.boolean(),
-  hasEasyLoop: z.boolean(),
-  category: z.string(),
-  location: z.string(),
-  pickDirection: z.number(),
-  status: z.enum(["connected", "disconnected"]),
-  eligibleSystem: z.string(),
-  registryUrl: z.string(),
-});
-
 export const botTypeSchema = z.object({
   id: z.enum(["htm", "vtm"]),
   label: z.string(),
@@ -132,7 +119,6 @@ export const configCatalogSchema = z.object({
   version: z.number(),
   modules: z.array(catalogModuleSchema),
   presets: z.array(schedulerPresetSchema),
-  stations: z.array(stationInfoSchema),
   botTypes: z.array(botTypeSchema),
   operations: operationsCatalogSchema,
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDefaults } from "../defaults";
+import { buildDefaults, SAMPLE_STATIONS } from "@/lib/mock/defaults";
 import { getAtPath, hasPath, resolveConfig } from "../paths";
 import {
   configValuesSchema,
@@ -9,7 +9,7 @@ import {
   SCHEDULER_WEIGHTS,
 } from "../schema";
 import type { CatalogField } from "../types";
-import { configCatalog, STATION_IDS } from "./index";
+import { configCatalog } from "./index";
 import operationsJson from "./operations.json";
 import { configCatalogSchema } from "./schema";
 
@@ -32,8 +32,8 @@ describe("defaults", () => {
     expect(configValuesSchema.safeParse(defaults).success).toBe(true);
   });
 
-  it("have an entry for every station of the catalog", () => {
-    expect(Object.keys(defaults.station.stations)).toEqual([...STATION_IDS]);
+  it("have an entry for every station they are built from, in order", () => {
+    expect(Object.keys(defaults.station.stations)).toEqual(SAMPLE_STATIONS.map((s) => s.id));
   });
 
   it("start every pick and audit field on the default the catalog declares", () => {
@@ -161,11 +161,8 @@ describe("catalog", () => {
     }
   });
 
-  it("only gives hardware fields to stations that have the hardware", () => {
-    const hardware = fields.filter((field) => field.stationFeature);
-    expect(hardware.length).toBeGreaterThan(0);
-    expect(configCatalog.stations.some((s) => s.hasGravityInduction)).toBe(true);
-    expect(configCatalog.stations.some((s) => s.hasEasyLoop)).toBe(true);
+  it("lists no stations: they come from the map's PPS lookup", () => {
+    expect(configCatalog).not.toHaveProperty("stations");
   });
 });
 

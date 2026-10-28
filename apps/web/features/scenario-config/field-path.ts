@@ -1,5 +1,5 @@
 import { getAtPath, isPlainObject, splitPath } from "./paths";
-import type { CatalogField, ConfigValues, StationInfo } from "./types";
+import type { CatalogField, ConfigValues } from "./types";
 
 const STATION_TOKEN = "{stationId}";
 
@@ -56,22 +56,17 @@ export function resolveField(field: CatalogField, stationId?: string): CatalogFi
 }
 
 /**
- * Whether a field should be shown: its `visibleWhen` condition holds, and a hardware field
- * only shows for a station whose type has that hardware.
+ * Whether a field should be shown: its `visibleWhen` condition holds, and it is not a hardware
+ * field. The site registry says nothing about gravity induction or EasyLoop hardware, and the
+ * new design drops those sections, so their fields are not shown (they are removed in the
+ * cleanup PR).
  *
  * @param field - A field with its paths already resolved.
  * @param config - The current config.
- * @param station - The station being edited, if any.
  */
-export function isFieldVisible(
-  field: CatalogField,
-  config: ConfigValues,
-  station?: StationInfo,
-): boolean {
+export function isFieldVisible(field: CatalogField, config: ConfigValues): boolean {
   if (field.visibleWhen && getAtPath(config, field.visibleWhen.path) !== field.visibleWhen.equals) {
     return false;
   }
-  if (field.stationFeature === "gravityInduction") return station?.hasGravityInduction === true;
-  if (field.stationFeature === "easyLoop") return station?.hasEasyLoop === true;
-  return true;
+  return field.stationFeature === undefined;
 }

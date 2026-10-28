@@ -1,5 +1,3 @@
-import { STATION_IDS } from "@/features/scenario-config/catalog";
-import { buildDefaults, DEFAULT_RUN_DURATION_HOURS } from "@/features/scenario-config/defaults";
 import {
   deepEqual,
   getAtPath,
@@ -18,11 +16,13 @@ import { configProblem } from "@/features/scenario-config/problems";
 import { computeIssues, validateConfig } from "@/features/scenario-config/validation";
 import { summarizeProblems, type Problem } from "@/lib/api/error";
 
+import { DEFAULT_RUN_DURATION_HOURS, defaultsForMap } from "./defaults";
 import { getScenarioDetail, MockApiError } from "./store";
 
 /**
  * In-memory mock of the scenario config, standing in for core-service until its endpoints
- * exist. Only the overrides are stored; the defaults are built on every request.
+ * exist. Only the overrides are stored; the defaults are built on every request from the
+ * scenario's map (its stations and the sizer's fleet, from `lib/mock/data`).
  */
 type ConfigState = { overrides: Overrides; updatedAt: string };
 
@@ -32,8 +32,8 @@ const globalStore = globalThis as typeof globalThis & {
 };
 const configs: Record<string, ConfigState> = (globalStore.mockConfigs ??= {});
 
-/** Puts list values in their canonical order, so equal lists compare equal. */
-function normalise(path: string, value: unknown): unknown {
+/** Puts list values in their canonical order (stations in map order), so equal lists compare equal. */
+function normalise(path: string, value: unknown, stationIds: string[]): unknown {
   if (!Array.isArray(value)) return value;
   if (path === "wms.orderTypes") {
     return [...value].sort(
@@ -43,9 +43,7 @@ function normalise(path: string, value: unknown): unknown {
     );
   }
   if (path.startsWith("station.apply.") || path.startsWith("station.override.")) {
-    return [...value].sort(
-      (a, b) => STATION_IDS.indexOf(String(a)) - STATION_IDS.indexOf(String(b)),
-    );
+    return [...value].sort((a, b) => stationIds.indexOf(String(a)) - stationIds.indexOf(String(b)));
   }
   return value;
 }
@@ -76,7 +74,7 @@ function toResponse(
 export function getScenarioConfig(id: string): ScenarioConfig {
   const detail = getScenarioDetail(id);
   const state = configs[id] ?? { overrides: {}, updatedAt: detail.createdAt };
-  return toResponse(id, state, buildDefaults(), detail.datasets);
+  return toResponse(id, state, defaultsForMap(detail.mapId), detail.datasets);
 }
 
 /** The error for a change that has problems: every problem is listed, none is hidden. */
@@ -111,7 +109,8 @@ export function patchScenarioConfig(id: string, body: PatchConfigBody): Scenario
     });
   }
 
-  const defaults = buildDefaults();
+  const defaults = defaultsForMap(detail.mapId);
+  const stationIds = Object.keys(defaults.station.stations);
   const next: Overrides = { ...(configs[id]?.overrides ?? {}) };
   const problems: Problem[] = [];
 
@@ -132,7 +131,7 @@ export function patchScenarioConfig(id: string, body: PatchConfigBody): Scenario
     } else if (!isLeafPath(defaults, path)) {
       problems.push(configProblem("NOT_A_SINGLE_VALUE", { path }, path));
     } else {
-      next[path] = normalise(path, (body.set ?? {})[path]);
+      next[path] = normalise(path, (body.set ?? {})[path], stationIds);
     }
   }
   if (problems.length > 0) throw configInvalid(problems);

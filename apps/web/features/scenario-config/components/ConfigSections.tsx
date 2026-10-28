@@ -26,7 +26,7 @@ type ConfigSectionsProps = {
 /**
  * Draws catalog sections and their fields from the catalog, with the current values: each
  * field gets its control, its changed dot and reset button. Fields that don't apply (their
- * `visibleWhen` condition fails, or the station lacks the hardware) are left out.
+ * `visibleWhen` condition fails, or they are hardware fields) are left out.
  *
  * @param sections - The sections to draw.
  * @param editor - The loaded config editor.
@@ -47,8 +47,6 @@ export function ConfigSections({
   reset = (path) => editor.reset([path]),
   isChanged = (path) => isCustomized(editor.overrides, path),
 }: ConfigSectionsProps): React.JSX.Element {
-  const station = editor.catalog.stations.find((candidate) => candidate.id === stationId);
-
   return (
     <div className={styles.root}>
       {sections.map((section) => {
@@ -65,7 +63,7 @@ export function ConfigSections({
               <div className={styles.fields}>
                 {section.fields.map((raw) => {
                   const field = resolveField(raw, stationId);
-                  if (field.path.includes("{") || !isFieldVisible(field, editor.config, station)) {
+                  if (field.path.includes("{") || !isFieldVisible(field, editor.config)) {
                     return null;
                   }
                   return (

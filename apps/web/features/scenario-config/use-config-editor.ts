@@ -3,8 +3,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
-import { scenarioConfigSource, useConfigCatalog, useScenarioConfig } from "./hooks";
+import type { MapRef } from "./api";
+import { scenarioConfigSource, useConfigCatalog, useMapStations, useScenarioConfig } from "./hooks";
 import { resolveConfig } from "./paths";
+import { stationsInConfig } from "./stations";
 import { diffToPatch } from "./state/changes";
 import {
   sessionForScenario,
@@ -14,6 +16,7 @@ import {
 } from "./state/edit-session";
 import { applyEdit, applyRedo, applyUndo } from "./state/editor-history";
 import type { ConfigCatalog, ConfigIssue, ConfigValues, Overrides } from "./types";
+import type { MapStation } from "./upstream/stations";
 
 export type { SaveState, SaveStatus } from "./state/edit-session";
 
@@ -22,6 +25,11 @@ export type ConfigEditor = {
   status: "loading" | "error" | "ready";
   error: Error | null;
   catalog: ConfigCatalog | null;
+  /**
+   * The scenario's stations, in the config's order, with their registry details from the map
+   * (unknown details when the map's PPS lookup failed or lacks a station).
+   */
+  stations: MapStation[];
   defaults: ConfigValues | null;
   /** The changes from the defaults, as the screen currently has them. */
   overrides: Overrides;
@@ -47,6 +55,7 @@ export type ConfigEditor = {
 
 const NO_OVERRIDES: Overrides = {};
 const NO_ISSUES: ConfigIssue[] = [];
+const NO_STATIONS: MapStation[] = [];
 const noSubscription = () => () => {};
 const noSnapshot = () => null;
 
@@ -56,11 +65,13 @@ const noSnapshot = () => null;
  * so changing `scenarioId` never shows or sends another scenario's edits.
  *
  * @param scenarioId - The scenario being configured.
+ * @param map - The scenario's project and map, for the station details.
  */
-export function useConfigEditor(scenarioId: string): ConfigEditor {
+export function useConfigEditor(scenarioId: string, map: MapRef): ConfigEditor {
   const queryClient = useQueryClient();
   const catalogQuery = useConfigCatalog();
   const configQuery = useScenarioConfig(scenarioId);
+  const stationsQuery = useMapStations(map);
   const data = configQuery.data;
 
   // One session per scenario: a new scenario drops the old one with all its state.
@@ -83,16 +94,28 @@ export function useConfigEditor(scenarioId: string): ConfigEditor {
     [defaults, overrides],
   );
   const save = snapshot?.save ?? { state: "saved", error: null };
+  const lookup = stationsQuery.data?.stations;
+  const stations = useMemo(
+    () => (defaults ? stationsInConfig(defaults, lookup ?? NO_STATIONS) : NO_STATIONS),
+    [defaults, lookup],
+  );
 
   // A failed refetch keeps the loaded data; only a load that never succeeded is an error.
   // (A failed reload after a failed save shows as the `out-of-sync` save state instead.)
   const loadFailed = (catalogQuery.isError && !catalogQuery.data) || (configQuery.isError && !data);
-  const status = loadFailed ? "error" : catalogQuery.data && live ? "ready" : "loading";
+  // The station details wait for their lookup, but a failed lookup is not an error: the config
+  // says which stations exist, and they are shown with unknown details.
+  const status = loadFailed
+    ? "error"
+    : catalogQuery.data && live && !stationsQuery.isPending
+      ? "ready"
+      : "loading";
 
   return {
     status,
     error: loadFailed ? (catalogQuery.error ?? configQuery.error) : null,
     catalog: catalogQuery.data ?? null,
+    stations,
     defaults,
     overrides,
     config,

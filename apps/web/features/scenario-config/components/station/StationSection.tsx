@@ -42,13 +42,12 @@ export function StationSection({
 }: StationSectionProps): React.JSX.Element | null {
   const { editor, referenceId, isAll, station } = view;
   const { config, defaults, overrides } = editor;
-  const info = editor.catalog.stations.find((candidate) => candidate.id === referenceId);
 
   const fields = children
     ? []
     : section.fields
         .map((field) => resolveField(field, referenceId))
-        .filter((field) => isFieldVisible(field, config, info));
+        .filter((field) => isFieldVisible(field, config));
   if (!children && fields.length === 0) return null;
 
   function contextFor(field: CatalogField): FieldContext {

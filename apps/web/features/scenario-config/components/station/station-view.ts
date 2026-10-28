@@ -35,11 +35,11 @@ export function buildStationView(
   onSelect: (selection: PanelSelection) => void,
 ): StationView {
   const station = selection.area === "station" ? selection.station : ALL_STATIONS;
-  const isAll = station === ALL_STATIONS || !editor.catalog.stations.some((s) => s.id === station);
+  const isAll = station === ALL_STATIONS || !editor.stations.some((s) => s.id === station);
   const referenceId = isAll
     ? (sharedStructureId(editor.config) ??
       editableStations(editor.config, "structure")[0] ??
-      editor.catalog.stations[0].id)
+      editor.stations[0].id)
     : station;
   return { editor, station: isAll ? ALL_STATIONS : station, isAll, referenceId, onSelect };
 }

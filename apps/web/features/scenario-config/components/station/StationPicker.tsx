@@ -1,11 +1,11 @@
 import { Select } from "@/components/ui/select";
 
 import { ALL_STATIONS, type PanelSelection } from "../../panel";
-import type { StationInfo } from "../../types";
+import type { MapStation } from "../../upstream/stations";
 import { stationPickerStyles as styles } from "./StationPicker.styles";
 
 type StationPickerProps = {
-  stations: StationInfo[];
+  stations: MapStation[];
   /** `ALL_STATIONS`, or the id of the station being edited. */
   value: string;
   /** A line under the list, such as which settings apply to every station. */
@@ -38,7 +38,7 @@ export function StationPicker({
         <option value={ALL_STATIONS}>All stations · shared settings</option>
         {stations.map((station) => (
           <option key={station.id} value={station.id}>
-            {station.id} · {station.type}
+            {station.label} · {station.registryType}
           </option>
         ))}
       </Select>
