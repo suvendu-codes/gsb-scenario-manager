@@ -133,7 +133,8 @@ export function buildDefaults(
     },
     station: {
       global: {
-        errorInjection: false,
+        timeInErrorPct: 5,
+        replenishment: { a: 20, b: 20, c: 20 },
         orderHandling: { crossStationRebalance: true },
         pickScheduler: {
           weights: {
@@ -145,7 +146,7 @@ export function buildDefaults(
             skuConsolidation: 2,
           },
         },
-        limits: { queueLimitPerStation: 10, replenishmentThresholdPct: 20 },
+        limits: { queueLimitPerStation: 10 },
       },
       apply: { schedule: [], structure: [] },
       override: { schedule: [], structure: [] },

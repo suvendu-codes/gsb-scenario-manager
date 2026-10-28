@@ -149,32 +149,6 @@ export const configCatalog: ConfigCatalog = {
         "When stations work, in which mode, and how they are built. All stations edits every station that still shares a setting.",
       sections: [
         {
-          id: "errors",
-          label: "Errors",
-          scope: "allStations",
-          fields: [
-            {
-              type: "toggle",
-              path: "station.global.errorInjection",
-              label: "Error injection",
-              hint: "Simulates real-world errors, such as station blockages, during the run.",
-            },
-          ],
-        },
-        {
-          id: "orderHandling",
-          label: "Order handling",
-          scope: "allStations",
-          fields: [
-            {
-              type: "toggle",
-              path: "station.global.orderHandling.crossStationRebalance",
-              label: "Cross-station rebalancing",
-              hint: "Bots carry a rack straight to another station that needs it, instead of returning it to storage first.",
-            },
-          ],
-        },
-        {
           id: "pickScheduler",
           label: "Pick scheduler",
           description: "Decides which order a station works on next, above any single station.",
@@ -202,8 +176,61 @@ export const configCatalog: ConfigCatalog = {
           ],
         },
         {
+          id: "replenishment",
+          label: "Replenishment threshold",
+          description: "Level at which a slot is replenished, by class. All pick stations.",
+          scope: "allStations",
+          fields: [
+            {
+              type: "stepper",
+              path: "station.global.replenishment.a",
+              label: "Class A",
+              min: 0,
+              max: 100,
+              step: 5,
+              unit: "%",
+            },
+            {
+              type: "stepper",
+              path: "station.global.replenishment.b",
+              label: "Class B",
+              min: 0,
+              max: 100,
+              step: 5,
+              unit: "%",
+            },
+            {
+              type: "stepper",
+              path: "station.global.replenishment.c",
+              label: "Class C",
+              min: 0,
+              max: 100,
+              step: 5,
+              unit: "%",
+            },
+          ],
+        },
+        {
+          id: "timeInError",
+          label: "Time in error",
+          scope: "allStations",
+          fields: [
+            {
+              type: "stepper",
+              path: "station.global.timeInErrorPct",
+              label: "Percentage of time in error",
+              hint: "Simulates navigation errors and station inlet/outlet blockages to match real-world scenarios. Applies to all stations.",
+              min: 0,
+              max: 50,
+              unit: "%",
+            },
+          ],
+        },
+        // Queue limit and rebalancing move to each station type's Station Setup with the type
+        // layer; they stay here until then so no control goes missing.
+        {
           id: "queue",
-          label: "Queue and replenishment",
+          label: "Queue and rebalancing",
           scope: "allStations",
           fields: [
             {
@@ -215,14 +242,10 @@ export const configCatalog: ConfigCatalog = {
               max: 50,
             },
             {
-              type: "stepper",
-              path: "station.global.limits.replenishmentThresholdPct",
-              label: "Replenishment threshold",
-              hint: "Stock level, as a share of capacity, that triggers replenishment.",
-              min: 0,
-              max: 90,
-              step: 5,
-              unit: "%",
+              type: "toggle",
+              path: "station.global.orderHandling.crossStationRebalance",
+              label: "Cross-station rebalancing",
+              hint: "Bots carry a rack straight to another station that needs it, instead of returning it to storage first.",
             },
           ],
         },

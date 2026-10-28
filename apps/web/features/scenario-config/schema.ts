@@ -244,7 +244,16 @@ export const wmsConfigSchema = z
 /** Settings that apply to the whole site, not to one station (the "Warehouse manager" settings). */
 export const stationGlobalSchema = z
   .object({
-    errorInjection: z.boolean(),
+    /** Share of time stations are in error (navigation errors, inlet and outlet blockages), in percent. */
+    timeInErrorPct: z.number().int().min(0).max(50),
+    /** Stock level, in percent of a slot, at which it is replenished, per slot class. */
+    replenishment: z
+      .object({
+        a: z.number().int().min(0).max(100).multipleOf(5),
+        b: z.number().int().min(0).max(100).multipleOf(5),
+        c: z.number().int().min(0).max(100).multipleOf(5),
+      })
+      .strict(),
     orderHandling: z
       .object({
         crossStationRebalance: z.boolean(),
@@ -264,7 +273,6 @@ export const stationGlobalSchema = z
     limits: z
       .object({
         queueLimitPerStation: z.number().int().min(1).max(50),
-        replenishmentThresholdPct: z.number().int().min(0).max(90).multipleOf(5),
       })
       .strict(),
   })
