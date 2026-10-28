@@ -72,6 +72,7 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
         </section>
         <ConfigPanel
           scenarioId={scenario.id}
+          setup={{ projectName, mapName }}
           editor={editor}
           selection={selection}
           onSelect={setSelection}
