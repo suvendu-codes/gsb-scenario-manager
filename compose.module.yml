@@ -1,0 +1,20 @@
+# Overlay for isolated module tests: no host port reservations or local data reuse.
+services:
+  postgres:
+    ports: !reset []
+  kafka:
+    ports: !reset []
+  module-tests:
+    image: ${LOCAL_WORKER_IMAGE:?Set by scripts/module-test.mjs}
+    environment:
+      NODE_ENV: test
+      LOCAL_DEMO_ENABLED: "true"
+      DATABASE_URL: postgresql://scene:scene@postgres:5432/scene_local
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: scenario-worker-local
+      KAFKA_STATUS_TOPIC: run.response.local
+      KAFKA_RESULT_TOPIC: run.response.local
+      KAFKA_SSL: "false"
+      DEMO_EVENT_DELAY_MS: "0"
+    command: ["node", "--test", "--test-reporter=tap", "--test-timeout=360000", "dist-tools/test/module/status-worker.module.js"]
+    profiles: ["module"]
