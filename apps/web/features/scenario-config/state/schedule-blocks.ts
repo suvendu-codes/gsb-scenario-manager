@@ -1,7 +1,8 @@
-import type { ScheduleBlock } from "../types";
-import { maxTeaCount } from "../validation";
+import { MAX_BREAKS_PER_BLOCK, MAX_SCHEDULE_BLOCKS, STATION_MODES } from "../schema";
+import type { ScheduleBlock, ScheduleBreak, StationMode } from "../types";
+import { maxTeaCount, maxTeaMinutes } from "../validation";
 
-/** Schedule periods are whole half hours. */
+/** Schedule blocks are whole half hours. */
 export const HALF_HOUR = 0.5;
 
 /** Length of a tea break when one is added. */
@@ -9,44 +10,85 @@ export const TEA_DEFAULT_MINUTES = 10;
 
 const round = (value: number, step: number): number => Math.round(value / step) * step;
 
-/** Longest tea break a period of this length can hold, in minutes (at most 120). */
-export function maxTeaMinutes(hours: number): number {
-  return Math.min(120, Math.max(5, Math.floor(hours * 60)));
-}
-
-/** Shortens a block's tea breaks so they still fit its length. */
-function fitTeaBreaks(block: ScheduleBlock): ScheduleBlock {
-  const longest = maxTeaMinutes(block.hours);
+/** Makes a block's breaks fit its length: tea breaks shorter or fewer, regular ones more often. */
+function fitBreaks(block: ScheduleBlock): ScheduleBlock {
   return {
     ...block,
-    teaBreaks: block.teaBreaks.map((tea) => {
-      const durationMinutes = Math.min(tea.durationMinutes, longest);
+    breaks: block.breaks.map((item): ScheduleBreak => {
+      if (item.type === "break") {
+        return { ...item, everyHours: Math.min(item.everyHours, Math.max(HALF_HOUR, block.hours)) };
+      }
+      const durationMinutes = Math.min(item.durationMinutes, maxTeaMinutes(block.hours));
       return {
-        ...tea,
+        ...item,
         durationMinutes,
-        count: Math.min(tea.count, maxTeaCount(block.hours, durationMinutes)),
+        count: Math.min(item.count, maxTeaCount(block.hours, durationMinutes)),
       };
     }),
   };
 }
 
-/** A new tea break for a period: once, staggered, with the default length. */
-export function newTeaBreak(id: string): ScheduleBlock["teaBreaks"][number] {
-  return { id, pattern: "staggered", durationMinutes: TEA_DEFAULT_MINUTES, count: 1 };
+/**
+ * A new break for a block: a regular break every 2 hours for half an hour, or a tea break of
+ * the default length once per block, staggered. Fitted to the block.
+ *
+ * @param block - The block it is for.
+ * @param type - `break` or `tea`.
+ * @param id - Its id.
+ */
+export function newBreak(
+  block: ScheduleBlock,
+  type: ScheduleBreak["type"],
+  id: string,
+): ScheduleBreak {
+  const item: ScheduleBreak =
+    type === "break"
+      ? { id, type, everyHours: 2, durationHours: 0.5 }
+      : { id, type, pattern: "staggered", durationMinutes: TEA_DEFAULT_MINUTES, count: 1 };
+  return fitBreaks({ ...block, breaks: [item] }).breaks[0];
 }
 
-/** The modes a station works in over its schedule, without repeats and without `off`. */
-export function scheduledModes(
-  blocks: ScheduleBlock[],
-): Array<Exclude<ScheduleBlock["mode"], "off">> {
-  const modes: Array<Exclude<ScheduleBlock["mode"], "off">> = [];
-  for (const block of blocks) {
-    if (block.mode !== "off" && !modes.includes(block.mode)) modes.push(block.mode);
-  }
-  return modes;
+/** Adds a break to a block, unless it already has the most a block can have. */
+export function addBreak(
+  block: ScheduleBlock,
+  type: ScheduleBreak["type"],
+  id: string,
+): ScheduleBlock {
+  if (block.breaks.length >= MAX_BREAKS_PER_BLOCK) return block;
+  return { ...block, breaks: [...block.breaks, newBreak(block, type, id)] };
 }
 
-/** The hour each period starts at. */
+/** Replaces one break of a block, fitting it to the block. */
+export function updateBreak(block: ScheduleBlock, item: ScheduleBreak): ScheduleBlock {
+  return fitBreaks({
+    ...block,
+    breaks: block.breaks.map((current) => (current.id === item.id ? item : current)),
+  });
+}
+
+/** Removes one break from a block. */
+export function removeBreak(block: ScheduleBlock, id: string): ScheduleBlock {
+  return { ...block, breaks: block.breaks.filter((item) => item.id !== id) };
+}
+
+/** How many times a regular break happens in a block (it never falls on the block's end). */
+export function breakOccurrences(everyHours: number, blockHours: number): number {
+  if (everyHours <= 0) return 0;
+  return Math.max(0, Math.ceil(blockHours / everyHours - 1e-9) - 1);
+}
+
+/** The modes a station works in over its schedule, in block order. */
+export function scheduledModes(blocks: ScheduleBlock[]): StationMode[] {
+  return blocks.map((block) => block.mode);
+}
+
+/** The allowed modes no block uses yet, in the usual order (pick, put, audit). */
+export function freeModes(blocks: ScheduleBlock[], allowed: readonly StationMode[]): StationMode[] {
+  const used = new Set(scheduledModes(blocks));
+  return STATION_MODES.filter((mode) => allowed.includes(mode) && !used.has(mode));
+}
+
+/** The hour each block starts at. */
 export function blockStarts(blocks: ScheduleBlock[]): number[] {
   const starts: number[] = [];
   let at = 0;
@@ -63,11 +105,11 @@ function neighbour(blocks: ScheduleBlock[], i: number): number {
 }
 
 /**
- * Resizes one period. The neighbour absorbs the difference, so the schedule still fills the
- * run; neither can go below half an hour.
+ * Resizes one block. The neighbour absorbs the difference, so the schedule still fills the run;
+ * neither can go below half an hour.
  *
  * @param blocks - The schedule.
- * @param i - Index of the period to resize.
+ * @param i - Index of the block to resize.
  * @param hours - The wanted length; snapped to half hours.
  */
 export function resizeBlock(blocks: ScheduleBlock[], i: number, hours: number): ScheduleBlock[] {
@@ -77,14 +119,14 @@ export function resizeBlock(blocks: ScheduleBlock[], i: number, hours: number): 
   const next = Math.min(Math.max(round(hours, HALF_HOUR), HALF_HOUR), pool - HALF_HOUR);
   return blocks.map((block, k) =>
     k === i
-      ? fitTeaBreaks({ ...block, hours: next })
+      ? fitBreaks({ ...block, hours: next })
       : k === j
-        ? fitTeaBreaks({ ...block, hours: pool - next })
+        ? fitBreaks({ ...block, hours: pool - next })
         : block,
   );
 }
 
-/** The longest period `i` can be made: its own length plus its neighbour's, less half an hour. */
+/** The longest block `i` can be made: its own length plus its neighbour's, less half an hour. */
 export function maxBlockHours(blocks: ScheduleBlock[], i: number): number {
   if (blocks.length < 2) return blocks[i]?.hours ?? 0;
   const j = neighbour(blocks, i);
@@ -92,44 +134,67 @@ export function maxBlockHours(blocks: ScheduleBlock[], i: number): number {
 }
 
 /**
- * Splits a period in two halves. Both keep the mode; the second half gets copies of the tea
- * breaks with new ids.
+ * Gives block `i` another mode. If another block already has that mode, the two swap modes, so
+ * each mode stays in one block.
+ */
+export function changeBlockMode(
+  blocks: ScheduleBlock[],
+  i: number,
+  mode: StationMode,
+): ScheduleBlock[] {
+  const j = blocks.findIndex((block) => block.mode === mode);
+  if (j === i) return blocks;
+  return blocks.map((block, k) =>
+    k === i ? { ...block, mode } : k === j ? { ...block, mode: blocks[i].mode } : block,
+  );
+}
+
+/** Whether block `i` can be split: room for another block, a free mode, and at least an hour. */
+export function canSplitBlock(
+  blocks: ScheduleBlock[],
+  i: number,
+  allowed: readonly StationMode[],
+): boolean {
+  return (
+    blocks.length < MAX_SCHEDULE_BLOCKS &&
+    freeModes(blocks, allowed).length > 0 &&
+    blocks[i].hours >= 2 * HALF_HOUR
+  );
+}
+
+/**
+ * Splits a block in two halves. The first half keeps the mode and the breaks; the second gets
+ * the first allowed mode no block uses yet, and no breaks.
  *
- * @param blocks - The schedule.
- * @param i - Index of the period to split.
- * @param makeId - Makes an id for each copied tea break.
- * @returns The schedule unchanged if the period is shorter than one hour.
+ * @returns The schedule unchanged if the block can't be split (see `canSplitBlock`).
  */
 export function splitBlock(
   blocks: ScheduleBlock[],
   i: number,
-  makeId: () => string,
+  allowed: readonly StationMode[],
 ): ScheduleBlock[] {
+  if (!canSplitBlock(blocks, i, allowed)) return blocks;
   const block = blocks[i];
-  if (block.hours < 2 * HALF_HOUR) return blocks;
   const first = Math.max(HALF_HOUR, round(block.hours / 2, HALF_HOUR));
   return [
     ...blocks.slice(0, i),
-    fitTeaBreaks({ ...block, hours: first }),
-    fitTeaBreaks({
-      ...block,
-      hours: block.hours - first,
-      teaBreaks: block.teaBreaks.map((tea) => ({ ...tea, id: makeId() })),
-    }),
+    fitBreaks({ ...block, hours: first }),
+    { hours: block.hours - first, mode: freeModes(blocks, allowed)[0], breaks: [] },
     ...blocks.slice(i + 1),
   ];
 }
 
 /**
- * Removes a period; the previous one (or the next, for the first) takes its time.
+ * Removes a block; the previous one (or the next, for the first) takes its time. The station
+ * stops working in that block's mode.
  *
- * @returns The schedule unchanged if it has only one period.
+ * @returns The schedule unchanged if it has only one block.
  */
 export function removeBlock(blocks: ScheduleBlock[], i: number): ScheduleBlock[] {
   if (blocks.length < 2) return blocks;
   const j = i > 0 ? i - 1 : 1;
   const out = blocks.map((block, k) =>
-    k === j ? fitTeaBreaks({ ...block, hours: block.hours + blocks[i].hours }) : block,
+    k === j ? fitBreaks({ ...block, hours: block.hours + blocks[i].hours }) : block,
   );
   out.splice(i, 1);
   return out;
@@ -137,7 +202,7 @@ export function removeBlock(blocks: ScheduleBlock[], i: number): ScheduleBlock[]
 
 /**
  * Rescales a schedule to a new run length, keeping the proportions as far as half hours allow.
- * Periods that no longer fit are dropped from the end. Used when the run duration changes.
+ * Blocks that no longer fit are dropped from the end. Used when the run duration changes.
  *
  * @param blocks - The schedule.
  * @param from - The old run length, in hours.
@@ -147,7 +212,7 @@ export function scaleBlocks(blocks: ScheduleBlock[], from: number, to: number): 
   if (blocks.length === 0 || from === to) return blocks;
   const fit = blocks.slice(0, Math.max(1, Math.floor(to / HALF_HOUR)));
   const scaled = fit.map((block) =>
-    fitTeaBreaks({
+    fitBreaks({
       ...block,
       hours: Math.max(HALF_HOUR, round((block.hours * to) / from, HALF_HOUR)),
     }),
@@ -161,7 +226,7 @@ export function scaleBlocks(blocks: ScheduleBlock[], from: number, to: number): 
       .filter(({ hours }) => step > 0 || hours > HALF_HOUR);
     if (candidates.length === 0) break;
     const { index } = candidates.reduce((best, c) => (c.hours > best.hours ? c : best));
-    scaled[index] = fitTeaBreaks({ ...scaled[index], hours: scaled[index].hours + step });
+    scaled[index] = fitBreaks({ ...scaled[index], hours: scaled[index].hours + step });
     diff -= step;
   }
   return scaled;

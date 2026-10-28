@@ -112,9 +112,13 @@ describe("patchScenarioConfig: set", () => {
   });
 
   it("replaces an array whole and compares it in order", () => {
+    // Station 2 of ecom-rtp may only put.
     const schedule = [
-      { hours: 2, mode: "put", teaBreaks: [] },
-      { hours: 6, mode: "pick", teaBreaks: [] },
+      {
+        hours: 8,
+        mode: "put",
+        breaks: [{ id: "t1", type: "tea", pattern: "random", durationMinutes: 15, count: 2 }],
+      },
     ];
     const path = "station.stations.2.schedule";
 
@@ -257,7 +261,7 @@ describe("patchScenarioConfig: rejected changes", () => {
   it("rejects a schedule that does not fill the run, with the numbers", () => {
     const path = "station.stations.2.schedule";
     const error = failure(DRAFT_ID, {
-      set: { [path]: [{ hours: 6, mode: "pick", teaBreaks: [] }] },
+      set: { [path]: [{ hours: 6, mode: "put", breaks: [] }] },
     });
     expect(error).toMatchObject({
       status: 400,
@@ -284,7 +288,7 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.nope": 1,
         wms: {},
-        "station.stations.1.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "put", breaks: [] }],
       },
     });
     // Path problems come first and stop the check; the value problems follow once they are fixed.
@@ -298,7 +302,7 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.volumeMultiplier": 6,
         "agent.fleet.htm": -1,
-        "station.stations.1.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "put", breaks: [] }],
       },
     });
     expect(problemCodes(values)).toEqual(
@@ -310,13 +314,22 @@ describe("patchScenarioConfig: rejected changes", () => {
     expect(values.details.problems).toHaveLength(2);
   });
 
+  it("rejects a mode the station's registry entry does not allow", () => {
+    const path = "station.stations.2.schedule";
+    expect(
+      problemCodes(
+        failure(DRAFT_ID, { set: { [path]: [{ hours: 8, mode: "pick", breaks: [] }] } }),
+      ),
+    ).toEqual([["MODE_NOT_ALLOWED", path]]);
+  });
+
   it("lists every cross-field problem of a change at once", () => {
     const error = failure(DRAFT_ID, {
       set: {
         "wms.dataWindow.startHour": 12,
         "wms.dataWindow.endHour": 12,
-        "station.stations.1.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
-        "station.stations.2.schedule": [{ hours: 4, mode: "put", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "put", breaks: [] }],
+        "station.stations.2.schedule": [{ hours: 4, mode: "put", breaks: [] }],
       },
     });
     expect(problemCodes(error)).toEqual([

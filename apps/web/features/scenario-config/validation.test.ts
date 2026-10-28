@@ -54,7 +54,7 @@ describe("validateConfig", () => {
 
   it("rejects a schedule that does not fill the run, with the numbers as params", () => {
     const config = withConfig((c) => {
-      c.station.stations["PPS-102"].schedule = [{ hours: 6, mode: "pick", teaBreaks: [] }];
+      c.station.stations["PPS-102"].schedule = [{ hours: 6, mode: "pick", breaks: [] }];
     });
     expect(validateConfig(config, RUN)).toEqual([
       {
@@ -66,36 +66,65 @@ describe("validateConfig", () => {
     ]);
   });
 
-  it("rejects tea breaks that do not fit their period", () => {
+  it("rejects tea breaks that do not fit their block", () => {
     const tooLong = withConfig((c) => {
       c.station.stations["PPS-102"].schedule = [
-        { hours: 1, mode: "pick", teaBreaks: [] },
-        { hours: 7, mode: "put", teaBreaks: [] },
-      ];
-      c.station.stations["PPS-102"].schedule[0].teaBreaks = [
-        { id: "t1", pattern: "staggered", durationMinutes: 90, count: 1 },
+        {
+          hours: 0.5,
+          mode: "pick",
+          breaks: [{ id: "t1", type: "tea", pattern: "staggered", durationMinutes: 45, count: 1 }],
+        },
+        { hours: 7.5, mode: "put", breaks: [] },
       ];
     });
     expect(validateConfig(tooLong, RUN)).toEqual([
       expect.objectContaining({
         code: "TEA_BREAK_TOO_LONG",
-        message: "PPS-102: a tea break is longer than its 1h period.",
-        params: { stationId: "PPS-102", periodHours: 1, durationMinutes: 90 },
+        message: "PPS-102: a tea break is longer than its 0.5h block.",
+        params: { stationId: "PPS-102", periodHours: 0.5, durationMinutes: 45 },
       }),
     ]);
 
     const tooMany = withConfig((c) => {
-      c.station.stations["PPS-102"].schedule[0].teaBreaks = [
-        { id: "t1", pattern: "random", durationMinutes: 120, count: 6 },
+      c.station.stations["PPS-102"].schedule = [
+        {
+          hours: 1,
+          mode: "pick",
+          breaks: [{ id: "t1", type: "tea", pattern: "random", durationMinutes: 30, count: 3 }],
+        },
+        { hours: 7, mode: "put", breaks: [] },
       ];
     });
     expect(validateConfig(tooMany, RUN)).toEqual([
       expect.objectContaining({
         code: "TEA_BREAK_TOO_MANY",
-        message: "PPS-102: too many tea breaks of 120 min in 8h.",
-        params: { stationId: "PPS-102", periodHours: 8, durationMinutes: 120, count: 6 },
+        message: "PPS-102: too many tea breaks of 30 min in 1h.",
+        params: { stationId: "PPS-102", periodHours: 1, durationMinutes: 30, count: 3 },
       }),
     ]);
+  });
+
+  it("rejects a regular break that never happens, a repeated mode and a mode not allowed", () => {
+    const config = withConfig((c) => {
+      c.station.stations["PPS-102"].schedule = [
+        {
+          hours: 2,
+          mode: "pick",
+          breaks: [{ id: "b1", type: "break", everyHours: 3, durationHours: 0.5 }],
+        },
+        { hours: 6, mode: "pick", breaks: [] },
+      ];
+    });
+    expect(validateConfig(config, RUN, { "PPS-102": ["put", "audit"] }).map((p) => p.code)).toEqual(
+      ["MODE_NOT_ALLOWED", "BREAK_EVERY_TOO_LONG", "SCHEDULE_MODE_REPEATED", "MODE_NOT_ALLOWED"],
+    );
+  });
+
+  it("accepts a station with no blocks: it is not assigned", () => {
+    const config = withConfig((c) => {
+      c.station.stations["PPS-102"].schedule = [];
+    });
+    expect(validateConfig(config, RUN)).toEqual([]);
   });
 
   it("rejects an empty data window and duplicate order types", () => {
@@ -199,8 +228,8 @@ describe("validateConfig", () => {
   it("returns every problem at once, not just the first", () => {
     const config = withConfig((c) => {
       c.wms.dataWindow = { startHour: 5, endHour: 5 };
-      c.station.stations["PPS-101"].schedule = [{ hours: 3, mode: "pick", teaBreaks: [] }];
-      c.station.stations["PPS-102"].schedule = [{ hours: 4, mode: "pick", teaBreaks: [] }];
+      c.station.stations["PPS-101"].schedule = [{ hours: 3, mode: "pick", breaks: [] }];
+      c.station.stations["PPS-102"].schedule = [{ hours: 4, mode: "pick", breaks: [] }];
       c.station.stations["PPS-103"].structure.staffedFrontPositions = 2;
     });
     expect(codes(validateConfig(config, RUN))).toEqual([
@@ -245,7 +274,7 @@ describe("computeIssues", () => {
     const config = withConfig((c) => {
       c.wms.orderTypes = [];
       for (const station of Object.values(c.station.stations)) {
-        station.schedule = [{ hours: 8, mode: "off", teaBreaks: [] }];
+        station.schedule = [];
       }
       c.agent.fleet = { htm: 0, vtm: 0 };
     });

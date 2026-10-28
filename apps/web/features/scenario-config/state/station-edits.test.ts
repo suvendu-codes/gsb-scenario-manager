@@ -26,10 +26,11 @@ import {
 const ALL = ["PPS-101", "PPS-102", "PPS-103", "PPS-104", "PPS-105", "PPS-106"];
 
 function blocks(...parts: Array<[number, ScheduleBlock["mode"]]>): ScheduleBlock[] {
-  return parts.map(([hours, mode]) => ({ hours, mode, teaBreaks: [] }));
+  return parts.map(([hours, mode]) => ({ hours, mode, breaks: [] }));
 }
 
-const pickAll = blocks([8, "pick"]);
+/** PPS-106's default: the whole run in pick, with its default regular break. */
+const pickAll = buildDefaults().station.stations["PPS-106"].schedule;
 const schedule = (config: ConfigValues, id: string) => config.station.stations[id].schedule;
 const structure = (config: ConfigValues, id: string) => config.station.stations[id].structure;
 
@@ -100,20 +101,20 @@ describe("shared schedule", () => {
 
   it("an All-stations schedule edit changes every station without its own", () => {
     const edited = blocks([4, "put"], [4, "audit"]);
-    let config = writeStationSchedule(sharedConfig(), "PPS-103", blocks([8, "off"]));
+    let config = writeStationSchedule(sharedConfig(), "PPS-103", blocks([8, "audit"]));
     expect(overriddenStations(config, "schedule")).toEqual(["PPS-103"]);
 
     config = writeSharedSchedule(config, edited);
     expect(schedule(config, "PPS-101")).toEqual(edited);
     expect(schedule(config, "PPS-106")).toEqual(edited);
-    expect(schedule(config, "PPS-103")).toEqual(blocks([8, "off"]));
+    expect(schedule(config, "PPS-103")).toEqual(blocks([8, "audit"]));
     expectValid(config);
   });
 });
 
 describe("a station keeping its own schedule", () => {
   it("is marked when it differs from what the others share", () => {
-    const config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "off"]));
+    const config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "audit"]));
     expect(overriddenStations(config, "schedule")).toEqual(["PPS-102"]);
   });
 
@@ -123,13 +124,13 @@ describe("a station keeping its own schedule", () => {
   });
 
   it("rejoins when its schedule is edited to match the shared one", () => {
-    let config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "off"]));
+    let config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "audit"]));
     config = writeStationSchedule(config, "PPS-102", pickAll);
     expect(overriddenStations(config, "schedule")).toEqual([]);
   });
 
   it("revertStationSchedule makes it follow the shared schedule again", () => {
-    let config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "off"]));
+    let config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "audit"]));
     config = revertStationSchedule(config, "PPS-102")!;
     expect(schedule(config, "PPS-102")).toEqual(pickAll);
     expect(overriddenStations(config, "schedule")).toEqual([]);

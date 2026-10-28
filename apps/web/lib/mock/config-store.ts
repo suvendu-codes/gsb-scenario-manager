@@ -16,7 +16,7 @@ import { configProblem } from "@/features/scenario-config/problems";
 import { computeIssues, validateConfig } from "@/features/scenario-config/validation";
 import { summarizeProblems, type Problem } from "@/lib/api/error";
 
-import { DEFAULT_RUN_DURATION_HOURS, defaultsForMap } from "./defaults";
+import { allowedModesForMap, DEFAULT_RUN_DURATION_HOURS, defaultsForMap } from "./defaults";
 import { getScenarioDetail, MockApiError } from "./store";
 
 /**
@@ -144,7 +144,11 @@ export function patchScenarioConfig(id: string, body: PatchConfigBody): Scenario
       ),
     );
   }
-  const crossField = validateConfig(parsed.data, DEFAULT_RUN_DURATION_HOURS);
+  const crossField = validateConfig(
+    parsed.data,
+    DEFAULT_RUN_DURATION_HOURS,
+    allowedModesForMap(detail.mapId),
+  );
   if (crossField.length > 0) throw configInvalid(crossField);
 
   for (const path of setPaths) {

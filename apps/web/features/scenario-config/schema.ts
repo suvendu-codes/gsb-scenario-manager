@@ -12,7 +12,8 @@ export const moduleIdSchema = z.enum(MODULE_IDS);
 export const ORDER_TYPES = ["inbound", "outbound"] as const;
 
 /** What a station does during one period of its schedule. */
-export const STATION_MODES = ["pick", "put", "audit", "off"] as const;
+/** The modes a station works in. A station not working at all has an empty schedule. */
+export const STATION_MODES = ["pick", "put", "audit"] as const;
 
 /** The two station sections where an All-stations edit skips stations that keep their own value. */
 export const STATION_SECTIONS = ["schedule", "structure"] as const;
@@ -278,22 +279,44 @@ export const stationGlobalSchema = z
   })
   .strict();
 
+/** A regular break: every `everyHours` within its block, for `durationHours`. */
+const regularBreakSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.literal("break"),
+    everyHours: z.number().min(0.5).multipleOf(0.5),
+    durationHours: z.number().min(0.25).max(2).multipleOf(0.25),
+  })
+  .strict();
+
+/** A tea break: `count` times within its block, placed by `pattern`. */
 const teaBreakSchema = z
   .object({
     id: z.string().min(1),
+    type: z.literal("tea"),
     pattern: z.enum(TEA_PATTERNS),
-    durationMinutes: z.number().int().min(5).max(120).multipleOf(5),
-    /** How many times the break happens within the period. */
+    durationMinutes: z.number().int().min(5).max(60).multipleOf(5),
     count: z.number().int().min(1).max(6),
   })
   .strict();
 
-/** One period of a station's schedule. The periods of a station add up to the run duration. */
+/** Most breaks one block can have. */
+export const MAX_BREAKS_PER_BLOCK = 4;
+
+/** Most blocks a station's schedule can have: one per mode. */
+export const MAX_SCHEDULE_BLOCKS = 3;
+
+/**
+ * One block of a station's schedule: a length and the mode the station works in. A station's
+ * blocks each have their own mode and add up to the run duration.
+ */
 export const scheduleBlockSchema = z
   .object({
     hours: z.number().min(0.5).multipleOf(0.5),
     mode: z.enum(STATION_MODES),
-    teaBreaks: z.array(teaBreakSchema),
+    breaks: z
+      .array(z.discriminatedUnion("type", [regularBreakSchema, teaBreakSchema]))
+      .max(MAX_BREAKS_PER_BLOCK),
   })
   .strict();
 
@@ -334,7 +357,8 @@ const sectionListsSchema = z
 
 export const stationConfigSchema = z
   .object({
-    schedule: z.array(scheduleBlockSchema).min(1),
+    /** Empty when the station is not assigned any mode. */
+    schedule: z.array(scheduleBlockSchema).max(MAX_SCHEDULE_BLOCKS),
     structure: stationStructureSchema,
     hardware: stationHardwareSchema,
     operations: z

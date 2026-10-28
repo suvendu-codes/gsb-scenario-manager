@@ -91,7 +91,7 @@ describe("resolveConfig", () => {
   });
 
   it("does not share objects with the overrides", () => {
-    const blocks = [{ hours: 8, mode: "pick", teaBreaks: [] }];
+    const blocks = [{ hours: 8, mode: "pick", breaks: [] }];
     const resolved = resolveConfig(buildDefaults(), {
       "station.stations.PPS-101.schedule": blocks,
     });

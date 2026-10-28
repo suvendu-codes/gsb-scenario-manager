@@ -43,7 +43,17 @@ export const CONFIG_PROBLEMS = {
       `${p.stationId}: the schedule adds up to ${p.actualHours}h, but the run is ${p.expectedHours}h.`,
   ),
   TEA_BREAK_TOO_LONG: template<{ stationId: string; periodHours: number; durationMinutes: number }>(
-    (p) => `${p.stationId}: a tea break is longer than its ${p.periodHours}h period.`,
+    (p) => `${p.stationId}: a tea break is longer than its ${p.periodHours}h block.`,
+  ),
+  BREAK_EVERY_TOO_LONG: template<{ stationId: string; periodHours: number; everyHours: number }>(
+    (p) =>
+      `${p.stationId}: a break every ${p.everyHours}h never happens in a ${p.periodHours}h block.`,
+  ),
+  SCHEDULE_MODE_REPEATED: template<{ stationId: string; mode: string }>(
+    (p) => `${p.stationId}: ${p.mode} is scheduled in more than one block.`,
+  ),
+  MODE_NOT_ALLOWED: template<{ stationId: string; mode: string }>(
+    (p) => `${p.stationId} can't work in ${p.mode}; the site registry doesn't allow it.`,
   ),
   TEA_BREAK_TOO_MANY: template<{
     stationId: string;

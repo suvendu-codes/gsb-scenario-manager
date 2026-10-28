@@ -2,7 +2,7 @@ import type { Problem } from "@/lib/api/error";
 
 import { configProblem } from "./problems";
 import { operationsCatalog, SCHEDULER_WEIGHTS } from "./schema";
-import type { ConfigIssue, ConfigValues, StationConfig } from "./types";
+import type { ConfigIssue, ConfigValues, StationConfig, StationMode } from "./types";
 import type { ScenarioDatasets } from "@/features/scenario-setup/types";
 import { REQUIRED_SLOTS } from "@/features/scenario-setup/constants";
 
@@ -26,40 +26,85 @@ function allowedPutFlows(category: string, side: "front" | "back"): string[] {
   return (flows?.[side] ?? []).map((flow) => flow.id);
 }
 
-function stationProblems(id: string, station: StationConfig, runDurationHours: number): Problem[] {
-  const problems: Problem[] = [];
-  const at = `station.stations.${id}`;
+/** The modes each station may work in, by station id, as the site registry says. */
+export type AllowedModes = Record<string, readonly StationMode[]>;
 
-  // The run length is fixed at 8h for now; see DEFAULT_RUN_DURATION_HOURS (lib/mock/defaults.ts) for how a change of
-  // length is meant to be migrated.
+/** Longest tea break a block of this length can hold, in minutes (at most 60). */
+export function maxTeaMinutes(blockHours: number): number {
+  return Math.min(60, Math.max(5, Math.floor(blockHours * 60)));
+}
+
+function scheduleProblems(
+  id: string,
+  station: StationConfig,
+  runDurationHours: number,
+  allowed: readonly StationMode[] | undefined,
+): Problem[] {
+  const problems: Problem[] = [];
+  const at = `station.stations.${id}.schedule`;
+  if (station.schedule.length === 0) return problems;
+
+  // The run length is fixed at 8h for now; see DEFAULT_RUN_DURATION_HOURS (lib/mock/defaults.ts)
+  // for how a change of length is meant to be migrated.
   const total = station.schedule.reduce((sum, block) => sum + block.hours, 0);
   if (Math.abs(total - runDurationHours) > EPSILON) {
     problems.push(
       configProblem(
         "SCHEDULE_TOTAL_MISMATCH",
         { stationId: id, actualHours: total, expectedHours: runDurationHours },
-        `${at}.schedule`,
+        at,
       ),
     );
   }
 
+  const seen = new Set<StationMode>();
   for (const block of station.schedule) {
-    for (const tea of block.teaBreaks) {
-      const longest = Math.min(120, Math.max(5, Math.floor(block.hours * 60)));
+    if (seen.has(block.mode)) {
+      problems.push(
+        configProblem("SCHEDULE_MODE_REPEATED", { stationId: id, mode: block.mode }, at),
+      );
+    }
+    seen.add(block.mode);
+    if (allowed && !allowed.includes(block.mode)) {
+      problems.push(configProblem("MODE_NOT_ALLOWED", { stationId: id, mode: block.mode }, at));
+    }
+
+    for (const item of block.breaks) {
+      if (item.type === "break") {
+        if (item.everyHours > block.hours) {
+          problems.push(
+            configProblem(
+              "BREAK_EVERY_TOO_LONG",
+              { stationId: id, periodHours: block.hours, everyHours: item.everyHours },
+              at,
+            ),
+          );
+        }
+        continue;
+      }
       const params = {
         stationId: id,
         periodHours: block.hours,
-        durationMinutes: tea.durationMinutes,
+        durationMinutes: item.durationMinutes,
       };
-      if (tea.durationMinutes > longest) {
-        problems.push(configProblem("TEA_BREAK_TOO_LONG", params, `${at}.schedule`));
-      } else if (tea.count > maxTeaCount(block.hours, tea.durationMinutes)) {
-        problems.push(
-          configProblem("TEA_BREAK_TOO_MANY", { ...params, count: tea.count }, `${at}.schedule`),
-        );
+      if (item.durationMinutes > maxTeaMinutes(block.hours)) {
+        problems.push(configProblem("TEA_BREAK_TOO_LONG", params, at));
+      } else if (item.count > maxTeaCount(block.hours, item.durationMinutes)) {
+        problems.push(configProblem("TEA_BREAK_TOO_MANY", { ...params, count: item.count }, at));
       }
     }
   }
+  return problems;
+}
+
+function stationProblems(
+  id: string,
+  station: StationConfig,
+  runDurationHours: number,
+  allowed: readonly StationMode[] | undefined,
+): Problem[] {
+  const problems = scheduleProblems(id, station, runDurationHours, allowed);
+  const at = `station.stations.${id}`;
 
   const { frontPositions, staffedFrontPositions } = station.structure;
   if (staffedFrontPositions > frontPositions) {
@@ -91,16 +136,22 @@ function stationProblems(id: string, station: StationConfig, runDurationHours: n
 
 /**
  * Checks the rules that span several values, which the schema alone can't express: every
- * station schedule fills the run, tea breaks fit their period, the data window is not empty,
- * and the All-stations lists only name real stations. Every problem found is returned, not
- * only the first.
+ * assigned station schedule fills the run with one block per mode, its breaks fit their blocks,
+ * the data window is not empty, and the All-stations lists only name real stations. Every
+ * problem found is returned, not only the first.
  *
  * @param values - The effective config.
  * @param runDurationHours - How long the run is.
+ * @param allowedModes - The modes each station may work in, when known (the server knows them
+ *   from the site registry); a station not listed is not checked.
  * @returns The problems, each with a stable code, params and the path of the value it is about;
  *   empty when the config is consistent.
  */
-export function validateConfig(values: ConfigValues, runDurationHours: number): Problem[] {
+export function validateConfig(
+  values: ConfigValues,
+  runDurationHours: number,
+  allowedModes: AllowedModes = {},
+): Problem[] {
   const problems: Problem[] = [];
   const { wms, station } = values;
 
@@ -118,7 +169,7 @@ export function validateConfig(values: ConfigValues, runDurationHours: number): 
 
   const stationIds = Object.keys(station.stations);
   for (const id of stationIds) {
-    problems.push(...stationProblems(id, station.stations[id], runDurationHours));
+    problems.push(...stationProblems(id, station.stations[id], runDurationHours, allowedModes[id]));
   }
   for (const section of ["schedule", "structure"] as const) {
     for (const kind of ["apply", "override"] as const) {
@@ -172,7 +223,7 @@ export function computeIssues(values: ConfigValues, datasets: ScenarioDatasets):
   }
 
   const stations = Object.entries(values.station.stations);
-  if (stations.every(([, s]) => s.schedule.every((block) => block.mode === "off"))) {
+  if (stations.every(([, s]) => s.schedule.length === 0)) {
     issue("station", configProblem("NO_STATION_SCHEDULED", {}));
   }
   for (const [id, station] of stations) {
