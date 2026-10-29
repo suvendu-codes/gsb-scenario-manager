@@ -38,6 +38,27 @@
   --color-chart-inbound: #33547e;
   --color-disabled: #d0cfcb;
 
+  /* Timeline lanes, as the design colours them. */
+  --color-wave-bg: #dbe7fb;
+  --color-wave-line: #bfd1f3;
+  --color-wave-ink: #3556a0;
+  --color-avail-bg: #d6eef1;
+  --color-avail-line: #b4dce1;
+  --color-avail-ink: #1f6a74;
+  --color-outage-bg: #fbdcdc;
+  --color-outage-line: #f1b9b9;
+  --color-outage-ink: #a8352f;
+  --color-pick-bg: #d9f0de;
+  --color-pick-line: #b9dec1;
+  --color-pick-ink: #25643b;
+  --color-put-bg: #e7e0f8;
+  --color-put-line: #cfc4ef;
+  --color-put-ink: #4d3c8c;
+  --color-audit-bg: #f9e8cb;
+  --color-audit-line: #ecd1a0;
+  --color-audit-ink: #8a5a14;
+  --color-break: #079455;
+
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }

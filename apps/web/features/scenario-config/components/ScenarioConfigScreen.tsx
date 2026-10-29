@@ -10,10 +10,11 @@ import { useScenarioDetail } from "@/features/scenario-setup/hooks";
 import type { ScenarioDetail } from "@/features/scenario-setup/types";
 import { ApiError } from "@/lib/api/errors";
 
-import type { PanelSelection } from "../panel";
 import { useConfigEditor } from "../use-config-editor";
 import { ConfigHeader } from "./ConfigHeader";
+import { isReady, type PanelSelection } from "../panel";
 import { ConfigPanel } from "./ConfigPanel";
+import { ScenarioTimeline } from "./timeline/ScenarioTimeline";
 import { configPanels } from "./panels";
 import { scenarioConfigScreenStyles as styles } from "./ScenarioConfigScreen.styles";
 
@@ -63,13 +64,16 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
         </div>
       )}
       <div className={styles.body}>
-        <section className={styles.timeline} aria-label="Scenario timeline">
-          <h2 className={styles.timelineTitle}>Scenario timeline</h2>
-          <p className={styles.timelineText}>
-            The timeline of what each module does over the run comes in the next ticket. Until then,
-            use the panel on the right to review and change the settings; they save as you go.
-          </p>
-        </section>
+        {isReady(editor) ? (
+          <ScenarioTimeline
+            editor={editor}
+            outboundHourly={scenario.datasets.outbound?.profile.hourly}
+            selection={selection}
+            onSelect={setSelection}
+          />
+        ) : (
+          <div className={styles.timelineLoading} aria-hidden="true" />
+        )}
         <ConfigPanel
           scenarioId={scenario.id}
           setup={{ projectName, mapName }}
