@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { relax, scenarioConfigResponseSchema } from "./response-schemas";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { scenarioConfigSchema } from "./schema";
+import { resizeBlock } from "./state/schedule-blocks";
 
 const leaf = z.object({ n: z.number().min(0) }).strict();
 const nested = z
@@ -41,13 +43,14 @@ function withExtra(value: unknown): unknown {
 }
 
 describe("relax", () => {
-  it("drops unknown keys at every level instead of rejecting them", () => {
+  it("drops unknown keys outside arrays instead of rejecting them, and keeps them inside", () => {
     const extra = withExtra(sample) as Record<string, unknown>;
     // The record gets an "extra" entry too; that one is a value, so it is still checked.
     delete (extra.byId as Record<string, unknown>).extra;
 
     expect(nested.safeParse(extra).success).toBe(false);
-    expect(relax(nested).parse(extra)).toEqual(sample);
+    // Arrays are written back whole, so their items keep fields the client doesn't know.
+    expect(relax(nested).parse(extra)).toEqual({ ...sample, list: [{ n: 2, extra: 1 }] });
   });
 
   it("still checks values, enums and discriminators", () => {
@@ -67,6 +70,28 @@ describe("relax", () => {
   it("leaves the schema it was given strict", () => {
     relax(nested);
     expect(nested.safeParse(withExtra(sample)).success).toBe(false);
+  });
+
+  it("keeps a field the server adds to a schedule block through an edit (round trip)", () => {
+    const config = buildDefaults();
+    const id = Object.keys(config.station.stations)[0];
+    const body = {
+      scenarioId: "s",
+      runDurationHours: 8,
+      defaults: config,
+      overrides: {},
+      issues: [],
+    } as Record<string, unknown>;
+    const schedule = config.station.stations[id].schedule as Array<Record<string, unknown>>;
+    schedule[0] = { ...schedule[0], addedLater: "kept" };
+
+    const read = scenarioConfigResponseSchema.parse(body);
+    const blocks = read.defaults.station.stations[id].schedule;
+    expect(blocks[0]).toHaveProperty("addedLater", "kept");
+
+    // What the editor writes back for that schedule still carries the field.
+    const edited = blocks.length > 1 ? resizeBlock(blocks, 0, blocks[0].hours + 0.5) : blocks;
+    expect(edited[0]).toHaveProperty("addedLater", "kept");
   });
 
   it("makes the config response tolerant where the internal schema is strict", () => {

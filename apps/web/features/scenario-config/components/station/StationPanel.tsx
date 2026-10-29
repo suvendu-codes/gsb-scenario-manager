@@ -110,7 +110,11 @@ export function StationPanel({
                 weights: (context) => <SchedulerWeights context={context} editor={editor} />,
               }}
             />
-            <StationTypeList editor={editor} types={types} onSelect={onSelect} />
+            {types.length > 0 ? (
+              <StationTypeList editor={editor} types={types} onSelect={onSelect} />
+            ) : (
+              <p className={styles.empty}>This map has no stations in the site registry.</p>
+            )}
           </>
         ) : (
           <div className={styles.stationSections}>
