@@ -1,0 +1,41 @@
+/** Class groups for the LivePanel component. */
+export const livePanelStyles = {
+  root: "flex flex-col overflow-hidden rounded-xl border border-line bg-panel lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)]",
+  bots: "border-b border-line px-4 py-3",
+  botsHead: "flex items-start gap-2",
+  title: "text-[14px] font-semibold text-ink",
+  subtitle: "text-[12.5px] text-muted",
+  count: "ml-auto text-[20px] font-semibold text-ink tabular-nums",
+  icon: "flex size-7 cursor-pointer items-center justify-center rounded-md text-faint hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent",
+  iconSvg: "size-3.5",
+  editor: "mt-3 flex flex-col gap-2 rounded-lg border border-line bg-paper px-3 py-2.5",
+  editorRow: "flex items-center justify-between gap-3",
+  editorLabel: "text-[13px] text-ink",
+  editorActions: "flex justify-end gap-2",
+  note: "block text-[11.5px] leading-snug text-faint",
+  primary:
+    "cursor-pointer rounded-full bg-accent px-3 py-1 text-[12.5px] font-semibold text-panel hover:bg-accent-hover disabled:cursor-default disabled:bg-accent-disabled focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+  secondary:
+    "cursor-pointer rounded-full border border-line-strong bg-panel px-3 py-1 text-[12.5px] font-semibold text-ink hover:bg-paper focus-visible:outline-2 focus-visible:outline-accent",
+  stations: "flex min-h-0 flex-1 flex-col",
+  stationsHead: "flex items-baseline justify-between px-4 pt-3",
+  filters: "flex gap-2 px-4 py-2",
+  searchWrap: "relative flex-1",
+  searchIcon: "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-faint",
+  search: "h-8 rounded-lg pl-8 text-[13px]",
+  filter: "h-8 w-32 rounded-lg px-2 text-[13px]",
+  list: "min-h-0 flex-1 overflow-y-auto px-2 pb-2",
+  item: "rounded-lg",
+  itemOpen: "bg-paper",
+  itemHead:
+    "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-paper focus-visible:outline-2 focus-visible:outline-accent",
+  itemName: "flex-1 text-[13px] font-semibold text-ink",
+  chevron: "size-3.5 text-faint",
+  details: "flex flex-col gap-3 px-2 pb-3",
+  facts:
+    "grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-line bg-panel px-3 py-2 text-[12px] [&_dd]:text-[13px] [&_dd]:text-ink [&_dt]:text-faint",
+  toggleRow: "flex cursor-pointer items-start justify-between gap-3",
+  toggleTitle: "block text-[13px] font-medium text-ink",
+  switch: "mt-1 size-4 flex-none cursor-pointer accent-accent",
+  empty: "px-2 py-3 text-[12.5px] text-faint",
+} as const;
