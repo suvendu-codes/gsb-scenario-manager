@@ -1,0 +1,889 @@
+{
+  "pick": {
+    "binStructure": {
+      "key": "binStructure",
+      "type": "choice",
+      "label": "Bin structure",
+      "options": [
+        {
+          "value": "front-only",
+          "label": "Front only"
+        },
+        {
+          "value": "front-back",
+          "label": "Front + back"
+        }
+      ],
+      "default": "front-back"
+    },
+    "groups": [
+      {
+        "id": "profile",
+        "label": "Orders",
+        "fields": [
+          {
+            "key": "pickStrategy",
+            "type": "choice",
+            "label": "Scheduling strategy",
+            "options": [
+              {
+                "value": "sequential",
+                "label": "Sequential",
+                "note": "One order goes to one picker. Simplest for small orders."
+              },
+              {
+                "value": "weighted-priority",
+                "label": "Weighted priority",
+                "note": "Orders are ranked by size, urgency and destination."
+              },
+              {
+                "value": "staged-parallel",
+                "label": "Staged parallel",
+                "note": "Orders are pre-sorted into bins, then picked in parallel."
+              }
+            ],
+            "default": "sequential"
+          },
+          {
+            "key": "pickSequence",
+            "type": "choice",
+            "label": "Order sequence",
+            "options": [
+              {
+                "value": "as-given",
+                "label": "As given",
+                "note": "Orders are picked in the order they arrive."
+              },
+              {
+                "value": "flat-priority",
+                "label": "Flat priority",
+                "note": "All orders have the same priority."
+              },
+              {
+                "value": "late-arrivals-join",
+                "label": "Late arrivals join",
+                "note": "New orders can join a batch already in progress."
+              },
+              {
+                "value": "parent-first",
+                "label": "Parent first",
+                "note": "A parent order must finish before its child orders start."
+              }
+            ],
+            "default": "as-given"
+          },
+          {
+            "key": "pickUdm",
+            "type": "choice",
+            "label": "Unit of measure (UoM)",
+            "options": [
+              {
+                "value": "outers-only",
+                "label": "Outers only",
+                "note": "Pick whole outer units. Inners and eaches are never broken out."
+              },
+              {
+                "value": "strict",
+                "label": "Strict",
+                "note": "Pick exactly the unit of measure each order line declares."
+              },
+              {
+                "value": "flexible",
+                "label": "Flexible",
+                "note": "Mix outers, inners and eaches, preferring the larger unit."
+              }
+            ],
+            "default": "outers-only"
+          },
+          {
+            "key": "pickReservation",
+            "type": "choice",
+            "label": "Inventory reservation",
+            "options": [
+              {
+                "value": "soft",
+                "label": "Soft",
+                "note": "Picking can start on soft-reserved stock."
+              },
+              {
+                "value": "hard",
+                "label": "Hard",
+                "note": "Wait for confirmed stock. Orders are never partly filled."
+              },
+              {
+                "value": "hard-partial-allowed",
+                "label": "Hard, partial allowed",
+                "note": "Wait for confirmed stock, but allow a partial fill when stock is pending."
+              }
+            ],
+            "default": "soft"
+          },
+          {
+            "key": "pickPackaging",
+            "type": "choice",
+            "label": "Packing",
+            "options": [
+              {
+                "value": "pack-after-picking",
+                "label": "Pack after picking",
+                "note": "Items are picked loose and packed later."
+              },
+              {
+                "value": "pack-while-picking",
+                "label": "Pack while picking",
+                "note": "Items are packed straight into the box at the station."
+              },
+              {
+                "value": "box-required-per-order",
+                "label": "Box required per order",
+                "note": "An order can’t be allocated until it has a packing box."
+              }
+            ],
+            "default": "pack-after-picking"
+          },
+          {
+            "key": "pickExceptionResolution",
+            "type": "choice",
+            "label": "When stock runs short",
+            "options": [
+              {
+                "value": "re-plan-first",
+                "label": "Re-plan first",
+                "note": "Try to re-plan the order before short-picking it."
+              },
+              {
+                "value": "short-pick-immediately",
+                "label": "Short-pick immediately",
+                "note": "Short-pick the line as soon as stock runs out."
+              }
+            ],
+            "default": "re-plan-first"
+          },
+          {
+            "key": "pickPartialPick",
+            "type": "toggle",
+            "label": "Allow partial picks",
+            "description": "A line can be short-picked instead of picked in full.",
+            "default": false
+          },
+          {
+            "key": "pickSingleUom",
+            "type": "toggle",
+            "label": "Single-UoM picking",
+            "description": "Extends multi-order picking (MSIO) to single units. Needs MSIO and UoM picking.",
+            "default": false
+          },
+          {
+            "key": "pickSlop",
+            "type": "toggle",
+            "label": "Group single-line orders",
+            "description": "Multi-quantity, single-line orders share a bin (SLOP).",
+            "default": false
+          },
+          {
+            "key": "pickStreaming",
+            "type": "toggle",
+            "label": "Split large orders",
+            "description": "Large orders are broken up across bins as they stream in.",
+            "default": false
+          }
+        ]
+      },
+      {
+        "id": "alloc",
+        "label": "Allocation to the station",
+        "fields": [
+          {
+            "key": "pickFlow",
+            "type": "choice",
+            "label": "Pick flow",
+            "options": [
+              {
+                "value": "manual",
+                "label": "Manual",
+                "note": "The picker directs the order through the station."
+              },
+              {
+                "value": "automatic",
+                "label": "Automatic",
+                "note": "The system routes the order through the bins."
+              }
+            ],
+            "default": "manual"
+          },
+          {
+            "key": "pickBacksel",
+            "type": "choice",
+            "label": "Back-rack selection",
+            "options": [
+              {
+                "value": "tier-priority",
+                "label": "Tier priority",
+                "note": "Prefer racks by weighted tier levels."
+              },
+              {
+                "value": "balanced",
+                "label": "Balanced",
+                "note": "Spread work evenly across back racks."
+              },
+              {
+                "value": "any-available",
+                "label": "Any available",
+                "note": "Use whichever back rack is free."
+              }
+            ],
+            "default": "tier-priority"
+          }
+        ]
+      },
+      {
+        "id": "carrier",
+        "label": "Picking from the carrier",
+        "fields": [
+          {
+            "key": "pickConfirm",
+            "type": "choice",
+            "label": "Pick confirmation",
+            "options": [
+              {
+                "value": "automatic-scan",
+                "label": "Automatic scan",
+                "note": "A barcode scan confirms the pick. No extra step."
+              },
+              {
+                "value": "scan-each-container",
+                "label": "Scan each container",
+                "note": "The picker confirms every container."
+              },
+              {
+                "value": "scan-partial-allowed",
+                "label": "Scan, partial allowed",
+                "note": "The picker can confirm part of a container."
+              },
+              {
+                "value": "scan-last-one-optional",
+                "label": "Scan, last one optional",
+                "note": "The final container scan can be skipped once complete."
+              }
+            ],
+            "default": "automatic-scan"
+          },
+          {
+            "key": "pickException",
+            "type": "choice",
+            "label": "When an item is missing",
+            "options": [
+              {
+                "value": "skip-to-next-order",
+                "label": "Skip to next order",
+                "note": "Move on automatically, without confirmation."
+              },
+              {
+                "value": "wait-for-an-operator",
+                "label": "Wait for an operator",
+                "note": "The station pauses until an operator resolves it."
+              },
+              {
+                "value": "quarantine-the-bin",
+                "label": "Quarantine the bin",
+                "note": "The problem bin leaves the flow for later."
+              }
+            ],
+            "default": "skip-to-next-order"
+          },
+          {
+            "key": "pickOpenCase",
+            "type": "toggle",
+            "label": "Pick from opened cases",
+            "description": "Items can be picked from a case that was opened earlier.",
+            "default": false
+          },
+          {
+            "key": "pickEmptySlotConfirm",
+            "type": "toggle",
+            "label": "Confirm empty slots",
+            "description": "After the last item, the operator confirms the slot is empty.",
+            "default": false
+          },
+          {
+            "key": "pickCountCheck",
+            "type": "toggle",
+            "label": "Low-stock count check",
+            "description": "The operator confirms the quantity when stock falls below its threshold.",
+            "default": false
+          }
+        ]
+      },
+      {
+        "id": "tobin",
+        "label": "Picking into the bin",
+        "fields": [
+          {
+            "key": "pickOpMode",
+            "type": "choice",
+            "label": "Pick mode",
+            "options": [
+              {
+                "value": "standard",
+                "label": "Standard",
+                "note": "One item goes to one bin at a time."
+              },
+              {
+                "value": "parallel",
+                "label": "Parallel",
+                "note": "Several items and orders go to several bins at once."
+              }
+            ],
+            "default": "standard"
+          },
+          {
+            "key": "pickDocking",
+            "type": "choice",
+            "label": "Docking",
+            "options": [
+              {
+                "value": "manual-imtu",
+                "label": "Manual (IMTU)",
+                "note": "The picker docks the item carrier by hand."
+              },
+              {
+                "value": "automatic-imtu",
+                "label": "Automatic (IMTU)",
+                "note": "The conveyor positions the carrier for docking."
+              },
+              {
+                "value": "multi-unit-mrli",
+                "label": "Multi-unit (MRLI)",
+                "note": "Several items are released and docked together."
+              },
+              {
+                "value": "by-the-rdc",
+                "label": "By the RDC",
+                "note": "The robotic dispensing centre handles docking."
+              }
+            ],
+            "default": "manual-imtu"
+          },
+          {
+            "key": "pickPkgconfig",
+            "type": "choice",
+            "label": "Bin packing",
+            "options": [
+              {
+                "value": "running-bin",
+                "label": "Running bin",
+                "note": "Items are packed into the bin as they arrive."
+              },
+              {
+                "value": "order-by-order",
+                "label": "Order by order",
+                "note": "Each order is filled completely before the next."
+              },
+              {
+                "value": "by-opportunity",
+                "label": "By opportunity",
+                "note": "Items go into any available slot."
+              }
+            ],
+            "default": "running-bin"
+          },
+          {
+            "key": "pickRackrel",
+            "type": "choice",
+            "label": "Rack release",
+            "options": [
+              {
+                "value": "when-the-list-is-scanned",
+                "label": "When the list is scanned",
+                "note": "The rack leaves as soon as its pick list is complete."
+              },
+              {
+                "value": "when-the-picker-confirms",
+                "label": "When the picker confirms",
+                "note": "The picker presses a button to release the rack."
+              },
+              {
+                "value": "after-a-timer",
+                "label": "After a timer",
+                "note": "The rack leaves automatically after a set time."
+              }
+            ],
+            "default": "when-the-list-is-scanned"
+          },
+          {
+            "key": "pickHq",
+            "type": "choice",
+            "label": "When a bin is full",
+            "options": [
+              {
+                "value": "stop-at-capacity",
+                "label": "Stop at capacity",
+                "note": "Picking into a bin stops when it’s full."
+              },
+              {
+                "value": "allow-large-orders",
+                "label": "Allow large orders",
+                "note": "Oversized orders may exceed bin capacity."
+              },
+              {
+                "value": "ignore-on-last-item",
+                "label": "Ignore on last item",
+                "note": "The final item can go in even if the bin is full."
+              }
+            ],
+            "default": "stop-at-capacity"
+          },
+          {
+            "key": "pickMsioBinFull",
+            "type": "choice",
+            "label": "Bin-full applies to",
+            "options": [
+              {
+                "value": "all-bins",
+                "label": "All bins",
+                "note": "Every bin can be marked full."
+              },
+              {
+                "value": "multi-order-bins-only",
+                "label": "Multi-order bins only",
+                "note": "Only multi-order (MSIO) bins can be marked full."
+              }
+            ],
+            "default": "all-bins"
+          }
+        ]
+      },
+      {
+        "id": "binmgmt",
+        "label": "Bin handling",
+        "fields": [
+          {
+            "key": "pickBinRelease",
+            "type": "choice",
+            "label": "Bin release timing",
+            "options": [
+              {
+                "value": "early",
+                "label": "Early",
+                "note": "Bins are released as soon as possible."
+              },
+              {
+                "value": "late",
+                "label": "Late",
+                "note": "Bins are held and released late. Tote flows only."
+              }
+            ],
+            "default": "early"
+          },
+          {
+            "key": "pickBinShuffling",
+            "type": "choice",
+            "label": "Bin assignment",
+            "options": [
+              {
+                "value": "shuffle-as-needed",
+                "label": "Shuffle as needed",
+                "note": "The system reassigns bins to keep work flowing."
+              },
+              {
+                "value": "fixed-map",
+                "label": "Fixed map",
+                "note": "Each logical bin always maps to the same physical bin."
+              }
+            ],
+            "default": "shuffle-as-needed"
+          },
+          {
+            "key": "pickBinReleaseException",
+            "type": "choice",
+            "label": "Early bin release",
+            "options": [
+              {
+                "value": "off",
+                "label": "Off",
+                "note": "The back operator clears bins in sequence only."
+              },
+              {
+                "value": "complete-orders-only",
+                "label": "Complete orders only",
+                "note": "A bin can be released early once its order lines are complete."
+              },
+              {
+                "value": "incomplete-allowed",
+                "label": "Incomplete allowed",
+                "note": "A bin can be released early even with lines still open."
+              }
+            ],
+            "default": "off"
+          },
+          {
+            "key": "pickBinGrouping",
+            "type": "choice",
+            "label": "Bin grouping",
+            "options": [
+              {
+                "value": "off",
+                "label": "Off",
+                "note": "Bins are not grouped."
+              },
+              {
+                "value": "round-robin",
+                "label": "Round robin",
+                "note": "Back-station work is split evenly across operators."
+              },
+              {
+                "value": "default-strategy",
+                "label": "Default strategy",
+                "note": "The station’s standard bin selection is used."
+              }
+            ],
+            "default": "off"
+          },
+          {
+            "key": "pickBinVolume",
+            "type": "toggle",
+            "label": "Use bin volume",
+            "description": "Bin volume is considered when allocating multi-order, grouped and split orders.",
+            "default": false
+          },
+          {
+            "key": "pickBinAgeing",
+            "type": "toggle",
+            "label": "Show bin age",
+            "description": "Put-to-light colour warns, then escalates, as an order waits.",
+            "default": false
+          }
+        ]
+      },
+      {
+        "id": "workflow",
+        "label": "Operator aids",
+        "fields": [
+          {
+            "key": "pickMasterPptl",
+            "type": "toggle",
+            "label": "One-press confirmation",
+            "description": "A single put-to-light (PPTL) button replaces scan and quantity entry. Not for serialized items.",
+            "default": false
+          },
+          {
+            "key": "pickLpn",
+            "type": "toggle",
+            "label": "Validate box labels (LPN)",
+            "description": "The box barcode must be scanned before items go in.",
+            "default": false
+          },
+          {
+            "key": "pickEarlyDisplay",
+            "type": "toggle",
+            "label": "Show the next item early",
+            "description": "The next task appears before the rack arrives.",
+            "default": false
+          },
+          {
+            "key": "pickAutoReuseTote",
+            "type": "toggle",
+            "label": "Reuse totes immediately",
+            "description": "A tote is freed for new work as soon as its task completes.",
+            "default": false
+          },
+          {
+            "key": "pickRemoveEmptyTote",
+            "type": "toggle",
+            "label": "Prompt to remove empty totes",
+            "description": "The operator is asked to take an emptied tote off the station.",
+            "default": false
+          },
+          {
+            "key": "pickChangeCarrier",
+            "type": "toggle",
+            "label": "Allow carrier change",
+            "description": "The front operator can swap the carrier linked to a bin.",
+            "default": false
+          }
+        ]
+      },
+      {
+        "id": "clearing",
+        "label": "Clearing and labels",
+        "fields": [
+          {
+            "key": "pickSide",
+            "type": "choice",
+            "label": "Bin release side",
+            "options": [
+              {
+                "value": "front",
+                "label": "Front",
+                "note": "Bins leave from the front."
+              },
+              {
+                "value": "back",
+                "label": "Back",
+                "note": "Bins leave from the back."
+              },
+              {
+                "value": "either",
+                "label": "Either",
+                "note": "Bins can leave from either side."
+              }
+            ],
+            "default": "front"
+          },
+          {
+            "key": "pickClear",
+            "type": "choice",
+            "label": "Bin clearing",
+            "options": [
+              {
+                "value": "automatic",
+                "label": "Automatic",
+                "note": "The system clears the bin."
+              },
+              {
+                "value": "by-the-operator",
+                "label": "By the operator",
+                "note": "The operator clears the bin."
+              },
+              {
+                "value": "from-the-picking-side",
+                "label": "From the picking side",
+                "note": "The bin is released from the side it was picked on."
+              }
+            ],
+            "default": "automatic"
+          },
+          {
+            "key": "pickPpfl",
+            "type": "choice",
+            "label": "Pick labels (PPFL)",
+            "options": [
+              {
+                "value": "none",
+                "label": "None",
+                "note": "No label press is required."
+              },
+              {
+                "value": "one-master-label",
+                "label": "One master label",
+                "note": "A single label covers the whole bin."
+              },
+              {
+                "value": "one-per-layer",
+                "label": "One per layer",
+                "note": "Each layer or section gets its own label."
+              },
+              {
+                "value": "colour-coded",
+                "label": "Colour-coded",
+                "note": "Labels are colour-coded."
+              }
+            ],
+            "default": "none"
+          },
+          {
+            "key": "pickPrinting",
+            "type": "choice",
+            "label": "Invoice printing",
+            "options": [
+              {
+                "value": "don-t-print",
+                "label": "Don’t print",
+                "note": "Bins ship without a printed label."
+              },
+              {
+                "value": "print-on-release",
+                "label": "Print on release",
+                "note": "The label prints when the bin leaves the station."
+              },
+              {
+                "value": "print-and-hold",
+                "label": "Print and hold",
+                "note": "The label is held until the operator confirms departure."
+              }
+            ],
+            "default": "don-t-print"
+          }
+        ]
+      }
+    ]
+  },
+  "put": {
+    "categories": [
+      {
+        "value": "put",
+        "label": "Put",
+        "flows": {
+          "front": [
+            {
+              "id": "unstaged-put-front",
+              "label": "Unstaged put"
+            },
+            {
+              "id": "carrier-scan-put-front",
+              "label": "Carrier-scan put"
+            },
+            {
+              "id": "staged-tote-put-front",
+              "label": "Staged tote put"
+            },
+            {
+              "id": "staged-tote-put-auto-stage-front",
+              "label": "Staged tote put, auto-stage"
+            },
+            {
+              "id": "staged-marked-container-put-front",
+              "label": "Staged marked container put"
+            }
+          ],
+          "back": [
+            {
+              "id": "no-expectation-put-back",
+              "label": "No-expectation put"
+            },
+            {
+              "id": "staged-tote-put-back",
+              "label": "Staged tote put"
+            },
+            {
+              "id": "staged-rollcage-put-back",
+              "label": "Staged rollcage put",
+              "followUp": "sd-ud"
+            },
+            {
+              "id": "staged-marked-container-put-back",
+              "label": "Staged marked container put"
+            },
+            {
+              "id": "invoice-scan-staged-put-back",
+              "label": "Invoice-scan staged put"
+            }
+          ]
+        }
+      },
+      {
+        "value": "induction",
+        "label": "Induction",
+        "flows": {
+          "back": [
+            {
+              "id": "filled-tote-induction",
+              "label": "Filled tote induction",
+              "followUp": "manual-gravity"
+            },
+            {
+              "id": "auto-filled-tote-induction",
+              "label": "Auto filled tote induction"
+            },
+            {
+              "id": "tote-induction-inline-putaway",
+              "label": "Tote induction + inline putaway"
+            },
+            {
+              "id": "empty-tote-induction",
+              "label": "Empty tote induction",
+              "followUp": "manual-gravity"
+            },
+            {
+              "id": "auto-empty-tote-induction",
+              "label": "Auto empty tote induction"
+            }
+          ]
+        }
+      },
+      {
+        "value": "extraction",
+        "label": "Extraction",
+        "flows": {
+          "back": [
+            {
+              "id": "empty-tote-extraction",
+              "label": "Empty tote extraction"
+            },
+            {
+              "id": "pallet-putaway-hhd",
+              "label": "Pallet putaway, HHD station",
+              "exception": true
+            }
+          ]
+        }
+      }
+    ],
+    "followUps": {
+      "sd-ud": {
+        "question": "Roll cage type",
+        "options": [
+          {
+            "value": "SD",
+            "label": "SD",
+            "config": "put_roll_cage_required = true"
+          },
+          {
+            "value": "UD",
+            "label": "UD",
+            "config": "put_roll_cage_required = true + ud_put_enabled = true"
+          }
+        ]
+      },
+      "manual-gravity": {
+        "question": "Induction method",
+        "options": [
+          {
+            "value": "Manual",
+            "label": "Manual scan",
+            "config": "gravity_induction = false"
+          },
+          {
+            "value": "Gravity",
+            "label": "Gravity / cantilever",
+            "config": "gravity_induction = true"
+          }
+        ]
+      }
+    },
+    "defaults": {
+      "category": "put",
+      "sides": ["back"],
+      "behavior": {
+        "front": "unstaged-put-front",
+        "back": "no-expectation-put-back"
+      },
+      "followUp": {
+        "front": null,
+        "back": null
+      }
+    }
+  },
+  "audit": {
+    "fields": [
+      {
+        "key": "auditZeroConf",
+        "type": "toggle",
+        "label": "Confirm zero counts",
+        "description": "The operator confirms when a count comes out at zero.",
+        "default": false
+      },
+      {
+        "key": "auditZeroConfMsu",
+        "type": "toggle",
+        "label": "Confirm zero per rack",
+        "description": "Zero confirmation is raised for the whole rack (MSU), not each bin.",
+        "default": false
+      },
+      {
+        "key": "auditCountCheck",
+        "type": "toggle",
+        "label": "Confirm counted quantity",
+        "description": "The operator confirms each counted quantity.",
+        "default": false
+      },
+      {
+        "key": "auditCountCheckMsu",
+        "type": "toggle",
+        "label": "Count check per rack",
+        "description": "The count check is raised for the whole rack (MSU), not each bin.",
+        "default": false
+      }
+    ]
+  }
+}

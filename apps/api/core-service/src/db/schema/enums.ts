@@ -1,20 +1,13 @@
+import { runStatusValues, runVerdictValues, runEngineValues } from '../../runs/domain/run-state.js';
+export { runStatusValues, runVerdictValues, runEngineValues } from '../../runs/domain/run-state.js';
 import { pgEnum } from 'drizzle-orm/pg-core';
 
-export const scenarioStatus = pgEnum('scenario_status', ['draft', 'active', 'completed']);
+const freeze = <const T extends readonly [string, ...string[]]>(values: T): T =>
+  Object.freeze(values) as T;
 
-export const runStatus = pgEnum('run_status', [
-  'accepted',
-  'queued',
-  'provisioning',
-  'setup_ready',
-  'running',
-  'paused',
-  'completed',
-  'failed',
-  'interrupted',
-  'cancelled',
-]);
+export const scenarioStatusValues = freeze(['draft', 'running', 'paused', 'finished'] as const);
+export const scenarioStatus = pgEnum('scenario_status', scenarioStatusValues);
 
-export const runVerdict = pgEnum('run_verdict', ['success', 'failure', 'inconclusive']);
-
-export const runEngine = pgEnum('run_engine', ['emulator', 'simulator']);
+export const runStatus = pgEnum('run_status', runStatusValues);
+export const runVerdict = pgEnum('run_verdict', runVerdictValues);
+export const runEngine = pgEnum('run_engine', runEngineValues);

@@ -12,5 +12,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["drizzle.config.ts", "src/**/*.ts"]
+  "include": ["drizzle.config.ts", "src/**/*.ts", "tools/**/*.ts", "test/**/*.ts"]
 }

@@ -13,6 +13,7 @@ export class CloneScenarioUseCase {
     if (!scenario) throw new ScenarioNotFoundError(id);
     const version = await this.scenarios.findCurrentVersion(scenario);
     if (!version) throw new ScenarioConfigNotFoundError(id);
-    return this.scenarios.create(scenario.clone(version.configUri, name));
+    const created = await this.scenarios.create(scenario.clone(version.configUri, name));
+    return { scenario: created, configUri: version.configUri };
   }
 }

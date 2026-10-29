@@ -7,8 +7,8 @@ import { UpdateScenarioDto } from './update-scenario.dto.js';
 const uuid = '3f2b8c1e-9d4a-4b6e-8a1f-2c7d5e9b0a13';
 
 const validCreate = {
-  projectId: 'p1',
-  mapId: 'm1',
+  projectId: uuid,
+  mapId: uuid,
   name: 'Peak load',
   authorId: 'u1',
   configUri: 'gs://bucket/config.json',
@@ -26,7 +26,8 @@ describe('CreateScenarioDto', () => {
   });
 
   it.each(Object.keys(validCreate))('rejects a missing %s', (field) => {
-    const { [field]: _omitted, ...body } = validCreate as Record<string, string>;
+    const body: Record<string, string> = { ...validCreate };
+    delete body[field];
     const result = parse(body);
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
@@ -48,6 +49,12 @@ describe('CreateScenarioDto', () => {
     const result = parse({ ...validCreate, name: value });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual(['name']);
+  });
+
+  it.each(['projectId', 'mapId'])('rejects a non-uuid %s', (field) => {
+    const result = parse({ ...validCreate, [field]: 'not-a-uuid' });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toEqual([field]);
   });
 
   it.each([null, 'text', 7, []])('rejects a non-object body (%j)', (body) => {
@@ -85,8 +92,8 @@ describe('CloneScenarioDto', () => {
   const parse = (input: unknown) => CloneScenarioDto.schema.safeParse(input);
 
   it('accepts an id with or without a name', () => {
-    expect(parse({ id: 's1' }).success).toBe(true);
-    expect(parse({ id: 's1', name: 'Copy' }).success).toBe(true);
+    expect(parse({ id: uuid }).success).toBe(true);
+    expect(parse({ id: uuid, name: 'Copy' }).success).toBe(true);
   });
 
   it('rejects a missing id', () => {
@@ -96,13 +103,19 @@ describe('CloneScenarioDto', () => {
   });
 
   it.each(['id', 'name'])('rejects an empty %s', (field) => {
-    const result = parse({ id: 's1', [field]: '' });
+    const result = parse({ id: uuid, [field]: '' });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
   });
 
   it('rejects a non-string id', () => {
     expect(parse({ id: 1 }).success).toBe(false);
+  });
+
+  it('rejects a non-uuid id', () => {
+    const result = parse({ id: 's1' });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toEqual(['id']);
   });
 });
 

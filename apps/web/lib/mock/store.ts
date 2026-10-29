@@ -1,3 +1,11 @@
+import { findSample } from "@/features/scenario-setup/samples";
+import type { ApiErrorDetails } from "@/lib/api/errors";
+import type {
+  DatasetRecord,
+  DatasetSlot,
+  ScenarioDatasets,
+  ScenarioDetail,
+} from "@/features/scenario-setup/types";
 import type {
   CreateScenarioInput,
   Project,
@@ -49,14 +57,20 @@ const projectMaps: ProjectMap[] = [
   },
 ];
 
-/** Thrown by `createScenario` when the input is not allowed; carries the HTTP status to return. */
+/**
+ * Thrown by the mock when a request is not allowed. It carries the HTTP status to return, and
+ * optionally the API error envelope's stable `code`, `params`, `path` and list of `problems`.
+ * Without a `code`, the response gets a default one for its status.
+ */
 export class MockApiError extends Error {
   readonly status: number;
+  readonly details: ApiErrorDetails;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, details: ApiErrorDetails = {}) {
     super(message);
     this.name = "MockApiError";
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -140,9 +154,17 @@ const seedScenarios: Scenario[] = [
   },
 ];
 
-// Kept on globalThis so created scenarios survive dev hot reloads.
-const globalStore = globalThis as typeof globalThis & { mockScenarios?: Scenario[] };
+// Kept on globalThis so created scenarios and their datasets survive dev hot reloads.
+const globalStore = globalThis as typeof globalThis & {
+  mockScenarios?: Scenario[];
+  mockDatasets?: Record<string, ScenarioDatasets>;
+};
 const scenarios: Scenario[] = (globalStore.mockScenarios ??= [...seedScenarios]);
+const datasetsByScenario: Record<string, ScenarioDatasets> = (globalStore.mockDatasets ??= {});
+
+function emptyDatasets(): ScenarioDatasets {
+  return { inbound: null, outbound: null, masterdata: null, mockput: null };
+}
 
 /** Name shown as the author of scenarios created through the mock. */
 const CURRENT_USER_ID = "current.user";
@@ -162,6 +184,37 @@ export function listProjectMaps(projectId: string): ProjectMap[] {
   return projectMaps.filter((map) => map.projectId === projectId);
 }
 
+/** Throws 404 if the map does not exist in the project. */
+function assertMapInProject(input: CreateScenarioInput): void {
+  const map = projectMaps.find((m) => m.id === input.mapId && m.projectId === input.projectId);
+  if (!map) throw new MockApiError(404, "The selected project or map does not exist.");
+}
+
+/** Throws 409 if another scenario on the same map already has this name (ignoring case). */
+function assertNameFree(input: CreateScenarioInput, ignoreId?: string): void {
+  const nameTaken = scenarios.some(
+    (s) =>
+      s.id !== ignoreId &&
+      s.mapId === input.mapId &&
+      s.name.toLowerCase() === input.name.toLowerCase(),
+  );
+  if (nameTaken) {
+    throw new MockApiError(409, "A scenario with this name already exists on this map.");
+  }
+}
+
+/**
+ * Finds a scenario by id.
+ *
+ * @param id - The scenario id.
+ * @throws {MockApiError} 404 if there is no such scenario.
+ */
+function requireScenario(id: string): Scenario {
+  const scenario = scenarios.find((s) => s.id === id);
+  if (!scenario) throw new MockApiError(404, "Scenario not found.");
+  return scenario;
+}
+
 /**
  * Creates a draft scenario.
  * Mirrors the real API's rules: the map must belong to the project, and the
@@ -172,15 +225,8 @@ export function listProjectMaps(projectId: string): ProjectMap[] {
  * @throws {MockApiError} 404 for an unknown project or map, 409 for a duplicate name on the map.
  */
 export function createScenario(input: CreateScenarioInput): Scenario {
-  const map = projectMaps.find((m) => m.id === input.mapId && m.projectId === input.projectId);
-  if (!map) throw new MockApiError(404, "The selected project or map does not exist.");
-
-  const nameTaken = scenarios.some(
-    (s) => s.mapId === input.mapId && s.name.toLowerCase() === input.name.toLowerCase(),
-  );
-  if (nameTaken) {
-    throw new MockApiError(409, "A scenario with this name already exists on this map.");
-  }
+  assertMapInProject(input);
+  assertNameFree(input);
 
   const now = new Date().toISOString();
   const scenario: Scenario = {
@@ -196,4 +242,83 @@ export function createScenario(input: CreateScenarioInput): Scenario {
   };
   scenarios.push(scenario);
   return scenario;
+}
+
+/**
+ * Returns a scenario together with its datasets.
+ *
+ * @param id - The scenario id.
+ * @throws {MockApiError} 404 if there is no such scenario.
+ */
+export function getScenarioDetail(id: string): ScenarioDetail {
+  const scenario = requireScenario(id);
+  return { ...scenario, datasets: datasetsByScenario[id] ?? emptyDatasets() };
+}
+
+/**
+ * Edits a draft scenario's project, map and name, with the same rules as creating one.
+ *
+ * @param id - The scenario id.
+ * @param input - Validated project, map and name.
+ * @returns The updated scenario.
+ * @throws {MockApiError} 404 for an unknown scenario, project or map; 409 if the scenario is
+ *   not a draft or the name is taken on the map.
+ */
+export function updateScenario(id: string, input: CreateScenarioInput): Scenario {
+  const scenario = requireScenario(id);
+  if (scenario.status !== "draft") {
+    throw new MockApiError(409, "Only draft scenarios can be edited.");
+  }
+  assertMapInProject(input);
+  assertNameFree(input, id);
+
+  Object.assign(scenario, {
+    name: input.name,
+    projectId: input.projectId,
+    mapId: input.mapId,
+    updatedAt: new Date().toISOString(),
+  });
+  return scenario;
+}
+
+/**
+ * Attaches a dataset to a scenario, replacing any file already in that slot.
+ *
+ * @param id - The scenario id.
+ * @param record - The dataset to attach (its `slot` says where it goes).
+ * @returns The stored record.
+ * @throws {MockApiError} 404 if there is no such scenario.
+ */
+export function attachDataset(id: string, record: DatasetRecord): DatasetRecord {
+  const scenario = requireScenario(id);
+  const datasets = (datasetsByScenario[id] ??= emptyDatasets());
+  datasets[record.slot] = record;
+  scenario.updatedAt = new Date().toISOString();
+  return record;
+}
+
+/**
+ * Attaches one of the built-in sample files to a scenario.
+ *
+ * @param id - The scenario id.
+ * @param slot - The dataset slot to fill.
+ * @param sampleId - Id of the sample file; it must belong to that slot.
+ * @throws {MockApiError} 400 for an unknown sample or one that belongs to another slot,
+ *   404 if there is no such scenario.
+ */
+export function attachSample(id: string, slot: DatasetSlot, sampleId: string): DatasetRecord {
+  const sample = findSample(sampleId);
+  if (!sample || sample.slot !== slot) {
+    throw new MockApiError(400, "Unknown sample file for this dataset.");
+  }
+  return attachDataset(id, {
+    slot,
+    fileName: sample.fileName,
+    source: "sample",
+    sizeBytes: null,
+    uploadedAt: new Date().toISOString(),
+    valid: sample.valid,
+    issues: sample.issues,
+    profile: sample.profile,
+  });
 }

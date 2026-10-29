@@ -1,4 +1,5 @@
 export type DomainErrorKind =
+  | 'invalid'
   | 'not_found'
   | 'forbidden'
   | 'conflict'
@@ -19,5 +20,11 @@ export abstract class DomainError extends Error {
 export class UpstreamUnavailableError extends DomainError {
   constructor(what: string, status: number) {
     super(`${what} unavailable (${status})`, 'unavailable');
+  }
+}
+
+export class InvalidCursorError extends DomainError {
+  constructor(reason = 'Invalid cursor') {
+    super(reason, 'invalid');
   }
 }

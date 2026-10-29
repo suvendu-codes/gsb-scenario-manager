@@ -3,6 +3,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { DomainError, DomainErrorKind } from '../domain/domain-error.js';
 
 const STATUS: Record<DomainErrorKind, HttpStatus> = {
+  invalid: HttpStatus.BAD_REQUEST,
   not_found: HttpStatus.NOT_FOUND,
   forbidden: HttpStatus.FORBIDDEN,
   conflict: HttpStatus.CONFLICT,
