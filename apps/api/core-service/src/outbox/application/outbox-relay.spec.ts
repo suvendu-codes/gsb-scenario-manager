@@ -179,6 +179,59 @@ describe('OutboxRelay', () => {
     expect(store.rows[0]).toMatchObject({ status: 'published', attempts: 2 });
   });
 
+  describe('lease vs batch (PR #54 review)', () => {
+    it('renews each row right before its send, so a row being sent is never claimable by another worker', async () => {
+      ['a', 'b', 'c'].forEach((c, i) => {
+        now = i;
+        store.insert(draft(c));
+      });
+      const stolen: string[] = [];
+      // Each send takes 70% of the lease; the batch as a whole outlives the claim-time lease.
+      publisher.onPublish = (m) => {
+        now += policy.leaseMs * 0.7;
+        // The in-memory claim mutates synchronously, so its effect is visible right away.
+        void store.claimDue({ workerId: 'w2', limit: 10, leaseMs: policy.leaseMs });
+        const heldByW2 = store.rows.filter((r) => r.lockedBy === 'w2').map((r) => r.id);
+        expect(heldByW2).not.toContain(m.id);
+        stolen.push(...heldByW2);
+      };
+
+      const result = await relay().runOnce();
+      const sentIds = publisher.sent.map((m) => m.id);
+      // Rows w2 reclaimed while w1 was busy are skipped by w1, never sent twice.
+      expect(sentIds.filter((id) => stolen.includes(id))).toEqual([]);
+      expect(new Set(sentIds).size).toBe(sentIds.length);
+      expect(result.published + result.leaseLost).toBe(3);
+      expect(result.published).toBeGreaterThanOrEqual(2);
+    });
+
+    it('skips rows whose lease another worker already took, without sending them', async () => {
+      store.insert(draft('a'));
+      store.insert(draft('b'));
+      const claim = store.claimDue.bind(store);
+      store.claimDue = async (opts) => {
+        const rows = await claim(opts);
+        now += policy.leaseMs * 2; // this worker stalls after claiming
+        await claim({ workerId: 'w2', limit: 10, leaseMs: policy.leaseMs });
+        return rows;
+      };
+      const result = await relay().runOnce();
+      expect(result).toMatchObject({ claimed: 2, published: 0, leaseLost: 2 });
+      expect(publisher.sent).toHaveLength(0);
+      expect(store.rows.every((r) => r.lockedBy === 'w2')).toBe(true);
+    });
+  });
+
+  it('a dead run command triggers the run-failure hook; other commands do not', async () => {
+    const dead: string[] = [];
+    store.onRunTriggerDead = (row) => dead.push(row.correlationId);
+    store.insert(draft('a'));
+    store.insert({ ...draft('b', 2), commandId: 'pause', eventType: 'run.pause' });
+    publisher.failures = [new PublishError('too large', false)];
+    await relay().runOnce();
+    expect(dead).toEqual(['a']);
+  });
+
   it('propagates store failures to the caller', async () => {
     store.claimDue = async () => {
       throw new Error('db down');

@@ -5,6 +5,7 @@ import { PublishError } from '../application/ports.js';
 import {
   isRetriableKafkaError,
   KafkaEventPublisher,
+  sendTimings,
   toKafkaConfig,
   type KafkaPublisherConfig,
 } from './kafka-event-publisher.js';
@@ -45,7 +46,7 @@ describe('KafkaEventPublisher', () => {
     expect(producer.send).toHaveBeenCalledWith({
       topic: message.topic,
       acks: -1,
-      timeout: 30_000,
+      timeout: sendTimings(30_000).requestTimeoutMs,
       messages: [
         {
           key: 'cid_test',
@@ -73,6 +74,12 @@ describe('KafkaEventPublisher', () => {
     });
     const publisher = new KafkaEventPublisher(config, fakeKafka(send).kafka);
     await expect(publisher.publish(outboxMessage())).rejects.toMatchObject({ retriable: false });
+  });
+
+  it('gives up after the send budget with a retriable error (last-resort guard)', async () => {
+    const send = vi.fn(() => new Promise<never>(() => undefined)); // broker never answers
+    const publisher = new KafkaEventPublisher({ ...config, sendTimeoutMs: 20 }, fakeKafka(send as never).kafka);
+    await expect(publisher.publish(outboxMessage())).rejects.toMatchObject({ name: 'PublishError', retriable: true });
   });
 
   it('connects and disconnects once', async () => {
@@ -103,6 +110,15 @@ describe('isRetriableKafkaError', () => {
   it('defaults to retriable for unknown errors', () => {
     expect(isRetriableKafkaError(new Error('?'))).toBe(true);
     expect(isRetriableKafkaError(undefined)).toBe(true);
+  });
+});
+
+describe('sendTimings', () => {
+  it.each([5_000, 10_000, 30_000, 120_000])('fits every attempt plus backoff inside a %sms budget', (budget) => {
+    const t = sendTimings(budget);
+    const worstCase = (t.retry.retries + 1) * t.requestTimeoutMs + t.retry.retries * t.retry.maxRetryTime;
+    expect(worstCase).toBeLessThanOrEqual(budget);
+    expect(t.connectionTimeoutMs).toBeLessThanOrEqual(t.requestTimeoutMs);
   });
 });
 

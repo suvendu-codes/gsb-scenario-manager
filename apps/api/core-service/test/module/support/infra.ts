@@ -13,6 +13,10 @@ export const infraEnv = {
   kafkaBrokers: process.env.MODULE_TEST_KAFKA_BROKERS?.split(',').map((b) => b.trim()).filter(Boolean),
 };
 export const hasInfra = Boolean(infraEnv.databaseUrl && infraEnv.kafkaBrokers?.length);
+// CI sets MODULE_TEST_REQUIRED so a missing service fails the job instead of silently skipping it.
+if (process.env.MODULE_TEST_REQUIRED === 'true' && !hasInfra) {
+  throw new Error('MODULE_TEST_REQUIRED is set but MODULE_TEST_DATABASE_URL / MODULE_TEST_KAFKA_BROKERS are missing');
+}
 
 const SCHEMA_SQL = fileURLToPath(new URL('../../../db/schema.sql', import.meta.url));
 

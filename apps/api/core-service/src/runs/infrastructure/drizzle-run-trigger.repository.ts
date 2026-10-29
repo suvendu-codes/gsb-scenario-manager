@@ -34,7 +34,7 @@ export class DrizzleRunTriggerRepository implements RunTriggerRepository {
     const [row] = await this.db.select().from(scenario).where(eq(scenario.id, scenarioId)).limit(1);
     if (!row) return null;
     const runs = await this.db
-      .select({ id: run.id, correlationId: run.correlationId, status: run.status })
+      .select({ id: run.id, correlationId: run.correlationId, status: run.status, reason: run.reason })
       .from(run)
       .where(eq(run.scenarioId, scenarioId))
       .orderBy(desc(run.createdAt), desc(run.id))

@@ -18,10 +18,20 @@ export interface OutboxStore {
    * Returned oldest first.
    */
   claimDue(options: ClaimOptions): Promise<OutboxMessage[]>;
+  /**
+   * Extends the lease to `leaseMs` from now (database clock), only while this worker still holds
+   * the row. Called right before each send so a send never runs on a lease that is about to expire.
+   */
+  renewLease(id: string, workerId: string, leaseMs: number): Promise<boolean>;
   markPublished(id: string, workerId: string): Promise<boolean>;
   /** Schedules another attempt `delayMs` from now (database clock) and releases the lease. */
   markRetry(id: string, workerId: string, error: string, delayMs: number): Promise<boolean>;
-  /** Parks the row for an operator; it blocks later sequences of the same execution. */
+  /**
+   * Parks the row for an operator; it blocks later sequences of the same execution. For a `run`
+   * command the broker never accepted the trigger, so in the same transaction the run (if the engine
+   * has not reported anything yet) becomes `failed` with reason `trigger_undeliverable`, its pending
+   * command is cleared, and the scenario becomes `finished` if this is still its current run.
+   */
   markDead(id: string, workerId: string, error: string): Promise<boolean>;
   /** Releases a lease without consuming an attempt (claimed but not tried). */
   release(id: string, workerId: string): Promise<boolean>;

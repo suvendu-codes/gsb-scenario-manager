@@ -1,8 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../db/db.constants.js';
 import type { DrizzleDB } from '../../db/db.module.js';
-import type { RunCommand, RunEngine } from '../../runs/domain/run.js';
+import { TRIGGER_UNDELIVERABLE, type RunCommand, type RunEngine } from '../../runs/domain/run.js';
 import type { ClaimOptions, OutboxStore } from '../application/ports.js';
 import type { OutboxMessage } from '../domain/outbox-message.js';
 
@@ -25,6 +25,7 @@ type ClaimedRow = {
 
 @Injectable()
 export class DrizzleOutboxStore implements OutboxStore {
+  private readonly logger = new Logger(DrizzleOutboxStore.name);
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async claimDue({ workerId, limit, leaseMs }: ClaimOptions): Promise<OutboxMessage[]> {
@@ -62,6 +63,14 @@ export class DrizzleOutboxStore implements OutboxStore {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.sequence - b.sequence);
   }
 
+  async renewLease(id: string, workerId: string, leaseMs: number) {
+    return this.affected(sql`
+      UPDATE run_outbox
+      SET locked_until = now() + make_interval(secs => ${leaseMs}::double precision / 1000)
+      WHERE id = ${id} AND locked_by = ${workerId} AND status = 'pending'
+    `);
+  }
+
   async markPublished(id: string, workerId: string) {
     return this.affected(sql`
       UPDATE run_outbox
@@ -81,11 +90,35 @@ export class DrizzleOutboxStore implements OutboxStore {
   }
 
   async markDead(id: string, workerId: string, error: string) {
-    return this.affected(sql`
-      UPDATE run_outbox
-      SET status = 'dead', locked_by = NULL, locked_until = NULL, last_error = ${error}
-      WHERE id = ${id} AND locked_by = ${workerId} AND status = 'pending'
-    `);
+    return this.db.transaction(async (tx) => {
+      const parked = await tx.execute<{ run_id: string; scenario_id: string; command_id: string }>(sql`
+        UPDATE run_outbox
+        SET status = 'dead', locked_by = NULL, locked_until = NULL, last_error = ${error}
+        WHERE id = ${id} AND locked_by = ${workerId} AND status = 'pending'
+        RETURNING run_id, scenario_id, command_id
+      `);
+      const row = parked.rows[0];
+      if (!row) return false;
+      if (row.command_id !== 'run') return true;
+
+      // The broker never stored the trigger, so the engine cannot have the run: close it so the
+      // user can retry. Lock order scenario → run, as the trigger and the status worker use.
+      await tx.execute(sql`SELECT id FROM scenario WHERE id = ${row.scenario_id} FOR UPDATE`);
+      const failed = await tx.execute(sql`
+        UPDATE run
+        SET status = 'failed', reason = ${TRIGGER_UNDELIVERABLE}, status_message = ${error},
+            pending_command = NULL, completed_at = now(), updated_at = now()
+        WHERE id = ${row.run_id} AND status = 'trigger_requested' AND last_event_sequence = 0
+      `);
+      if ((failed.rowCount ?? 0) > 0) {
+        await tx.execute(sql`
+          UPDATE scenario SET status = 'finished', updated_at = now()
+          WHERE id = ${row.scenario_id} AND current_run_id = ${row.run_id}
+        `);
+        this.logger.warn({ event: 'run_trigger_undeliverable', run_id: row.run_id, scenario_id: row.scenario_id });
+      }
+      return true;
+    });
   }
 
   async release(id: string, workerId: string) {

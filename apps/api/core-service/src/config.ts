@@ -51,8 +51,13 @@ const schema = z
       /** Idle poll interval when the previous batch was not full. */
       pollIntervalMs: z.coerce.number().int().positive().default(500),
       batchSize: z.coerce.number().int().positive().max(500).default(50),
-      /** How long a claimed row stays invisible to other workers. Must exceed one Kafka send. */
+      /**
+       * How long a claimed row stays invisible to other workers. The relay renews it right before
+       * each send, so it must cover one send: at least 2 × sendTimeoutMs (validated below).
+       */
       leaseMs: z.coerce.number().int().positive().default(60_000),
+      /** Upper bound for one Kafka send including producer retries (the producer is tuned to fit). */
+      sendTimeoutMs: z.coerce.number().int().min(5_000).default(30_000),
       backoffBaseMs: z.coerce.number().int().positive().default(1_000),
       backoffMaxMs: z.coerce.number().int().positive().default(60_000),
       /** 0 = retry retriable failures forever; non-retriable failures always go to `dead`. */
@@ -84,6 +89,15 @@ const schema = z
     }),
   })
   // Cross-field rule: no insecure fallbacks in production
+  .superRefine((c, ctx) => {
+    if (c.outbox.leaseMs < 2 * c.outbox.sendTimeoutMs) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['outbox', 'leaseMs'],
+        message: `must be at least 2 × OUTBOX_SEND_TIMEOUT_MS (${2 * c.outbox.sendTimeoutMs}) so a lease outlives one send`,
+      });
+    }
+  })
   .superRefine((c, ctx) => {
     if (c.env !== 'production' || c.databaseUrl) return;
     for (const k of ['user', 'password'] as const) {
@@ -186,6 +200,7 @@ export class ConfigBuilder<S extends z.ZodType> {
         backoffBaseMs: env.OUTBOX_BACKOFF_BASE_MS || undefined,
         backoffMaxMs: env.OUTBOX_BACKOFF_MAX_MS || undefined,
         maxAttempts: env.OUTBOX_MAX_ATTEMPTS || undefined,
+        sendTimeoutMs: env.OUTBOX_SEND_TIMEOUT_MS || undefined,
       },
       eventSchemaVersion: env.EVENT_SCHEMA_VERSION || undefined,
       engineGate: { closed: env.ENGINE_GATE_CLOSED || undefined },

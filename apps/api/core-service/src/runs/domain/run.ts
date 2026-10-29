@@ -19,6 +19,12 @@ export const isTerminalRunStatus = (status: RunStatus) => TERMINAL.has(status);
 const RETRYABLE: ReadonlySet<string> = new Set(['failed', 'cancelled', 'interrupted']);
 export const isRetryableRunStatus = (status: RunStatus) => RETRYABLE.has(status);
 
+/**
+ * Failure reason when the broker permanently rejected the run.trigger record: the engine never
+ * received the run. Infrastructure, not the scenario, so it does not count toward the failure brake.
+ */
+export const TRIGGER_UNDELIVERABLE = 'trigger_undeliverable';
+
 /** A persisted SM execution as the trigger flow sees it. */
 export interface Run {
   id: string;

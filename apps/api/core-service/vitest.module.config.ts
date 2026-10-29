@@ -1,14 +1,13 @@
 import { defineConfig } from 'vitest/config';
 
-// Outbox module tests: the in-process suite always runs; the PostgreSQL + Kafka suite runs when
-// MODULE_TEST_DATABASE_URL and MODULE_TEST_KAFKA_BROKERS are set (see test/module/OUTBOX.md).
+// PostgreSQL + Kafka outbox suite. Needs MODULE_TEST_DATABASE_URL and MODULE_TEST_KAFKA_BROKERS
+// (see test/module/OUTBOX.md); skipped without them. CI provides both as service containers.
 export default defineConfig({
   test: {
-    include: ['test/module/**/*.module.spec.ts'],
+    include: ['test/module/outbox-postgres-kafka.module.spec.ts'],
     environment: 'node',
     testTimeout: 60_000,
     hookTimeout: 120_000,
-    // Suites share one database server and Kafka cluster.
     fileParallelism: false,
   },
 });

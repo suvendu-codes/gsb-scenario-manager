@@ -233,14 +233,22 @@ describe('Trigger API + outbox (in-process module)', () => {
     expect(kafka.delivered[0].messageKey).toBe(res.body.correlation_id);
   });
 
-  it('MT-10 parks a non-retriable failure as dead without touching the run', async () => {
+  it('MT-10 a dead run.trigger fails the run as trigger_undeliverable so the user can retry', async () => {
     kafka.goDown(false, 'record too large');
-    await http.post(runs(), triggerBody(), key());
+    const first = await http.post(runs(), triggerBody(), key());
     await waitFor(() => expect(outbox.rows[0]).toMatchObject({ status: 'dead', attempts: 1 }));
     const attempts = kafka.attempts;
     await sleep(80);
     expect(kafka.attempts).toBe(attempts);
-    expect(repo.runs[0]).toMatchObject({ status: 'trigger_requested', pendingCommand: 'run' });
+    expect(repo.runs[0]).toMatchObject({ status: 'failed', pendingCommand: null, failureReason: 'trigger_undeliverable' });
+    expect(repo.scenarios.get(SCENARIO_ID)?.status).toBe('finished');
+
+    // Not counted by the brake: three undeliverable triggers in a row still allow a retry.
+    kafka.recover();
+    const retry = await http.post(runs(), triggerBody(), key());
+    expect(retry.status).toBe(202);
+    expect(retry.body.correlation_id).not.toBe(first.body.correlation_id);
+    await waitFor(() => expect(kafka.delivered).toHaveLength(1));
   });
 
   it('MT-11 routes by engine and keys every message by its execution', async () => {

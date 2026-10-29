@@ -11,8 +11,8 @@ export interface TriggerScenarioState {
   /** Stored config: inline body, or a blob URI to read. Both null when none was saved. */
   config: { body: Record<string, unknown> | null; uri: string | null };
   dataUris: Record<DataSlot, string | null>;
-  /** The scenario's runs, newest first (enough for the failure brake). */
-  recentRuns: Pick<Run, 'id' | 'correlationId' | 'status'>[];
+  /** The scenario's runs, newest first (enough for the failure brake), with their failure reason. */
+  recentRuns: (Pick<Run, 'id' | 'correlationId' | 'status'> & { reason: string | null })[];
 }
 
 export interface CommitTrigger {

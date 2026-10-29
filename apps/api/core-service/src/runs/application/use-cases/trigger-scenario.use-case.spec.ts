@@ -206,6 +206,22 @@ describe('TriggerScenarioUseCase (LLD §5)', () => {
       expect(error).toMatchObject({ status: 409, code: 'scenario_blocked' });
     });
 
+    it('does not count undeliverable triggers toward the brake', async () => {
+      repo.seedScenario(scenarioSeed({ status: 'finished' }));
+      ['failed', 'failed', 'failed'].forEach((status, i) =>
+        repo.seedRun({ id: `u-${i}`, scenarioId: SCENARIO_ID, correlationId: `cid-u-${i}`, status: status as never, failureReason: 'trigger_undeliverable' }),
+      );
+      await expect(trigger()).resolves.toBeDefined();
+    });
+
+    it('still blocks on three real failures around an undeliverable one', async () => {
+      repo.seedScenario(scenarioSeed({ status: 'finished' }));
+      seedRuns('failed', 'failed');
+      repo.seedRun({ id: 'u', scenarioId: SCENARIO_ID, correlationId: 'cid-u', status: 'failed', failureReason: 'trigger_undeliverable' });
+      repo.seedRun({ id: 'f', scenarioId: SCENARIO_ID, correlationId: 'cid-f', status: 'failed' });
+      expect(await rejection(trigger())).toBeInstanceOf(ScenarioBlockedError);
+    });
+
     it('is not blocked when a non-failure breaks the streak', async () => {
       repo.seedScenario(scenarioSeed({ status: 'finished' }));
       seedRuns('failed', 'failed', 'cancelled', 'failed');

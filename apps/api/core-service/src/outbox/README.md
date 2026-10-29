@@ -131,18 +131,27 @@ so recreate it.
   reach its partition in order.
 - **Delivery:** at-least-once. A crash after Kafka acked but before `published` commits re-sends the same
   payload after the lease expires; engines deduplicate on `(correlation_id, sequence)`.
+- **Leases:** one claim leases the whole batch, but rows are sent one at a time, so the relay renews
+  each row's lease right before its send (`renewLease`, conditional on still holding it) and skips a row
+  another worker already reclaimed. A send is bounded by `OUTBOX_SEND_TIMEOUT_MS` (producer timeouts and
+  retries are derived to fit, with a last-resort timer), and config requires
+  `OUTBOX_LEASE_MS ≥ 2 × OUTBOX_SEND_TIMEOUT_MS`, so a send never outlives its lease.
 - **Failures:** retriable (broker down, unknown topic, timeouts — kafkajs' "retries exceeded" wrapper is
   unwrapped to its cause) → `available_at = now + backoff` (exponential, jitter, capped) and the rest of
-  the batch is released untouched; non-retriable (e.g. record too large) or `OUTBOX_MAX_ATTEMPTS`
-  reached → `dead`. A failed publish never changes the run: a timeout does not prove rejection.
+  the batch is released untouched; non-retriable (e.g. record too large, not authorized) or
+  `OUTBOX_MAX_ATTEMPTS` reached → `dead`. A timeout never changes the run: it does not prove rejection.
+- **Dead `run.trigger`:** the broker never stored it, so the engine cannot have the run. In the same
+  transaction the run (if the engine has reported nothing yet) becomes `failed` with reason
+  `trigger_undeliverable`, `pending_command` is cleared, and the scenario becomes `finished` if this is
+  still its current run — the user can retry. These runs do not count toward the failure brake.
 - **Shutdown:** SIGTERM finishes the in-flight batch, then disconnects the producer.
 - **Producer:** `acks=-1`, `maxInFlightRequests=1`, `allowAutoTopicCreation=false` — create topics up front.
 
 Settings (`.env.example`): `KAFKA_BROKERS`, `KAFKA_SSL`, `KAFKA_USERNAME`, `KAFKA_PASSWORD` (shared with
 the status worker), `KAFKA_CLIENT_ID`, `KAFKA_SASL_MECHANISM`,
 `KAFKA_TOPIC_EMULATOR_COMMANDS`, `KAFKA_TOPIC_SIMULATOR_COMMANDS`, `EVENT_SCHEMA_VERSION`,
-`OUTBOX_POLL_INTERVAL_MS` (500), `OUTBOX_BATCH_SIZE` (50), `OUTBOX_LEASE_MS` (60000, must exceed one
-send), `OUTBOX_BACKOFF_BASE_MS` (1000), `OUTBOX_BACKOFF_MAX_MS` (60000), `OUTBOX_MAX_ATTEMPTS` (0 = unlimited).
+`OUTBOX_POLL_INTERVAL_MS` (500), `OUTBOX_BATCH_SIZE` (50), `OUTBOX_SEND_TIMEOUT_MS` (30000),
+`OUTBOX_LEASE_MS` (60000, ≥ 2 × send timeout), `OUTBOX_BACKOFF_BASE_MS` (1000), `OUTBOX_BACKOFF_MAX_MS` (60000), `OUTBOX_MAX_ATTEMPTS` (0 = unlimited).
 
 ### Operations
 

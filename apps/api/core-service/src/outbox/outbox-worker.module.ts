@@ -56,6 +56,7 @@ export class OutboxWorkerModule {
               clientId: `${kafka.clientId}-outbox`,
               ssl: kafka.ssl,
               sasl: kafka.sasl,
+              sendTimeoutMs: outbox.sendTimeoutMs,
             }),
         },
         policy: {

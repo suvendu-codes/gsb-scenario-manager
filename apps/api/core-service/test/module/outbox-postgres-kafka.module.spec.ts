@@ -364,6 +364,49 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
       const next = await store.claimDue({ workerId: 'w', limit: 10, leaseMs: 10_000 });
       expect(next.map((m) => m.id)).toEqual([r3.id]);
     });
+
+    it('PK-15 renewLease extends only the holder\'s lease', async () => {
+      const m = await enqueue('cid_renew');
+      const store = new DrizzleOutboxStore(database.db);
+      await store.claimDue({ workerId: 'w1', limit: 1, leaseMs: 300 });
+      await sleep(200);
+      expect(await store.renewLease(m.id, 'w1', 2_000)).toBe(true);
+      await sleep(250); // past the original lease, inside the renewed one
+      expect(await store.claimDue({ workerId: 'w2', limit: 1, leaseMs: 1_000 })).toHaveLength(0);
+      expect(await store.renewLease(m.id, 'w2', 2_000)).toBe(false);
+    });
+
+    it('PK-16 a dead run.trigger fails the run (trigger_undeliverable) and finishes the scenario', async () => {
+      await database.pool.query(`UPDATE scenario SET status = 'running', current_run_id = $1 WHERE id = $2`, [runId, scenarioId]);
+      const trigger = await enqueue('cid_store', 1);
+      const store = new DrizzleOutboxStore(database.db);
+      await store.claimDue({ workerId: 'w', limit: 1, leaseMs: 10_000 });
+
+      expect(await store.markDead(trigger.id, 'w', 'PublishError: not authorized')).toBe(true);
+
+      const [failed] = await rows('SELECT * FROM run WHERE id = $1', [runId]);
+      expect(failed).toMatchObject({
+        status: 'failed',
+        reason: 'trigger_undeliverable',
+        status_message: 'PublishError: not authorized',
+        pending_command: null,
+      });
+      expect(failed.completed_at).toBeInstanceOf(Date);
+      expect((await rows('SELECT status FROM scenario WHERE id = $1', [scenarioId]))[0].status).toBe('finished');
+      // A new trigger is allowed again: the one-active-run index no longer sees this run as active.
+      await expect(
+        database.pool.query(`INSERT INTO run (correlation_id, scenario_id, engine) VALUES ('cid_next', $1, 'emulator')`, [scenarioId]),
+      ).resolves.toBeDefined();
+    });
+
+    it('PK-17 a dead row does not fail a run the engine already reported on', async () => {
+      await database.pool.query(`UPDATE run SET status = 'accepted', last_event_sequence = 1 WHERE id = $1`, [runId]);
+      const trigger = await enqueue('cid_store', 1);
+      const store = new DrizzleOutboxStore(database.db);
+      await store.claimDue({ workerId: 'w', limit: 1, leaseMs: 10_000 });
+      expect(await store.markDead(trigger.id, 'w', 'PublishError: x')).toBe(true);
+      expect((await rows('SELECT status FROM run WHERE id = $1', [runId]))[0].status).toBe('accepted');
+    });
   });
 
   it('PK-12 relay retries a missing topic and delivers once the topic exists', async () => {

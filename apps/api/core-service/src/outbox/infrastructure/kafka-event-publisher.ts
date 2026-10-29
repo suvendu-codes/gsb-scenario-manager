@@ -12,8 +12,28 @@ export interface KafkaPublisherConfig {
     username?: string;
     password?: string;
   };
-  /** Per-send broker timeout. */
+  /** Upper bound for one publish, including producer retries. Default 30s. */
   sendTimeoutMs?: number;
+}
+
+export const DEFAULT_SEND_TIMEOUT_MS = 30_000;
+const SEND_RETRIES = 2;
+const MAX_RETRY_BACKOFF_MS = 1_000;
+
+/**
+ * Producer timings derived from the send budget so that the worst case — every attempt timing
+ * out, plus the backoff between them — fits inside `sendTimeoutMs`. The relay renews a row's lease
+ * right before sending and config requires lease ≥ 2 × send budget, so a send can never outlive
+ * its lease and be repeated by another worker while still in flight.
+ */
+export function sendTimings(sendTimeoutMs = DEFAULT_SEND_TIMEOUT_MS) {
+  const attempts = SEND_RETRIES + 1;
+  const requestTimeoutMs = Math.max(1_000, Math.floor((sendTimeoutMs - SEND_RETRIES * MAX_RETRY_BACKOFF_MS) / attempts));
+  return {
+    requestTimeoutMs,
+    connectionTimeoutMs: Math.min(10_000, requestTimeoutMs),
+    retry: { retries: SEND_RETRIES, initialRetryTime: 200, maxRetryTime: MAX_RETRY_BACKOFF_MS },
+  };
 }
 
 /**
@@ -43,8 +63,8 @@ export function toKafkaConfig(config: KafkaPublisherConfig): KafkaConfig {
     brokers: [...config.brokers],
     ssl: config.ssl,
     sasl: username && password ? ({ mechanism, username, password } as SASLOptions) : undefined,
-    connectionTimeout: 10_000,
-    requestTimeout: 30_000,
+    connectionTimeout: sendTimings(config.sendTimeoutMs).connectionTimeoutMs,
+    requestTimeout: sendTimings(config.sendTimeoutMs).requestTimeoutMs,
     logLevel: logLevel.WARN,
   };
 }
@@ -63,7 +83,7 @@ export class KafkaEventPublisher implements EventPublisher {
       allowAutoTopicCreation: false,
       // One in-flight request keeps per-partition order across internal retries.
       maxInFlightRequests: 1,
-      retry: { retries: 3, initialRetryTime: 300, maxRetryTime: 5_000 },
+      retry: sendTimings(config.sendTimeoutMs).retry,
     });
   }
 
@@ -81,11 +101,26 @@ export class KafkaEventPublisher implements EventPublisher {
   }
 
   async publish(message: OutboxMessage): Promise<void> {
+    const budget = this.config.sendTimeoutMs ?? DEFAULT_SEND_TIMEOUT_MS;
+    let timer: NodeJS.Timeout | undefined;
+    // Last-resort guard: the producer is tuned to finish within the budget; never wait past it.
+    const guard = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new PublishError(`send exceeded ${budget}ms`, true)), budget);
+    });
+    try {
+      await Promise.race([this.send(message), guard]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async send(message: OutboxMessage): Promise<void> {
     try {
       await this.producer.send({
         topic: message.topic,
         acks: -1,
-        timeout: this.config.sendTimeoutMs ?? 30_000,
+        // Broker-side wait for acks=all; same as one request's client timeout.
+        timeout: sendTimings(this.config.sendTimeoutMs).requestTimeoutMs,
         messages: [
           {
             key: message.messageKey,

@@ -22,6 +22,12 @@ export class InMemoryOutboxStore implements OutboxStore {
   readonly rows: InMemoryOutboxRow[] = [];
   private seq = 0;
 
+  /**
+   * Called when a `run` command row goes dead, mirroring DrizzleOutboxStore failing the run with
+   * `trigger_undeliverable` (wired to the in-memory run repository in tests).
+   */
+  onRunTriggerDead?: (row: InMemoryOutboxRow, error: string) => void;
+
   constructor(private readonly now: () => number = () => Date.now()) {}
 
   /** Mirrors insertOutboxMessage; enforces the (correlation_id, sequence) unique key. */
@@ -72,6 +78,13 @@ export class InMemoryOutboxStore implements OutboxStore {
       .map(toMessage);
   }
 
+  async renewLease(id: string, workerId: string, leaseMs: number) {
+    const row = this.rows.find((r) => r.id === id);
+    if (!row || row.lockedBy !== workerId || row.status !== 'pending') return false;
+    row.lockedUntil = this.now() + leaseMs;
+    return true;
+  }
+
   async markPublished(id: string, workerId: string) {
     return this.update(id, workerId, (r) => {
       r.status = 'published';
@@ -88,10 +101,13 @@ export class InMemoryOutboxStore implements OutboxStore {
   }
 
   async markDead(id: string, workerId: string, error: string) {
-    return this.update(id, workerId, (r) => {
+    const ok = this.update(id, workerId, (r) => {
       r.status = 'dead';
       r.lastError = error;
     });
+    const row = this.rows.find((r) => r.id === id);
+    if (ok && row?.commandId === 'run') this.onRunTriggerDead?.(row, error);
+    return ok;
   }
 
   async release(id: string, workerId: string) {

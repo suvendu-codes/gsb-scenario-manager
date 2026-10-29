@@ -104,6 +104,19 @@ describe('InMemoryOutboxStore', () => {
     expect(await claim(store)).toHaveLength(0);
   });
 
+  it('renews a lease only for its holder', async () => {
+    store.insert(draft('a'));
+    const [m] = await claim(store, 'w1', 10, 1000);
+    now += 900;
+    expect(await store.renewLease(m.id, 'w1', 1000)).toBe(true);
+    now += 900; // past the original lease, inside the renewed one
+    expect(await claim(store, 'w2')).toHaveLength(0);
+    expect(await store.renewLease(m.id, 'w2', 1000)).toBe(false);
+    now += 200;
+    expect(await claim(store, 'w2')).toHaveLength(1);
+    expect(await store.renewLease(m.id, 'w1', 1000)).toBe(false);
+  });
+
   it('enforces the (correlation_id, sequence) unique key', () => {
     store.insert(draft('a', 1));
     expect(() => store.insert(draft('a', 1))).toThrow(/duplicate key/);

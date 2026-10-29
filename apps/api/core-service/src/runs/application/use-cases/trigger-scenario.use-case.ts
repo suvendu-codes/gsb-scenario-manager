@@ -16,7 +16,7 @@ import {
   TriggerUpstreamUnavailableError,
   type ScenarioIssue,
 } from '../../domain/errors.js';
-import { isRetryableRunStatus, isTerminalRunStatus, type Run } from '../../domain/run.js';
+import { isRetryableRunStatus, isTerminalRunStatus, TRIGGER_UNDELIVERABLE, type Run } from '../../domain/run.js';
 import { buildRunTriggerEvent } from '../../domain/run-trigger-event.js';
 import { checkScenarioInputs, effectiveConfig } from '../../domain/scenario-readiness.js';
 import { hashTriggerRequest, type TriggerRequest } from '../../domain/trigger-request.js';
@@ -56,6 +56,8 @@ export interface TriggerScenarioResult {
 
 /** Consecutive failed runs that block further triggers (LLD: failure brake). */
 export const FAILURE_BRAKE_THRESHOLD = 3;
+/** Runs read for the brake; undeliverable triggers are skipped, so read more than the threshold. */
+const RECENT_RUNS = 10;
 
 const defaultIds: IdGenerator = { uuid: () => randomUUID() };
 
@@ -85,7 +87,7 @@ export class TriggerScenarioUseCase {
     const previous = await this.runs.findByIdempotencyKey(scenarioId, idempotencyKey);
     if (previous) return this.replay(previous, requestHash);
 
-    const scenario = await this.runs.loadScenario(scenarioId, FAILURE_BRAKE_THRESHOLD);
+    const scenario = await this.runs.loadScenario(scenarioId, RECENT_RUNS);
     if (!scenario) throw new ScenarioNotFoundError(scenarioId);
 
     if (this.gate.closed.includes(request.engine)) throw new EngineUnavailableError(request.engine);
@@ -163,7 +165,8 @@ export class TriggerScenarioUseCase {
   }
 
   private assertNotBlocked({ recentRuns }: TriggerScenarioState) {
-    const lastN = recentRuns.slice(0, FAILURE_BRAKE_THRESHOLD);
+    // An undeliverable trigger is an infrastructure fault, not a failure of the scenario.
+    const lastN = recentRuns.filter((r) => r.reason !== TRIGGER_UNDELIVERABLE).slice(0, FAILURE_BRAKE_THRESHOLD);
     if (lastN.length === FAILURE_BRAKE_THRESHOLD && lastN.every((r) => r.status === 'failed')) {
       throw new ScenarioBlockedError(FAILURE_BRAKE_THRESHOLD);
     }

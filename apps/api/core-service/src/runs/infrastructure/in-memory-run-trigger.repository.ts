@@ -7,9 +7,12 @@ import type {
   TriggerOutcome,
   TriggerScenarioState,
 } from '../application/ports/run-trigger.repository.js';
-import { isTerminalRunStatus, type Run } from '../domain/run.js';
+import { isTerminalRunStatus, TRIGGER_UNDELIVERABLE, type Run } from '../domain/run.js';
 
 export type SeedScenario = Omit<TriggerScenarioState, 'recentRuns'>;
+
+/** In-memory run: the trigger-facing Run plus the failure fields the status worker would set. */
+type StoredRun = Run & { failureReason?: string | null; statusMessage?: string | null };
 
 /**
  * Single-process stand-in for DrizzleRunTriggerRepository: per-scenario serialisation mimics the
@@ -18,7 +21,7 @@ export type SeedScenario = Omit<TriggerScenarioState, 'recentRuns'>;
 @Injectable()
 export class InMemoryRunTriggerRepository implements RunTriggerRepository {
   readonly scenarios = new Map<string, SeedScenario>();
-  readonly runs: Run[] = [];
+  readonly runs: StoredRun[] = [];
   /** scenario id → current_run_id, as the Drizzle repository sets it. */
   readonly currentRunIds = new Map<string, string>();
   private readonly locks = new Map<string, Promise<unknown>>();
@@ -29,14 +32,28 @@ export class InMemoryRunTriggerRepository implements RunTriggerRepository {
   constructor(
     readonly outbox: InMemoryOutboxStore = new InMemoryOutboxStore(),
     private readonly now: () => Date = () => new Date(),
-  ) {}
+  ) {
+    outbox.onRunTriggerDead = (row, error) => this.failUndeliverable(row.runId, error);
+  }
+
+  /** Mirrors DrizzleOutboxStore.markDead for a run command (see InMemoryOutboxStore.onRunTriggerDead). */
+  failUndeliverable(runId: string, error: string) {
+    const run = this.runs.find((r) => r.id === runId);
+    if (!run || run.status !== 'trigger_requested') return;
+    run.status = 'failed';
+    run.pendingCommand = null;
+    run.failureReason = TRIGGER_UNDELIVERABLE;
+    run.statusMessage = error;
+    const scenario = this.scenarios.get(run.scenarioId);
+    if (scenario && this.currentRunIds.get(run.scenarioId) === run.id) scenario.status = 'finished';
+  }
 
   seedScenario(state: SeedScenario) {
     this.scenarios.set(state.id, structuredClone(state));
   }
 
   /** Adds a historical run directly (as the status worker would have left it). */
-  seedRun(run: Pick<Run, 'id' | 'scenarioId' | 'correlationId' | 'status'> & Partial<Run>) {
+  seedRun(run: Pick<Run, 'id' | 'scenarioId' | 'correlationId' | 'status'> & Partial<StoredRun>) {
     this.runs.push({
       engine: 'emulator',
       priority: 'normal',
@@ -77,7 +94,7 @@ export class InMemoryRunTriggerRepository implements RunTriggerRepository {
       .filter((r) => r.scenarioId === scenarioId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, n)
-      .map(({ id, correlationId, status }) => ({ id, correlationId, status }));
+      .map(({ id, correlationId, status, failureReason }) => ({ id, correlationId, status, reason: failureReason ?? null }));
   }
 
   private async apply(input: CommitTrigger): Promise<TriggerOutcome> {

@@ -24,6 +24,7 @@ describe('config', () => {
       backoffBaseMs: 1_000,
       backoffMaxMs: 60_000,
       maxAttempts: 0,
+      sendTimeoutMs: 30_000,
     });
     expect(config.eventSchemaVersion).toBe('1.1');
   });
@@ -44,6 +45,7 @@ describe('config', () => {
       OUTBOX_BACKOFF_BASE_MS: '200',
       OUTBOX_BACKOFF_MAX_MS: '5000',
       OUTBOX_MAX_ATTEMPTS: '7',
+      OUTBOX_SEND_TIMEOUT_MS: '10000',
       EVENT_SCHEMA_VERSION: '1.2',
     });
     expect(config.kafka.brokers).toEqual(['k1:9092', 'k2:9093']);
@@ -57,6 +59,7 @@ describe('config', () => {
       backoffBaseMs: 200,
       backoffMaxMs: 5000,
       maxAttempts: 7,
+      sendTimeoutMs: 10_000,
     });
     expect(config.eventSchemaVersion).toBe('1.2');
   });
@@ -68,6 +71,11 @@ describe('config', () => {
     expect(config.outbox.batchSize).toBe(50);
   });
 
+  it('requires the lease to cover two sends', () => {
+    expect(() => build({ OUTBOX_LEASE_MS: '50000', OUTBOX_SEND_TIMEOUT_MS: '30000' })).toThrow(/outbox.leaseMs/);
+    expect(build({ OUTBOX_LEASE_MS: '60000', OUTBOX_SEND_TIMEOUT_MS: '30000' }).outbox.leaseMs).toBe(60_000);
+  });
+
   it.each([
     ['OUTBOX_BATCH_SIZE', '0'],
     ['OUTBOX_BATCH_SIZE', '501'],
@@ -75,6 +83,7 @@ describe('config', () => {
     ['OUTBOX_MAX_ATTEMPTS', '-1'],
     ['KAFKA_SASL_MECHANISM', 'gssapi'],
     ['KAFKA_BROKERS', ' , '],
+    ['OUTBOX_SEND_TIMEOUT_MS', '1000'],
   ])('rejects %s=%s', (key, value) => {
     expect(() => build({ [key]: value })).toThrow(/Invalid configuration/);
   });

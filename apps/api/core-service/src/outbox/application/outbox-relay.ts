@@ -62,6 +62,15 @@ export class OutboxRelay {
         attempt: message.attempts,
       };
 
+      // The claim leased the whole batch at once, but rows are sent one at a time. Renew this row's
+      // lease right before its send (lease ≥ 2 × send budget, enforced by config), so a send never
+      // outlives its lease. If another worker already reclaimed the row, it is theirs: don't send.
+      if (!(await this.store.renewLease(message.id, this.workerId, this.policy.leaseMs))) {
+        result.leaseLost++;
+        this.logger.warn({ event: 'outbox_lease_lost_before_send', ...context });
+        continue;
+      }
+
       try {
         await this.publisher.publish(message);
       } catch (error) {

@@ -42,6 +42,64 @@ jobs:
           path: test-results/module/
           retention-days: 7
 
+  outbox-module-tests:
+    name: outbox module tests (PostgreSQL + Kafka)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: scene
+          POSTGRES_PASSWORD: scene
+          POSTGRES_DB: scene
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U scene"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      kafka:
+        image: apache/kafka:3.8.0
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 15
+          --health-start-period 20s
+    env:
+      MODULE_TEST_DATABASE_URL: postgresql://scene:scene@localhost:5432/scene
+      MODULE_TEST_KAFKA_BROKERS: localhost:9092
+      MODULE_TEST_REQUIRED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # PK-01..PK-17: schema baseline, transactions, SKIP LOCKED, ordering, leases, crash redelivery.
+      - run: pnpm --filter core-service test:outbox-module
+
   core-service:
     name: core-service checks
     runs-on: ubuntu-latest
