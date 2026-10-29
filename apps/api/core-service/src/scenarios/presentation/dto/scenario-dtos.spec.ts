@@ -16,7 +16,7 @@ const validCreate = {
   map_id: uuid,
   map_version: 1,
 };
-
+type ValidCreateKey = keyof typeof validCreate;
 const issuePaths = (result: { success: boolean; error?: { issues: { path: PropertyKey[] }[] } }) =>
   result.error?.issues.map((i) => i.path.join('.')) ?? [];
 
@@ -27,14 +27,17 @@ describe('CreateScenarioDto', () => {
     expect(parse(validCreate).success).toBe(true);
   });
 
-  it.each(Object.keys(validCreate))('rejects a missing %s', (field) => {
-    const body: Record<string, unknown> = { ...validCreate };
-    delete body[field];
-    const result = parse(body);
-    expect(result.success).toBe(false);
-    expect(issuePaths(result)).toEqual([field]);
-  });
-
+  it.each(Object.keys(validCreate) as ValidCreateKey[])(
+    'rejects an explicit undefined for %s',
+    (field) => {
+      const body = { ...validCreate, [field]: undefined };
+  
+      const result = parse(body);
+  
+      expect(result.success).toBe(false);
+      expect(issuePaths(result)).toEqual([field]);
+    }
+  );
   it.each(['name', 'project_id', 'map_id'])('rejects an empty %s', (field) => {
     const result = parse({ ...validCreate, [field]: '' });
     expect(result.success).toBe(false);
