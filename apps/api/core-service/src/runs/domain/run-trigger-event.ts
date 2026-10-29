@@ -1,11 +1,10 @@
 import { z } from 'zod';
-import { InvalidExecutionInputError } from './errors.js';
-import { RUN_ENGINES, RUN_PRIORITIES, type RunEngine } from './run.js';
-import { DATA_SLOTS, type DataSlot, type TriggerRequest } from './trigger-request.js';
+import { RUN_ENGINES, RUN_PRIORITIES, type RunEngine, type RunPriority } from './run.js';
+import { DATA_SLOTS, type DataSlot } from './scenario-readiness.js';
 
 /**
- * Wire contract for `run.trigger` (SM → engine), Event Schema Proposal v28, agreed v1.1 example.
- * Snake_case on the wire. Engine-owned `config` / `build` stay opaque objects.
+ * Wire contract for `run.trigger` (SM → engine), Event Schema Proposal (agreed v1.1 example).
+ * Snake_case on the wire; the engine-owned `config` stays an opaque object.
  */
 export const RUN_TRIGGER_EVENT_TYPE = 'run.trigger';
 export const RUN_TRIGGER_SEQUENCE = 1;
@@ -21,12 +20,16 @@ const wirePin = z
   })
   .strict();
 
+/**
+ * A data file by reference. Integrity metadata (sha256, size_bytes, rows) is sent when SM has it;
+ * the Complete-upload flow that records it is not built yet, so today only `uri` is known.
+ */
 const wireDataFile = z
   .object({
     uri: z.string().min(1),
-    sha256: z.string().regex(/^[0-9a-f]{64}$/),
-    size_bytes: z.number().int().nonnegative(),
-    rows: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    size_bytes: z.number().int().nonnegative().optional(),
+    rows: z.number().int().nonnegative().optional(),
   })
   .strict();
 
@@ -50,7 +53,6 @@ export const RunTriggerEventSchema = z
         pins: z.array(wirePin).min(1),
       })
       .strict(),
-    build: z.record(z.string(), z.unknown()).optional(),
     data: z.partialRecord(z.enum(DATA_SLOTS), wireDataFile),
     config: z.record(z.string(), z.unknown()),
     run: z
@@ -58,107 +60,59 @@ export const RunTriggerEventSchema = z
         execution_duration_minutes: z.number().int().positive(),
         stop_policy: z.enum(['hard_stop', 'informational']).optional(),
       })
-      .strict(),
+      .strict()
+      .optional(),
   })
   .strict();
 
 export type RunTriggerEvent = z.output<typeof RunTriggerEventSchema>;
 
-/** The scenario facts the trigger reads under lock. */
-export interface TriggerScenarioSnapshot {
-  id: string;
-  projectId: string;
-  mapId: string;
-  status: string;
-  /** File URIs already stored on the scenario row, by slot (null when not uploaded). */
+export interface BuildRunTriggerEventInput {
+  scenario: { id: string; projectId: string; mapId: string };
+  correlationId: string;
+  engine: RunEngine;
+  priority: RunPriority;
+  schemaVersion: string;
+  issuedAt: Date;
+  issuedBy: string;
+  /** Versions pinned at trigger time. */
+  mapVersion: string;
+  sizerVersion: string;
+  /** Effective (defaults + overrides) config. */
+  config: Record<string, unknown>;
   dataUris: Record<DataSlot, string | null>;
 }
 
-export interface BuildRunTriggerEventInput {
-  scenario: TriggerScenarioSnapshot;
-  correlationId: string;
-  schemaVersion: string;
-  issuedAt: Date;
-  request: TriggerRequest & { engine: RunEngine };
-}
-
-/**
- * Every file the scenario already stores must be sent with its integrity metadata, and the
- * URI must be the stored one: a run reads exactly what the user saw.
- */
-export function assertDataMatchesScenario(scenario: TriggerScenarioSnapshot, request: TriggerRequest) {
-  for (const slot of DATA_SLOTS) {
-    const stored = scenario.dataUris[slot];
-    const sent = request.data[slot];
-    if (stored && !sent) {
-      throw new InvalidExecutionInputError(
-        `data.${slot} is required: scenario ${scenario.id} has a stored ${slot} file`,
-      );
-    }
-    if (stored && sent && sent.uri !== stored) {
-      throw new InvalidExecutionInputError(
-        `data.${slot}.uri does not match the file stored on scenario ${scenario.id}`,
-      );
-    }
-  }
-}
-
 /** Builds the exact event the outbox will deliver. Pure; validates the result against the wire schema. */
-export function buildRunTriggerEvent({
-  scenario,
-  correlationId,
-  schemaVersion,
-  issuedAt,
-  request,
-}: BuildRunTriggerEventInput): RunTriggerEvent {
-  assertDataMatchesScenario(scenario, request);
-
+export function buildRunTriggerEvent(input: BuildRunTriggerEventInput): RunTriggerEvent {
   const data: RunTriggerEvent['data'] = {};
   for (const slot of DATA_SLOTS) {
-    const file = request.data[slot];
-    if (file) {
-      data[slot] = {
-        uri: file.uri,
-        sha256: file.sha256,
-        size_bytes: file.sizeBytes,
-        rows: file.rows,
-      };
-    }
+    const uri = input.dataUris[slot];
+    if (uri) data[slot] = { uri };
   }
 
   const event: RunTriggerEvent = {
     event_type: RUN_TRIGGER_EVENT_TYPE,
     command_id: 'run',
-    version: schemaVersion,
-    engine: request.engine,
+    version: input.schemaVersion,
+    engine: input.engine,
     sequence: RUN_TRIGGER_SEQUENCE,
-    correlation_id: correlationId,
-    issued_at: issuedAt.toISOString(),
-    ...(request.issuedBy ? { issued_by: request.issuedBy } : {}),
-    priority: request.priority,
+    correlation_id: input.correlationId,
+    issued_at: input.issuedAt.toISOString(),
+    issued_by: input.issuedBy,
+    priority: input.priority,
     references: {
-      project_id: scenario.projectId,
-      scenario_id: scenario.id,
-      map_id: scenario.mapId,
-      ...(request.references.mapVersionId
-        ? { map_version_id: request.references.mapVersionId }
-        : {}),
-      pins: request.references.pins.map((pin) => ({
-        service: pin.service,
-        artifact_type: pin.artifactType,
-        id: pin.id,
-        ...(pin.version !== undefined ? { version: pin.version } : {}),
-        ...(pin.versionId !== undefined ? { version_id: pin.versionId } : {}),
-        ...(pin.etag !== undefined ? { etag: pin.etag } : {}),
-      })),
+      project_id: input.scenario.projectId,
+      scenario_id: input.scenario.id,
+      map_id: input.scenario.mapId,
+      map_version_id: input.mapVersion,
+      pins: [
+        { service: 'map_creator', artifact_type: 'map', id: input.scenario.mapId, version: input.mapVersion },
+        { service: 'sizer', artifact_type: 'sizer', id: input.scenario.mapId, version: input.sizerVersion },
+      ],
     },
-    ...(request.build ? { build: request.build } : {}),
     data,
-    config: request.config,
-    run: {
-      execution_duration_minutes: request.run.executionDurationMinutes,
-      ...(request.run.stopPolicy ? { stop_policy: request.run.stopPolicy } : {}),
-    },
+    config: input.config,
   };
 
   // Guards the contract: a builder bug fails the request instead of queueing a bad event.

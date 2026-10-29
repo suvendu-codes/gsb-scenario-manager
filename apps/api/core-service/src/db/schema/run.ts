@@ -32,6 +32,13 @@ export const run = pgTable(
     statusMessage: text('status_message'),
     statusEventAt: timestamp('status_event_at', { withTimezone: true }),
     resultEventAt: timestamp('result_event_at', { withTimezone: true }),
+    /** Trigger inputs pinned on the run (LLD §5). */
+    priority: text().$type<'high' | 'normal' | 'low'>().notNull().default('normal'),
+    triggeredBy: text('triggered_by'),
+    mapVersion: text('map_version'),
+    sizerVersion: text('sizer_version'),
+    /** Create-only blob with the effective config sent to the engine. */
+    configSnapshotUri: text('config_snapshot_uri'),
     /** Client Idempotency-Key of the trigger request, scoped to the scenario. */
     idempotencyKey: text('idempotency_key'),
     /** SHA-256 of the canonical trigger request; the same key with a different body is a conflict. */
@@ -49,6 +56,7 @@ export const run = pgTable(
     unique('run_correlation_id_key').on(t.correlationId),
     unique('run_scenario_id_id_key').on(t.scenarioId, t.id),
     unique('run_scenario_idempotency_key').on(t.scenarioId, t.idempotencyKey),
+    check('run_priority_enum', sql`${t.priority} IN ('high','normal','low')`),
     uniqueIndex('run_one_active_per_scenario').on(t.scenarioId)
       .where(sql`${t.status} NOT IN ('completed', 'failed', 'interrupted', 'cancelled')`),
     foreignKey({ name: 'run_retry_same_scenario_fk', columns: [t.scenarioId, t.retryOfRunId], foreignColumns: [t.scenarioId, t.id] }),

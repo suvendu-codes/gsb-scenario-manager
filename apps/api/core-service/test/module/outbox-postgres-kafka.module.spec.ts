@@ -19,9 +19,14 @@ import { insertOutboxMessage } from '../../src/outbox/infrastructure/outbox-writ
 import { outboxWorkerProviders } from '../../src/outbox/outbox-worker.module.js';
 import {
   COMMAND_TOPICS,
+  CONFIG_SNAPSHOT_STORE,
+  ENGINE_GATE,
   EVENT_SCHEMA_VERSION,
   RUN_TRIGGER_REPOSITORY,
+  RUN_UPSTREAM,
 } from '../../src/runs/application/ports/run-trigger.repository.js';
+import { InMemoryConfigSnapshotStore, MockRunUpstream } from '../../src/runs/infrastructure/run-adapters.js';
+import { SCENARIO_CONFIG_READER } from '../../src/scenarios/application/ports/scenario-config.reader.js';
 import { TriggerScenarioUseCase } from '../../src/runs/application/use-cases/trigger-scenario.use-case.js';
 import { RunTriggerEventSchema } from '../../src/runs/domain/run-trigger-event.js';
 import { DrizzleRunTriggerRepository } from '../../src/runs/infrastructure/drizzle-run-trigger.repository.js';
@@ -71,6 +76,10 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
         { provide: RUN_TRIGGER_REPOSITORY, useClass: DrizzleRunTriggerRepository },
         { provide: COMMAND_TOPICS, useValue: topics },
         { provide: EVENT_SCHEMA_VERSION, useValue: '1.1' },
+        { provide: SCENARIO_CONFIG_READER, useValue: { read: async () => ({}) } },
+        { provide: RUN_UPSTREAM, useClass: MockRunUpstream },
+        { provide: CONFIG_SNAPSHOT_STORE, useClass: InMemoryConfigSnapshotStore },
+        { provide: ENGINE_GATE, useValue: { closed: [] } },
         ...outboxWorkerProviders({
           store: { provide: OUTBOX_STORE, useClass: DrizzleOutboxStore },
           publisher: { provide: EVENT_PUBLISHER, useFactory: newPublisher },
@@ -88,6 +97,8 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
   const rows = async (sql: string, params: unknown[] = []) => (await database.pool.query(sql, params)).rows;
   const outboxRows = () => rows('SELECT * FROM run_outbox ORDER BY created_at, sequence');
   const delivered = (correlationId: string) => consumer.messages.filter((m) => m.key === correlationId);
+  const trigger = (app: HttpApp, scenarioId: string, key: string = randomUUID()) =>
+    app.post(`/api/v1/scenarios/${scenarioId}/runs`, triggerBody(), { 'Idempotency-Key': key, 'x-user-email': 'pk@test' });
 
   beforeAll(async () => {
     database = await createTestDatabase();
@@ -121,7 +132,9 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
       'topic', 'message_key', 'payload', 'headers', 'status', 'attempts', 'available_at', 'locked_by',
       'locked_until', 'last_error', 'created_at', 'published_at',
     ]);
-    expect(await columns('run')).toEqual(expect.arrayContaining(['idempotency_key', 'request_hash', 'pending_command', 'command_sequence']));
+    expect(await columns('run')).toEqual(expect.arrayContaining([
+      'idempotency_key', 'request_hash', 'priority', 'triggered_by', 'map_version', 'sizer_version', 'config_snapshot_uri',
+    ]));
     const constraints = (await rows(
       `SELECT conname FROM pg_constraint WHERE conrelid IN ('public.run'::regclass, 'public.run_outbox'::regclass)`,
     )).map((r) => r.conname);
@@ -150,18 +163,24 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     const scenarioId = await seedScenario(database.pool);
     const app = await startApp();
 
-    const res = await app.post(`/api/v1/scenarios/${scenarioId}/trigger`, triggerBody());
+    const res = await trigger(app, scenarioId);
     expect(res.status).toBe(202);
-    const { correlationId, runId } = res.body;
+    const correlationId: string = res.body.correlation_id;
+    expect(res.headers.get('location')).toBe(`/v1/runs/${correlationId}`);
 
-    const [run] = await rows('SELECT * FROM run WHERE id = $1', [runId]);
+    const [run] = await rows('SELECT * FROM run WHERE correlation_id = $1', [correlationId]);
+    const runId = run.id;
     expect(run).toMatchObject({
-      correlation_id: correlationId,
       status: 'trigger_requested',
       pending_command: 'run',
       command_sequence: 1,
       engine: 'emulator',
+      priority: 'normal',
+      triggered_by: 'pk@test',
+      map_version: 'v1',
+      sizer_version: 'v1',
     });
+    expect(run.config_snapshot_uri).toMatch(new RegExp(`^memory://runs/${scenarioId}/${correlationId}/config.json$`));
     const [scenario] = await rows('SELECT status, current_run_id FROM scenario WHERE id = $1', [scenarioId]);
     expect(scenario).toMatchObject({ status: 'running', current_run_id: runId });
 
@@ -186,12 +205,14 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     expect(row).toMatchObject({ attempts: 1, locked_by: null, last_error: null });
   });
 
-  it('PK-04 a rejected trigger leaves no run, no outbox row and the scenario in draft', async () => {
-    const scenarioId = await seedScenario(database.pool, { outboundUri: 'gs://another-bucket/o.csv' });
+  it('PK-04 a scenario that is not ready gets 422 scenario_invalid and nothing is written', async () => {
+    const scenarioId = await seedScenario(database.pool, { ready: false });
     const app = await startApp(false);
 
-    const res = await app.post(`/api/v1/scenarios/${scenarioId}/trigger`, triggerBody());
-    expect(res.status).toBe(400);
+    const res = await trigger(app, scenarioId);
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('scenario_invalid');
+    expect(res.body.error.details.issues.length).toBe(4);
     expect(await rows('SELECT 1 FROM run')).toHaveLength(0);
     expect(await outboxRows()).toHaveLength(0);
     expect((await rows('SELECT status FROM scenario'))[0].status).toBe('draft');
@@ -202,7 +223,7 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     const app = await startApp(false);
 
     const results = await Promise.all(
-      Array.from({ length: 6 }, () => app.post(`/api/v1/scenarios/${scenarioId}/trigger`, triggerBody())),
+      Array.from({ length: 6 }, () => trigger(app, scenarioId)),
     );
     expect(results.filter((r) => r.status === 202)).toHaveLength(1);
     expect(results.filter((r) => r.status === 409)).toHaveLength(5);
@@ -216,12 +237,12 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
 
     const results = await Promise.all(
       Array.from({ length: 6 }, () =>
-        app.post(`/api/v1/scenarios/${scenarioId}/trigger`, triggerBody(), { 'Idempotency-Key': 'retry-me' }),
+        trigger(app, scenarioId, 'retry-me'),
       ),
     );
-    expect(results.every((r) => r.status === 202)).toBe(true);
-    expect(new Set(results.map((r) => r.body.runId)).size).toBe(1);
-    expect(results.filter((r) => r.body.replayed === false)).toHaveLength(1);
+    expect(results.filter((r) => r.status === 202)).toHaveLength(1);
+    expect(results.filter((r) => r.status === 200)).toHaveLength(5);
+    expect(new Set(results.map((r) => r.body.correlation_id)).size).toBe(1);
     expect(await outboxRows()).toHaveLength(1);
   });
 
@@ -390,7 +411,7 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
   it('PK-13 two workers draining a burst deliver every event exactly once', async () => {
     const ids = await Promise.all(Array.from({ length: 25 }, () => seedScenario(database.pool)));
     const app = await startApp(false); // API only
-    const responses = await Promise.all(ids.map((id) => app.post(`/api/v1/scenarios/${id}/trigger`, triggerBody())));
+    const responses = await Promise.all(ids.map((id) => trigger(app, id)));
     expect(responses.every((r) => r.status === 202)).toBe(true);
 
     const store = new DrizzleOutboxStore(database.db);
@@ -402,7 +423,7 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
       expect(pending).toHaveLength(0);
     }, { timeoutMs: 30_000, intervalMs: 10 });
 
-    const correlations = responses.map((r) => r.body.correlationId as string);
+    const correlations = responses.map((r) => r.body.correlation_id as string);
     await waitFor(() => {
       for (const c of correlations) expect(delivered(c)).toHaveLength(1);
     }, { timeoutMs: 20_000 });
@@ -411,9 +432,9 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
   it('PK-14 crash after Kafka ack but before mark-sent: re-sent after lease expiry, never lost', async () => {
     const scenarioId = await seedScenario(database.pool);
     const app = await startApp(false); // API only; relays below play the workers
-    const res = await app.post(`/api/v1/scenarios/${scenarioId}/trigger`, triggerBody());
+    const res = await trigger(app, scenarioId);
     expect(res.status).toBe(202);
-    const { correlationId } = res.body;
+    const correlationId: string = res.body.correlation_id;
 
     const leaseMs = 500;
     const store = new DrizzleOutboxStore(database.db);

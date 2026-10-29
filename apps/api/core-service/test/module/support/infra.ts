@@ -6,6 +6,7 @@ import { Kafka, logLevel, type Consumer, type KafkaMessage } from 'kafkajs';
 import { Client, Pool } from 'pg';
 import type { DrizzleDB } from '../../../src/db/db.module.js';
 import * as schema from '../../../src/db/schema/index.js';
+import { storedConfig } from '../../fixtures/trigger.js';
 
 export const infraEnv = {
   databaseUrl: process.env.MODULE_TEST_DATABASE_URL,
@@ -95,21 +96,27 @@ const toReceived = (topic: string, partition: number, message: KafkaMessage): Re
   ),
 });
 
+/** Inserts a scenario. By default it is triggerable: inline config plus the three required files. */
 export async function seedScenario(
   pool: Pool,
-  overrides: Partial<{ id: string; status: string; outboundUri: string | null; mapId: string; name: string }> = {},
+  overrides: Partial<{ id: string; status: string; mapId: string; name: string; ready: boolean }> = {},
 ) {
   const id = overrides.id ?? randomUUID();
+  const ready = overrides.ready ?? true;
+  const file = (slot: string) => (ready ? `gs://sm-module-test/scenarios/${id}/data/${slot}.csv` : null);
   await pool.query(
-    `INSERT INTO scenario (id, name, project_id, map_id, status, outbound_uri, author_id)
-     VALUES ($1, $2, $3, $4, $5, $6, 'module-test')`,
+    `INSERT INTO scenario (id, name, project_id, map_id, status, config, inbound_uri, outbound_uri, masterdata_uri, author_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'module-test')`,
     [
       id,
       overrides.name ?? `scenario-${id}`,
       '69bed8af82b48a28a231db1b',
       overrides.mapId ?? randomUUID(),
       overrides.status ?? 'draft',
-      overrides.outboundUri ?? null,
+      JSON.stringify(ready ? { body: storedConfig() } : {}),
+      file('inbound'),
+      file('outbound'),
+      file('masterdata'),
     ],
   );
   return id;

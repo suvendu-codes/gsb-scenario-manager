@@ -15,7 +15,7 @@ const row: typeof run.$inferSelect = {
   ...seed, retryOfRunId: null, id: 'id', scenarioId: 'scenario', correlationId: 'mock-correlation-1',
   engine: 'emulator', engineRunId: null, status: 'accepted', verdict: null,
   reason: null, results: {}, engineRef: null, statusMessage: null,
-  statusEventAt: null, resultEventAt: null, idempotencyKey: null, requestHash: null, completedAt: null,
+  statusEventAt: null, resultEventAt: null, priority: 'normal', triggeredBy: null, mapVersion: null, sizerVersion: null, configSnapshotUri: null, idempotencyKey: null, requestHash: null, completedAt: null,
   createdAt: new Date(), updatedAt: new Date(),
 };
 const event = {

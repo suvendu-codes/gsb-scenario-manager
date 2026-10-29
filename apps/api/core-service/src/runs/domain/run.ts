@@ -15,15 +15,28 @@ const TERMINAL: ReadonlySet<string> = new Set(TERMINAL_RUN_STATUSES);
 /** completed, failed, cancelled (and legacy interrupted) end an execution; a new Run may follow. */
 export const isTerminalRunStatus = (status: RunStatus) => TERMINAL.has(status);
 
-/** A persisted SM execution as the trigger flow sees it (subset of RunState). */
+/** Terminal outcomes after which the scenario may be run again (LLD: failed or cancelled). */
+const RETRYABLE: ReadonlySet<string> = new Set(['failed', 'cancelled', 'interrupted']);
+export const isRetryableRunStatus = (status: RunStatus) => RETRYABLE.has(status);
+
+/** A persisted SM execution as the trigger flow sees it. */
 export interface Run {
   id: string;
   scenarioId: string;
   correlationId: string;
   engine: RunEngine;
   status: RunStatus;
+  priority: RunPriority;
   pendingCommand: RunCommand | null;
   commandSequence: number | null;
+  /** The earlier failed/cancelled run this execution retries, if any. */
+  retryOfRunId: string | null;
+  triggeredBy: string;
+  /** Upstream versions resolved and pinned at trigger time. */
+  mapVersion: string | null;
+  sizerVersion: string | null;
+  /** Create-only blob holding the effective config sent to the engine. */
+  configSnapshotUri: string | null;
   idempotencyKey: string | null;
   requestHash: string | null;
   createdAt: Date;

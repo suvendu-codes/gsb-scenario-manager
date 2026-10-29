@@ -14,7 +14,7 @@ BEGIN
       RAISE EXCEPTION 'Partial Scenario Manager schema. Use a fresh database; existing tables are not modified.';
     END IF;
     -- Validate columns, enum values and safety constraints before accepting a no-op.
-    PERFORM "id", "correlation_id", "run_id", "scenario_id", "retry_of_run_id", "engine", "status", "verdict", "pending_command", "command_sequence", "decision", "command_reason", "last_event_sequence", "recovery_required", "heartbeat_emitted_at", "heartbeat_received_at", "progress", "reason", "results", "engine_ref", "status_message", "status_event_at", "result_event_at", "idempotency_key", "request_hash", "created_at", "updated_at", "completed_at" FROM public."run" LIMIT 0;
+    PERFORM "id", "correlation_id", "run_id", "scenario_id", "retry_of_run_id", "engine", "status", "verdict", "pending_command", "command_sequence", "decision", "command_reason", "last_event_sequence", "recovery_required", "heartbeat_emitted_at", "heartbeat_received_at", "progress", "reason", "results", "engine_ref", "status_message", "status_event_at", "result_event_at", "priority", "triggered_by", "map_version", "sizer_version", "config_snapshot_uri", "idempotency_key", "request_hash", "created_at", "updated_at", "completed_at" FROM public."run" LIMIT 0;
     PERFORM "id", "name", "project_id", "map_id", "solution_id", "status", "current_run_id", "config", "inbound_uri", "outbound_uri", "masterdata_uri", "mockput_uri", "author_id", "created_at", "updated_at" FROM public."scenario" LIMIT 0;
     PERFORM "run_id", "sequence", "payload", "received_at" FROM public."run_event_inbox" LIMIT 0;
     PERFORM "id", "scenario_id", "run_id", "correlation_id", "engine", "event_type", "command_id", "sequence", "topic", "message_key", "payload", "headers", "status", "attempts", "available_at", "locked_by", "locked_until", "last_error", "created_at", "published_at" FROM public."run_outbox" LIMIT 0;
@@ -76,6 +76,9 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_event_inbox'::regclass AND conname='run_event_inbox_run_id_sequence_pk') THEN
       RAISE EXCEPTION 'Existing schema is missing run_event_inbox_run_id_sequence_pk. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run'::regclass AND conname='run_priority_enum') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_priority_enum. Use a fresh database; no automatic conversion is performed.';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run'::regclass AND conname='run_scenario_idempotency_key') THEN
       RAISE EXCEPTION 'Existing schema is missing run_scenario_idempotency_key. Use a fresh database; no automatic conversion is performed.';
@@ -164,6 +167,11 @@ BEGIN
     status_message  TEXT,
     status_event_at TIMESTAMPTZ,
     result_event_at TIMESTAMPTZ,
+    priority        TEXT NOT NULL DEFAULT 'normal' CONSTRAINT run_priority_enum CHECK (priority IN ('high','normal','low')),
+    triggered_by    TEXT,                            -- acting user at trigger time
+    map_version     TEXT,                            -- upstream versions pinned at trigger time
+    sizer_version   TEXT,
+    config_snapshot_uri TEXT,                        -- create-only blob with the effective config
     idempotency_key TEXT,                            -- client Idempotency-Key of the trigger request
     request_hash    TEXT,                            -- sha256 of the canonical trigger request
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

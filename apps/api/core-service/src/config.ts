@@ -59,6 +59,15 @@ const schema = z
       maxAttempts: z.coerce.number().int().min(0).default(0),
     }),
     eventSchemaVersion: z.string().min(1).default('1.1'),
+    /** Manual engine gate: engines listed here get 503 engine_unavailable on trigger. */
+    engineGate: z.object({
+      closed: z
+        .preprocess(
+          (v) => (typeof v === 'string' ? v.split(',').map((e) => e.trim()).filter(Boolean) : v),
+          z.array(z.enum(['emulator', 'simulator'])),
+        )
+        .default([]),
+    }),
     // Only config blobs under gs://<bucket>/<prefix> may be dereferenced by the GCS config reader.
     scenarioConfig: z.object({
       bucket: z.string().optional(),
@@ -179,6 +188,7 @@ export class ConfigBuilder<S extends z.ZodType> {
         maxAttempts: env.OUTBOX_MAX_ATTEMPTS || undefined,
       },
       eventSchemaVersion: env.EVENT_SCHEMA_VERSION || undefined,
+      engineGate: { closed: env.ENGINE_GATE_CLOSED || undefined },
       scenarioConfig: {
         bucket: env.SCENARIO_CONFIG_BUCKET,
         prefix: env.SCENARIO_CONFIG_PREFIX,
