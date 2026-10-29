@@ -31,12 +31,12 @@ describe("diffToPatch", () => {
     const next = structuredClone(defaults);
     next.wms.volumeMultiplier = 2;
     next.agent.fleet.htm = 12;
-    next.station.stations["PPS-102"].schedule = [{ hours: 8, mode: "put", teaBreaks: [] }];
+    next.station.stations["PPS-102"].schedule = [{ hours: 8, mode: "put", breaks: [] }];
 
     expect(diffToPatch(defaults, next)).toEqual({
       set: {
         "wms.volumeMultiplier": 2,
-        "station.stations.PPS-102.schedule": [{ hours: 8, mode: "put", teaBreaks: [] }],
+        "station.stations.PPS-102.schedule": [{ hours: 8, mode: "put", breaks: [] }],
         "agent.fleet.htm": 12,
       },
     });

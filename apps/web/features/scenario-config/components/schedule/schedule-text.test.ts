@@ -4,7 +4,7 @@ import type { ScheduleBlock } from "../../types";
 import {
   formatHours,
   formatRange,
-  newTeaId,
+  newBreakId,
   scheduleSummary,
   scheduleTotal,
 } from "./schedule-text";
@@ -12,7 +12,7 @@ import {
 const block = (hours: number, mode: ScheduleBlock["mode"]): ScheduleBlock => ({
   hours,
   mode,
-  teaBreaks: [],
+  breaks: [],
 });
 
 describe("formatHours and formatRange", () => {
@@ -29,22 +29,23 @@ describe("formatHours and formatRange", () => {
 });
 
 describe("scheduleTotal and scheduleSummary", () => {
-  const blocks = [block(4, "pick"), block(3.5, "put"), block(0.5, "off")];
+  const blocks = [block(4, "pick"), block(3.5, "put"), block(0.5, "audit")];
 
-  it("counts the periods and adds up the hours", () => {
-    expect(scheduleTotal(blocks)).toBe("3 periods · 8h");
-    expect(scheduleTotal([block(8, "pick")])).toBe("1 period · 8h");
+  it("counts the blocks and adds up the hours", () => {
+    expect(scheduleTotal(blocks)).toBe("3 blocks · 8h");
+    expect(scheduleTotal([block(8, "pick")])).toBe("1 block · 8h");
   });
 
-  it("lists each period's mode and length", () => {
-    expect(scheduleSummary(blocks)).toBe("Pick 4h · Put 3.5h · Off 0.5h");
+  it("lists each block's mode and length, or says it is not assigned", () => {
+    expect(scheduleSummary(blocks)).toBe("Pick 4h · Put 3.5h · Audit 0.5h");
     expect(scheduleSummary([block(8, "audit")])).toBe("Audit 8h");
+    expect(scheduleSummary([])).toBe("Not assigned");
   });
 });
 
-describe("newTeaId", () => {
+describe("newBreakId", () => {
   it("makes short ids that differ", () => {
-    const ids = new Set(Array.from({ length: 50 }, () => newTeaId()));
+    const ids = new Set(Array.from({ length: 50 }, () => newBreakId()));
     expect(ids.size).toBe(50);
     for (const id of ids) expect(id).toMatch(/^t[0-9a-z]{8}$/);
   });

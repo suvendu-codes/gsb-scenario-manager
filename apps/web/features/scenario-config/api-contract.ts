@@ -111,16 +111,19 @@ export function describeConfigApiContract(
       return resolveConfig(config.defaults, config.overrides);
     };
 
-    /** A schedule for the first station that fills the run with `put` then `pick`. */
+    /**
+     * A schedule, different from the default, for the first station that has one: the whole run
+     * in that station's first mode with no breaks. It keeps to a mode the station allows,
+     * whatever its registry says.
+     */
     const fullSchedule = (): { path: string; value: ScheduleBlock[] } => {
-      const [stationId] = Object.keys(initial.defaults.station.stations);
-      const hours = initial.runDurationHours;
+      const [stationId, station] = Object.entries(initial.defaults.station.stations).find(
+        ([, candidate]) => candidate.schedule.length > 0,
+      )!;
+      const { mode } = station.schedule[0];
       return {
         path: schedulePath(stationId),
-        value: [
-          { hours: 2, mode: "put", teaBreaks: [] },
-          { hours: hours - 2, mode: "pick", teaBreaks: [] },
-        ],
+        value: [{ hours: initial.runDurationHours, mode, breaks: [] }],
       };
     };
 
@@ -297,8 +300,8 @@ export function describeConfigApiContract(
       });
 
       it("rejects values that break a rule across fields", async () => {
-        const { path } = fullSchedule();
-        const tooShort: ScheduleBlock[] = [{ hours: 1, mode: "pick", teaBreaks: [] }];
+        const { path, value } = fullSchedule();
+        const tooShort: ScheduleBlock[] = [{ ...value[0], hours: 1 }];
         const error = await failureOf(
           ctx.api.patchScenarioConfig(ctx.draftId, { set: { [path]: tooShort } }),
         );

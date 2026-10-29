@@ -14,20 +14,25 @@ import {
   writeSharedSchedule,
   writeStationSchedule,
 } from "../../state/station-edits";
+import { MAX_SCHEDULE_BLOCKS } from "../../schema";
 import {
   blockStarts,
+  canSplitBlock,
+  changeBlockMode,
+  freeModes,
   maxBlockHours,
   removeBlock,
   resizeBlock,
   splitBlock,
 } from "../../state/schedule-blocks";
-import type { ScheduleBlock } from "../../types";
+import type { ScheduleBlock, StationMode } from "../../types";
 import { FieldShell } from "../fields/FieldShell";
 import { listStations } from "../station/override-message";
 import type { StationSectionRenderer, StationView } from "../station/station-view";
 import { scheduleEditorStyles as styles } from "./ScheduleEditor.styles";
-import { SchedulePeriod } from "./SchedulePeriod";
-import { newTeaId, scheduleSummary, scheduleTotal } from "./schedule-text";
+import { allowedModesFor } from "./allowed-modes";
+import { ScheduleBlockCard } from "./ScheduleBlockCard";
+import { MODE_LABELS, scheduleSummary, scheduleTotal } from "./schedule-text";
 
 /**
  * What the All-stations view shows while the stations it reaches don't share one schedule:
@@ -55,7 +60,8 @@ function NoSharedSchedule({ view }: { view: StationView }): React.JSX.Element {
         >
           {stations.map((station) => (
             <option key={station.id} value={station.id}>
-              {station.id} · {scheduleSummary(editor.config.station.stations[station.id].schedule)}
+              {station.label} ·{" "}
+              {scheduleSummary(editor.config.station.stations[station.id].schedule)}
             </option>
           ))}
         </Select>
@@ -77,24 +83,62 @@ function NoSharedSchedule({ view }: { view: StationView }): React.JSX.Element {
   );
 }
 
+/** Why a block can't be split, for the disabled button's tooltip. */
+function splitNote(blocks: ScheduleBlock[], i: number, allowed: readonly StationMode[]): string {
+  if (blocks.length >= MAX_SCHEDULE_BLOCKS) return "Three blocks is the most.";
+  if (freeModes(blocks, allowed).length === 0) return "No other mode is available.";
+  if (blocks[i].hours < 1) return "A block needs at least an hour to split.";
+  return "";
+}
+
+/** What a station with no blocks shows: that it is not assigned, and a way to assign it. */
+function Unassigned({
+  allowed,
+  hours,
+  onAssign,
+}: {
+  allowed: readonly StationMode[];
+  hours: number;
+  onAssign: (blocks: ScheduleBlock[]) => void;
+}): React.JSX.Element {
+  const [first] = allowed;
+  return (
+    <div className={styles.none}>
+      <p className={styles.noneText}>
+        {first
+          ? "Not assigned to any mode, so it doesn’t work in this run."
+          : "The site registry allows no mode here, so it can’t be scheduled."}
+      </p>
+      {first && (
+        <button
+          type="button"
+          className={styles.apply}
+          onClick={() => onAssign([{ hours, mode: first, breaks: [] }])}
+        >
+          Assign to {MODE_LABELS[first]}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
- * The schedule of one station, or of all the stations an edit reaches when they share one: its
- * periods with their mode, length and tea breaks. Edits in the All-stations view change every
- * station that follows the shared schedule; editing one station marks it as keeping its own
- * unless the result matches the shared schedule again.
+ * The schedule of one station, or of all the stations an edit reaches when they share one: up
+ * to three blocks, each with its own mode (only modes the site registry allows), hours and
+ * breaks. Edits in the All-stations view change every station that follows the shared schedule;
+ * editing one station marks it as keeping its own unless the result matches the shared schedule
+ * again.
  *
  * @param view - The station panel's view.
  */
 export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Element {
   const { editor, isAll, station } = view;
   const { config } = editor;
+  const targets = isAll ? editableStations(config, "schedule") : [station];
+  const allowed = allowedModesFor(editor.stations, targets);
 
-  const blocks = isAll
-    ? sharedBlocks(config, editableStations(config, "schedule"))
-    : config.station.stations[station].schedule;
+  const blocks = isAll ? sharedBlocks(config, targets) : config.station.stations[station].schedule;
   if (!blocks) return <NoSharedSchedule view={view} />;
-
-  const starts = blockStarts(blocks);
 
   function write(next: ScheduleBlock[]): void {
     editor.edit((current) =>
@@ -102,20 +146,29 @@ export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Eleme
     );
   }
 
+  if (blocks.length === 0) {
+    return <Unassigned allowed={allowed} hours={editor.runDurationHours} onAssign={write} />;
+  }
+
+  const starts = blockStarts(blocks);
   return (
     <div className={styles.root}>
       {blocks.map((block, index) => (
-        <SchedulePeriod
+        <ScheduleBlockCard
           key={`${index}-${block.mode}`}
           block={block}
           index={index}
           start={starts[index]}
           maxHours={maxBlockHours(blocks, index)}
-          canSplit={block.hours >= 1}
+          canResize={index < blocks.length - 1}
+          modes={allowed.includes(block.mode) ? allowed : [block.mode, ...allowed]}
+          canSplit={canSplitBlock(blocks, index, allowed)}
+          splitNote={splitNote(blocks, index, allowed)}
           canRemove={blocks.length > 1}
           onChange={(next) => write(blocks.map((b, i) => (i === index ? next : b)))}
           onResize={(hours) => write(resizeBlock(blocks, index, hours))}
-          onSplit={() => write(splitBlock(blocks, index, newTeaId))}
+          onModeChange={(mode) => write(changeBlockMode(blocks, index, mode))}
+          onSplit={() => write(splitBlock(blocks, index, allowed))}
           onRemove={() => write(removeBlock(blocks, index))}
         />
       ))}

@@ -35,6 +35,10 @@ export type StationConfig = z.infer<typeof stationConfigSchema>;
 
 /** One period of a station's schedule. */
 export type ScheduleBlock = z.infer<typeof scheduleBlockSchema>;
+/** A regular or tea break of a schedule block. */
+export type ScheduleBreak = ScheduleBlock["breaks"][number];
+/** A mode a station works in. */
+export type StationMode = ScheduleBlock["mode"];
 
 /** Changes by dot-notation path, e.g. `{ "wms.volumeMultiplier": 2.25 }`. */
 export type Overrides = Record<string, unknown>;

@@ -51,10 +51,17 @@ describe("defaultsForMap", () => {
 });
 
 describe("buildDefaults", () => {
-  it("is off for the whole run for a station that allows no mode", () => {
+  it("leaves a station that allows no mode unassigned (no blocks)", () => {
     const defaults = buildDefaults([{ id: "7", allowedModes: [] }], []);
-    expect(defaults.station.stations["7"].schedule.map((b) => [b.mode, b.hours])).toEqual([
-      ["off", 8],
+    expect(defaults.station.stations["7"].schedule).toEqual([]);
+  });
+
+  it("gives blocks the design's default regular breaks, when they fit", () => {
+    const stations = buildDefaults([{ id: "7", allowedModes: ["pick", "put"] }], []).station
+      .stations;
+    expect(stations["7"].schedule.map((b) => b.breaks)).toEqual([
+      [{ id: "b1", type: "break", everyHours: 2.5, durationHours: 0.5 }],
+      [{ id: "b2", type: "break", everyHours: 2, durationHours: 0.5 }],
     ]);
   });
 });

@@ -1,7 +1,17 @@
 import { operationsCatalog } from "@/features/scenario-config/schema";
-import type { ConfigValues, ScheduleBlock, StationConfig } from "@/features/scenario-config/types";
+import type {
+  ConfigValues,
+  ScheduleBlock,
+  ScheduleBreak,
+  StationConfig,
+} from "@/features/scenario-config/types";
 import { fromSizer, type MapBotType } from "@/features/scenario-config/upstream/fleet";
-import { fromUpstreamPps, type MapStation } from "@/features/scenario-config/upstream/stations";
+import {
+  effectiveAllowedModes,
+  fromUpstreamPps,
+  type MapStation,
+} from "@/features/scenario-config/upstream/stations";
+import type { AllowedModes } from "@/features/scenario-config/validation";
 
 import { MAP_FIXTURES } from "./data";
 
@@ -36,7 +46,7 @@ const SAMPLE_FLEET: readonly Pick<MapBotType, "fleetKey" | "count">[] = [
   { fleetKey: "vtm", count: 10 },
 ];
 
-/** What the sample stations do over the default 8 hour run. */
+/** What the sample stations do over the default 8 hour run (PPS-105 is not assigned). */
 const SAMPLE_SCHEDULES: Record<string, DefaultBlock[]> = {
   "PPS-101": [
     { hours: 4, mode: "pick" },
@@ -44,13 +54,20 @@ const SAMPLE_SCHEDULES: Record<string, DefaultBlock[]> = {
   ],
   "PPS-102": [{ hours: 8, mode: "pick" }],
   "PPS-103": [
-    { hours: 4, mode: "off" },
     { hours: 4, mode: "audit" },
+    { hours: 4, mode: "pick" },
   ],
   "PPS-104": [{ hours: 8, mode: "put" }],
-  "PPS-105": [{ hours: 8, mode: "off" }],
+  "PPS-105": [],
   "PPS-106": [{ hours: 8, mode: "pick" }],
 };
+
+/** The breaks each block starts with, by block position (as the design's defaults). */
+const DEFAULT_BREAKS: ScheduleBreak[][] = [
+  [{ id: "b1", type: "break", everyHours: 2.5, durationHours: 0.5 }],
+  [{ id: "b2", type: "break", everyHours: 2, durationHours: 0.5 }],
+  [],
+];
 
 /** Pick fields start on the default the catalog declares for each one. */
 function defaultPick(): StationConfig["operations"]["pick"] {
@@ -62,11 +79,11 @@ function defaultPick(): StationConfig["operations"]["pick"] {
 
 /**
  * A station's default schedule from the modes it allows: the whole run in its one mode, the run
- * split in half between its first two modes, or off when it allows none.
+ * split in half between its first two modes, or no blocks (not assigned) when it allows none.
  */
 function scheduleFor(station: StationSeed): DefaultBlock[] {
   const [first, second] = station.allowedModes;
-  if (!first) return [{ hours: DEFAULT_RUN_DURATION_HOURS, mode: "off" }];
+  if (!first) return [];
   if (!second) return [{ hours: DEFAULT_RUN_DURATION_HOURS, mode: first }];
   const half = DEFAULT_RUN_DURATION_HOURS / 2;
   return [
@@ -78,7 +95,13 @@ function scheduleFor(station: StationSeed): DefaultBlock[] {
 function defaultStation(station: StationSeed): StationConfig {
   const schedule = SAMPLE_SCHEDULES[station.id] ?? scheduleFor(station);
   return {
-    schedule: schedule.map((block) => ({ ...block, teaBreaks: [] })),
+    schedule: schedule.map((block, i) => ({
+      ...block,
+      // A regular break must happen inside its block; a short block starts without one.
+      breaks: (DEFAULT_BREAKS[i] ?? []).filter(
+        (item) => item.type !== "break" || item.everyHours < block.hours,
+      ),
+    })),
     structure: {
       frontOperation: "single",
       frontPositions: 1,
@@ -170,8 +193,25 @@ export function buildDefaults(
  * @param mapId - The map id.
  */
 export function defaultsForMap(mapId: string): ConfigValues {
-  const fixture = MAP_FIXTURES[mapId];
-  const stations = fixture ? (fromUpstreamPps(fixture.pps)?.stations ?? []) : [];
-  const fleet = fixture ? (fromSizer(fixture.sizer)?.botTypes ?? []) : [];
-  return buildDefaults(stations, fleet);
+  const fleet = fromSizer(MAP_FIXTURES[mapId]?.sizer)?.botTypes ?? [];
+  const seeds = stationsOfMap(mapId).map((s) => ({
+    id: s.id,
+    allowedModes: effectiveAllowedModes(s),
+  }));
+  return buildDefaults(seeds, fleet);
+}
+
+/** A map's stations from its PPS fixture; none for a map without fixtures. */
+function stationsOfMap(mapId: string): MapStation[] {
+  return fromUpstreamPps(MAP_FIXTURES[mapId]?.pps)?.stations ?? [];
+}
+
+/**
+ * The modes each station of a map may work in, as its registry fixture says, so the mock
+ * rejects a schedule in a mode the station can't run.
+ *
+ * @param mapId - The map id.
+ */
+export function allowedModesForMap(mapId: string): AllowedModes {
+  return Object.fromEntries(stationsOfMap(mapId).map((s) => [s.id, effectiveAllowedModes(s)]));
 }
