@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, type DynamicModule, type ModuleMetadata } from '@nestjs/common';
+import type { AdapterProvider } from '../common/adapter-provider.js';
 import { SCENARIO_CONFIG_READER } from './application/ports/scenario-config.reader.js';
-import { SCENARIO_REPOSITORY } from './application/ports/scenario.repository.js';
+import { SCENARIO_REPOSITORY, type ScenarioRepository } from './application/ports/scenario.repository.js';
 import { CreateScenarioUseCase } from './application/use-cases/create-scenario.use-case.js';
 import { DeleteScenarioUseCase } from './application/use-cases/delete-scenario.use-case.js';
 import { CloneScenarioUseCase } from './application/use-cases/clone-scenario.use-case.js';
@@ -8,7 +9,6 @@ import { GetScenarioUseCase } from './application/use-cases/get-scenario.use-cas
 import { ListScenariosUseCase } from './application/use-cases/list-scenarios.use-case.js';
 import { UpdateScenarioUseCase } from './application/use-cases/update-scenario.use-case.js';
 import { GcsScenarioConfigReader } from './infrastructure/gcs-scenario-config.reader.js';
-import { DrizzleScenarioRepository } from './infrastructure/drizzle-scenario.repository.js';
 import { ScenariosController } from './presentation/scenarios.controller.js';
 
 @Module({
@@ -20,7 +20,6 @@ import { ScenariosController } from './presentation/scenarios.controller.js';
     UpdateScenarioUseCase,
     CloneScenarioUseCase,
     DeleteScenarioUseCase,
-    { provide: SCENARIO_REPOSITORY, useClass: DrizzleScenarioRepository },
     { provide: SCENARIO_CONFIG_READER, useClass: GcsScenarioConfigReader },
   ],
 })

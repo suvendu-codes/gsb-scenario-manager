@@ -28,7 +28,8 @@ describe('CreateScenarioDto', () => {
   });
 
   it.each(Object.keys(validCreate))('rejects a missing %s', (field) => {
-    const { [field]: _omitted, ...body } = validCreate as Record<string, unknown>;
+    const body: Record<string, unknown> = { ...validCreate };
+    delete body[field];
     const result = parse(body);
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
