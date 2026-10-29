@@ -21,8 +21,9 @@ export class Pps {
   config!: PpsConfig;
 }
 
-/** The PPS stations of one map: identity plus default configuration. */
+/** The PPS stations of one map version: identity plus default configuration. */
 export class MapPps {
   mapId!: string;
+  mapVersion!: number;
   pps!: Pps[];
 }
