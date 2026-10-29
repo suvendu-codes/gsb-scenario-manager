@@ -1,4 +1,4 @@
-import { breakOccurrences, HALF_HOUR } from "../../state/schedule-blocks";
+import { breakOccurrences, HALF_HOUR, maxBreakDuration } from "../../state/schedule-blocks";
 import type { ScheduleBreak } from "../../types";
 import { Stepper } from "../fields/Stepper";
 import { teaBreakEditorStyles as styles } from "./TeaBreakEditor.styles";
@@ -17,7 +17,8 @@ type RegularBreakEditorProps = {
 
 /**
  * One regular break of a schedule block: how often it comes and how long it lasts, with how
- * many times that makes it happen in the block.
+ * many times that makes it happen in the block. It comes at most every block length less half
+ * an hour (so it happens), and lasts less than its interval.
  *
  * @param item - The break.
  * @param name - Its name in the block.
@@ -56,10 +57,16 @@ export function RegularBreakEditor({
           label={`${name}: every`}
           value={item.everyHours}
           min={HALF_HOUR}
-          max={Math.max(HALF_HOUR, blockHours)}
+          max={Math.max(HALF_HOUR, blockHours - HALF_HOUR)}
           step={HALF_HOUR}
           unit="h"
-          onChange={(everyHours) => onChange({ ...item, everyHours })}
+          onChange={(everyHours) =>
+            onChange({
+              ...item,
+              everyHours,
+              durationHours: Math.min(item.durationHours, maxBreakDuration(everyHours)),
+            })
+          }
         />
       </div>
       <div className={styles.row}>
@@ -68,7 +75,7 @@ export function RegularBreakEditor({
           label={`${name}: for`}
           value={item.durationHours}
           min={0.25}
-          max={2}
+          max={maxBreakDuration(item.everyHours)}
           step={0.25}
           unit="h"
           onChange={(durationHours) => onChange({ ...item, durationHours })}

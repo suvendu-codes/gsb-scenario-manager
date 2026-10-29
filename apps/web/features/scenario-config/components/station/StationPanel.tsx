@@ -54,7 +54,14 @@ export function StationPanel({
   sectionRenderers,
 }: StationPanelProps): React.JSX.Element {
   const view = buildStationView(editor, selection, onSelect);
-  const [tab, setTab] = useState<StationTabId>("modes");
+  // The tab follows a selection that names one (a search hit), and is the user's choice otherwise.
+  const askedTab = "stationType" in selection ? selection.tab : undefined;
+  const [tab, setTab] = useState<StationTabId>(askedTab ?? "modes");
+  const [lastSelection, setLastSelection] = useState(selection);
+  if (selection !== lastSelection) {
+    setLastSelection(selection);
+    if (askedTab) setTab(askedTab);
+  }
   const panelId = useId();
   const types = stationTypes(editor.stations);
   const info = editor.stations.find((station) => station.id === view.station);
@@ -68,10 +75,16 @@ export function StationPanel({
 
   const customized =
     view.kind === "all"
-      ? isCustomized(editor.overrides, stationModule.id)
+      ? isCustomized(editor.overrides, "station.global")
       : view.kind === "type" && view.type
         ? isTypeCustomized(editor, view.type)
-        : isStationCustomized(editor.config, editor.overrides, view.station, view.group);
+        : isStationCustomized(
+            editor.config,
+            editor.overrides,
+            view.station,
+            view.group,
+            editor.defaults,
+          );
 
   const title =
     view.kind === "all"
@@ -118,7 +131,11 @@ export function StationPanel({
                 weights: (context) => <SchedulerWeights context={context} editor={editor} />,
               }}
             />
-            <StationTypeList editor={editor} types={types} onSelect={onSelect} />
+            {types.length > 0 ? (
+              <StationTypeList editor={editor} types={types} onSelect={onSelect} />
+            ) : (
+              <p className={styles.empty}>This map has no stations in the site registry.</p>
+            )}
           </>
         ) : (
           <>
