@@ -5,10 +5,12 @@ import {
   addBreak,
   blockStarts,
   breakOccurrences,
+  canAddBreak,
   canSplitBlock,
   changeBlockMode,
   freeModes,
   maxBlockHours,
+  maxBreakDuration,
   newBreak,
   removeBlock,
   removeBreak,
@@ -78,7 +80,8 @@ describe("resizeBlock", () => {
     const blocks = [block(4, "pick"), block(4, "put", [tea("t", 60, 3), regular("b", 3)])];
     const [, shorter] = resizeBlock(blocks, 0, 7);
     expect(shorter.hours).toBe(1);
-    expect(shorter.breaks).toEqual([tea("t", 60, 1), regular("b", 1)]);
+    // Every block length less half an hour, and shorter than that interval.
+    expect(shorter.breaks).toEqual([tea("t", 60, 1), regular("b", 0.5, 0.25)]);
   });
 });
 
@@ -139,7 +142,20 @@ describe("breaks", () => {
   });
 
   it("fits a new break to a short block", () => {
-    expect(newBreak(block(1, "pick"), "break", "b")).toEqual(regular("b", 1));
+    expect(newBreak(block(1, "pick"), "break", "b")).toEqual(regular("b", 0.5, 0.25));
+  });
+
+  it("offers no regular break in a block shorter than an hour", () => {
+    expect(canAddBreak(block(0.5, "pick"), "break")).toBe(false);
+    expect(canAddBreak(block(0.5, "pick"), "tea")).toBe(true);
+    expect(addBreak(block(0.5, "pick"), "break", "b")).toEqual(block(0.5, "pick"));
+  });
+
+  it("keeps a regular break shorter than its interval", () => {
+    const b = block(8, "pick", [regular("b", 2)]);
+    expect(updateBreak(b, regular("b", 1, 2)).breaks[0]).toEqual(regular("b", 1, 0.75));
+    expect(maxBreakDuration(0.5)).toBe(0.25);
+    expect(maxBreakDuration(4)).toBe(2);
   });
 
   it("holds at most four breaks per block", () => {

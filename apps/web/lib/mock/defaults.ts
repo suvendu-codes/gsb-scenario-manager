@@ -6,7 +6,11 @@ import type {
   StationConfig,
 } from "@/features/scenario-config/types";
 import { fromSizer, type MapBotType } from "@/features/scenario-config/upstream/fleet";
-import { fromUpstreamPps, type MapStation } from "@/features/scenario-config/upstream/stations";
+import {
+  effectiveAllowedModes,
+  fromUpstreamPps,
+  type MapStation,
+} from "@/features/scenario-config/upstream/stations";
 import type { AllowedModes } from "@/features/scenario-config/validation";
 
 import { MAP_FIXTURES } from "./data";
@@ -93,9 +97,9 @@ function defaultStation(station: StationSeed): StationConfig {
   return {
     schedule: schedule.map((block, i) => ({
       ...block,
-      // A regular break must fit its block; a short block starts without one.
+      // A regular break must happen inside its block; a short block starts without one.
       breaks: (DEFAULT_BREAKS[i] ?? []).filter(
-        (item) => item.type !== "break" || item.everyHours <= block.hours,
+        (item) => item.type !== "break" || item.everyHours < block.hours,
       ),
     })),
     structure: {
@@ -190,7 +194,11 @@ export function buildDefaults(
  */
 export function defaultsForMap(mapId: string): ConfigValues {
   const fleet = fromSizer(MAP_FIXTURES[mapId]?.sizer)?.botTypes ?? [];
-  return buildDefaults(stationsOfMap(mapId), fleet);
+  const seeds = stationsOfMap(mapId).map((s) => ({
+    id: s.id,
+    allowedModes: effectiveAllowedModes(s),
+  }));
+  return buildDefaults(seeds, fleet);
 }
 
 /** A map's stations from its PPS fixture; none for a map without fixtures. */
@@ -205,5 +213,5 @@ function stationsOfMap(mapId: string): MapStation[] {
  * @param mapId - The map id.
  */
 export function allowedModesForMap(mapId: string): AllowedModes {
-  return Object.fromEntries(stationsOfMap(mapId).map((s) => [s.id, s.allowedModes]));
+  return Object.fromEntries(stationsOfMap(mapId).map((s) => [s.id, effectiveAllowedModes(s)]));
 }

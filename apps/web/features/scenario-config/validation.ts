@@ -29,6 +29,15 @@ function allowedPutFlows(category: string, side: "front" | "back"): string[] {
 /** The modes each station may work in, by station id, as the site registry says. */
 export type AllowedModes = Record<string, readonly StationMode[]>;
 
+/**
+ * How many times a regular break every `everyHours` happens in a block of `blockHours`: inside
+ * the block, never on its end.
+ */
+export function breaksInBlock(everyHours: number, blockHours: number): number {
+  if (everyHours <= 0) return 0;
+  return Math.max(0, Math.ceil(blockHours / everyHours - 1e-9) - 1);
+}
+
 /** Longest tea break a block of this length can hold, in minutes (at most 60). */
 export function maxTeaMinutes(blockHours: number): number {
   return Math.min(60, Math.max(5, Math.floor(blockHours * 60)));
@@ -69,9 +78,26 @@ function scheduleProblems(
       problems.push(configProblem("MODE_NOT_ALLOWED", { stationId: id, mode: block.mode }, at));
     }
 
+    // Total break time across the block, as the breaks would place it.
+    let breakHours = 0;
     for (const item of block.breaks) {
       if (item.type === "break") {
-        if (item.everyHours > block.hours) {
+        breakHours += breaksInBlock(item.everyHours, block.hours) * item.durationHours;
+        if (item.durationHours >= item.everyHours) {
+          problems.push(
+            configProblem(
+              "BREAK_LONGER_THAN_INTERVAL",
+              {
+                stationId: id,
+                everyHours: item.everyHours,
+                durationHours: item.durationHours,
+              },
+              at,
+            ),
+          );
+        }
+        // A break every N hours in an N-hour block never happens (it would fall on the end).
+        if (item.everyHours >= block.hours) {
           problems.push(
             configProblem(
               "BREAK_EVERY_TOO_LONG",
@@ -82,6 +108,7 @@ function scheduleProblems(
         }
         continue;
       }
+      breakHours += (item.count * item.durationMinutes) / 60;
       const params = {
         stationId: id,
         periodHours: block.hours,
@@ -92,6 +119,15 @@ function scheduleProblems(
       } else if (item.count > maxTeaCount(block.hours, item.durationMinutes)) {
         problems.push(configProblem("TEA_BREAK_TOO_MANY", { ...params, count: item.count }, at));
       }
+    }
+    if (block.breaks.length > 0 && breakHours >= block.hours - EPSILON) {
+      problems.push(
+        configProblem(
+          "BREAKS_EXCEED_BLOCK",
+          { stationId: id, periodHours: block.hours, breakHours },
+          at,
+        ),
+      );
     }
   }
   return problems;
