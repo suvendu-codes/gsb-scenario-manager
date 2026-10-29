@@ -1,11 +1,5 @@
-export type RunStatus =
-  | 'accepted'
-  | 'setup_ready'
-  | 'running'
-  | 'paused'
-  | 'completed'
-  | 'failed'
-  | 'interrupted';
+import type { RunState } from './run-state.js';
+export type RunStatus = RunState['status'];
 
 export class Run {
   runId!: string;

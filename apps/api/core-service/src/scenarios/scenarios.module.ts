@@ -23,6 +23,17 @@ import { ScenariosController } from './presentation/scenarios.controller.js';
     { provide: SCENARIO_REPOSITORY, useClass: DrizzleScenarioRepository },
     { provide: SCENARIO_CONFIG_READER, useClass: GcsScenarioConfigReader },
   ],
-  exports: [SCENARIO_REPOSITORY],
 })
-export class ScenariosModule {}
+export class ScenariosModule {
+  static register(adapters: {
+    imports?: ModuleMetadata['imports'];
+    repository: AdapterProvider<ScenarioRepository>;
+  }): DynamicModule {
+    return {
+      module: ScenariosModule,
+      imports: adapters.imports ?? [],
+      providers: [{ ...adapters.repository, provide: SCENARIO_REPOSITORY }],
+      exports: [SCENARIO_REPOSITORY],
+    };
+  }
+}
