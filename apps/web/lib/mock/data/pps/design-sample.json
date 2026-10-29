@@ -1,0 +1,42 @@
+{
+  "map_id": "<map_id>",
+  "pps": [
+    {
+      "pps_id": "PPS-101",
+      "type": "Standard PPS",
+      "category": "Fixed",
+      "location": "A-01.2",
+      "pick_direction": 0,
+      "status": "connected",
+      "eligible_system": "rtp",
+      "pps_url": "/v1/pps/pps-101",
+      "config": {
+        "modes": ["pick", "put"],
+        "schedule": [
+          {
+            "hours": 4,
+            "mode": "pick"
+          },
+          {
+            "hours": 4,
+            "mode": "put"
+          }
+        ]
+      }
+    },
+    {
+      "pps_id": "PPS-105",
+      "type": "Easyloop PPS",
+      "category": "Fixed",
+      "location": "<location>",
+      "pick_direction": 0,
+      "status": "connected",
+      "eligible_system": "rtp",
+      "pps_url": "/v1/pps/pps-105",
+      "config": {
+        "modes": ["pick", "put"],
+        "schedule": []
+      }
+    }
+  ]
+}

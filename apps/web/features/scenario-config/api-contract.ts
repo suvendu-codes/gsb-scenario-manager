@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiError } from "@/lib/api/errors";
 
-import type { ConfigApi } from "./api";
+import type { ConfigApi, MapRef } from "./api";
 import { getAtPath, isLeafPath, isPlainObject, resolveConfig } from "./paths";
 import type { ScenarioConfig, ScheduleBlock } from "./types";
 
@@ -15,6 +15,10 @@ export type ContractContext = {
   nonDraftId: string;
   /** An id no scenario has. */
   unknownId: string;
+  /** A map with stations and bots. */
+  map: MapRef;
+  /** A map that does not exist in its project. */
+  unknownMap: MapRef;
 };
 
 /**
@@ -124,6 +128,42 @@ export function describeConfigApiContract(
       it("lists the modules, sections and fields the panel is built from", async () => {
         const catalog = await ctx.api.getCatalog();
         expect(catalog.modules.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe("map lookups", () => {
+      it("lists the map's stations with ids that can be used in config paths", async () => {
+        const { stations } = await ctx.api.getMapStations(ctx.map);
+
+        expect(stations.length).toBeGreaterThan(0);
+        const ids = stations.map((station) => station.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        for (const station of stations) {
+          expect(station.id).toMatch(/^[^.]+$/);
+          for (const mode of station.allowedModes) expect(["pick", "put", "audit"]).toContain(mode);
+        }
+      });
+
+      it("lists the map's bot types with whole counts of 0 or more", async () => {
+        const { botTypes } = await ctx.api.getMapFleet(ctx.map);
+
+        expect(botTypes.length).toBeGreaterThan(0);
+        const keys = botTypes.map((bot) => bot.fleetKey);
+        expect(new Set(keys).size).toBe(keys.length);
+        for (const bot of botTypes) {
+          expect(Number.isInteger(bot.count) && bot.count >= 0).toBe(true);
+        }
+      });
+
+      it("accepts a map version without the client knowing what it means", async () => {
+        const map = { ...ctx.map, mapVersion: "contract-test" };
+        expect((await ctx.api.getMapStations(map)).stations.length).toBeGreaterThan(0);
+        expect((await ctx.api.getMapFleet(map)).botTypes.length).toBeGreaterThan(0);
+      });
+
+      it("answers 404 with a code for a map that does not exist", async () => {
+        expectClientError(await failureOf(ctx.api.getMapStations(ctx.unknownMap)), 404);
+        expectClientError(await failureOf(ctx.api.getMapFleet(ctx.unknownMap)), 404);
       });
     });
 
