@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { relax, scenarioConfigResponseSchema } from "./response-schemas";
-import { buildDefaults } from "./defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { scenarioConfigSchema } from "./schema";
 import { resizeBlock } from "./state/schedule-blocks";
 
