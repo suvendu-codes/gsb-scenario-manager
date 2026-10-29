@@ -10,7 +10,7 @@ export type StationView = {
   isAll: boolean;
   /**
    * The station whose values the panel shows: the station itself, or in the All-stations view the
-   * one the editable stations share.
+   * one the editable stations share. Empty when the map has no stations.
    */
   referenceId: string;
   onSelect: (selection: PanelSelection) => void;
@@ -36,10 +36,12 @@ export function buildStationView(
 ): StationView {
   const station = selection.area === "station" ? selection.station : ALL_STATIONS;
   const isAll = station === ALL_STATIONS || !editor.stations.some((s) => s.id === station);
+  // A map can have no stations; then there is no station to show values from.
   const referenceId = isAll
     ? (sharedStructureId(editor.config) ??
       editableStations(editor.config, "structure")[0] ??
-      editor.stations[0].id)
+      editor.stations[0]?.id ??
+      "")
     : station;
   return { editor, station: isAll ? ALL_STATIONS : station, isAll, referenceId, onSelect };
 }

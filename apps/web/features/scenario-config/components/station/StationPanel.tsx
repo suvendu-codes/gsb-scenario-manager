@@ -90,21 +90,25 @@ export function StationPanel({
             siteWide.length > 0 && styles.stationSectionsAfterGlobal,
           )}
         >
-          {perStation.map((section) => {
-            const render = sectionRenderers?.[section.id];
-            if (render) {
-              return (
-                <StationSection key={section.id} section={section} view={view}>
-                  {render(section, view)}
-                </StationSection>
-              );
-            }
-            // Schedule and operations have no generic body; skip them until a renderer is given.
-            if (section.fieldsFrom || section.fields.some((field) => field.type === "schedule")) {
-              return null;
-            }
-            return <StationSection key={section.id} section={section} view={view} />;
-          })}
+          {editor.stations.length === 0 && (
+            <p className={styles.empty}>This map has no stations in the site registry.</p>
+          )}
+          {editor.stations.length > 0 &&
+            perStation.map((section) => {
+              const render = sectionRenderers?.[section.id];
+              if (render) {
+                return (
+                  <StationSection key={section.id} section={section} view={view}>
+                    {render(section, view)}
+                  </StationSection>
+                );
+              }
+              // Schedule and operations have no generic body; skip them until a renderer is given.
+              if (section.fieldsFrom || section.fields.some((field) => field.type === "schedule")) {
+                return null;
+              }
+              return <StationSection key={section.id} section={section} view={view} />;
+            })}
           {!view.isAll && info && <StationDetails station={info} />}
         </div>
       </div>
