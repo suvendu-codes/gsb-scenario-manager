@@ -2,6 +2,7 @@ import { ALL_STATIONS, type PanelSelection, type ReadyConfigEditor } from "../..
 import { stationTypes, typeOfStation, type StationType } from "../../station-types";
 import { followers, sharedStructureId, stationIds } from "../../state/station-edits";
 import type { CatalogSection } from "../../types";
+import type { StationTabId } from "./station-tabs";
 
 /** What the station panel is showing and who it can talk to. */
 export type StationView = {
@@ -31,9 +32,10 @@ export type StationSectionRenderer = (
 ) => React.ReactNode;
 
 /** The panel selection for a station type. */
-export const typeSelection = (type: string): PanelSelection => ({
+export const typeSelection = (type: string, tab?: StationTabId): PanelSelection => ({
   area: "station",
   stationType: type,
+  ...(tab && { tab }),
 });
 
 /** The panel selection for one station. */
@@ -59,7 +61,8 @@ export function buildStationView(
   if (selection.area === "station" && "stationType" in selection) {
     const type = types.find((candidate) => candidate.id === selection.stationType);
     if (type) {
-      const referenceId = sharedStructureId(editor.config, type.stationIds) ?? type.stationIds[0];
+      const referenceId =
+        sharedStructureId(editor.config, type.stationIds, editor.defaults) ?? type.stationIds[0];
       return {
         ...base,
         kind: "type",
@@ -90,6 +93,7 @@ export function buildStationView(
     station: "",
     type: null,
     group: all,
-    referenceId: followers(editor.config, all, "structure")[0] ?? all[0] ?? ALL_STATIONS,
+    referenceId:
+      followers(editor.config, all, "structure", editor.defaults)[0] ?? all[0] ?? ALL_STATIONS,
   };
 }

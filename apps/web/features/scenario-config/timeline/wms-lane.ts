@@ -31,15 +31,19 @@ export function outboundProfile(hourly: readonly number[] | undefined, wms: Wms)
   });
 }
 
-/** Order lines released between two clock hours, summed in quarter hours, rounded. */
+/**
+ * Order lines released between two clock hours: each hour's lines times the share of that hour
+ * inside the span, so spans that don't start on the hour add up exactly. Rounded.
+ */
 export function linesBetween(
   profile: readonly number[],
   fromClock: number,
   toClock: number,
 ): number {
   let sum = 0;
-  for (let t = fromClock; t < toClock - 1e-9; t += 0.25) {
-    sum += profile[((Math.floor(t) % 24) + 24) % 24] * 0.25;
+  for (let hour = Math.floor(fromClock); hour < toClock; hour++) {
+    const overlap = Math.min(toClock, hour + 1) - Math.max(fromClock, hour);
+    if (overlap > 0) sum += profile[((hour % 24) + 24) % 24] * overlap;
   }
   return Math.round(sum);
 }

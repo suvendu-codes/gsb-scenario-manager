@@ -28,7 +28,7 @@ export function OverrideNotice({
   view: StationView;
 }): React.JSX.Element | null {
   const { editor, group } = view;
-  const own = keepingOwn(editor.config, group, section);
+  const own = keepingOwn(editor.config, group, section, editor.defaults);
   const label = (id: string) => editor.stations.find((s) => s.id === id)?.label ?? id;
 
   if (view.kind === "type") {
@@ -58,7 +58,9 @@ export function OverrideNotice({
   // The type's schedule may use a mode this station can't run; then it can't take it.
   const allowed = allowedModesFor(editor.stations, [view.station]);
   const shared =
-    section === "schedule" ? sharedScheduleFor(editor.config, group, view.station) : null;
+    section === "schedule"
+      ? sharedScheduleFor(editor.config, group, view.station, editor.defaults)
+      : null;
   const blocked = shared?.find((block) => !allowed.includes(block.mode));
   return (
     <div className={styles.root}>
@@ -75,7 +77,9 @@ export function OverrideNotice({
           className={styles.action}
           disabled={Boolean(blocked)}
           onClick={() =>
-            editor.edit((config) => revertToShared(config, group, view.station, section))
+            editor.edit((config) =>
+              revertToShared(config, group, view.station, section, editor.defaults),
+            )
           }
         >
           Reset to shared settings

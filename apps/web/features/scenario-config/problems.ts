@@ -45,6 +45,17 @@ export const CONFIG_PROBLEMS = {
   TEA_BREAK_TOO_LONG: template<{ stationId: string; periodHours: number; durationMinutes: number }>(
     (p) => `${p.stationId}: a tea break is longer than its ${p.periodHours}h block.`,
   ),
+  BREAK_LONGER_THAN_INTERVAL: template<{
+    stationId: string;
+    everyHours: number;
+    durationHours: number;
+  }>(
+    (p) =>
+      `${p.stationId}: a ${p.durationHours}h break every ${p.everyHours}h leaves no time to work between breaks.`,
+  ),
+  BREAKS_EXCEED_BLOCK: template<{ stationId: string; periodHours: number; breakHours: number }>(
+    (p) => `${p.stationId}: the breaks take ${p.breakHours}h of a ${p.periodHours}h block.`,
+  ),
   BREAK_EVERY_TOO_LONG: template<{ stationId: string; periodHours: number; everyHours: number }>(
     (p) =>
       `${p.stationId}: a break every ${p.everyHours}h never happens in a ${p.periodHours}h block.`,
