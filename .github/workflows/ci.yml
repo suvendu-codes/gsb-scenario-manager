@@ -23,6 +23,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  module-tests:
+    name: status-worker module tests (PostgreSQL + Kafka)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run module suite with isolated Docker infrastructure
+        run: node scripts/module-test.mjs
+      - name: Upload module reports and service logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: status-worker-module-results
+          path: test-results/module/
+          retention-days: 7
+
+  core-service:
+    name: core-service checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter core-service lint
+      - run: pnpm --filter core-service typecheck
+      - run: pnpm --filter core-service build
+      - run: pnpm --filter core-service build:tools
+      - run: pnpm --filter core-service test
+
   lint:
     name: lint
     runs-on: ubuntu-latest
