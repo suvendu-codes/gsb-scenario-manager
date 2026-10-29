@@ -238,6 +238,7 @@ export function StationsCard({
                                 editor.overrides,
                                 id,
                                 type.stationIds,
+                                editor.defaults,
                               ) && <i className={styles.dot} role="img" aria-label="Modified" />}
                             </button>
                           }
