@@ -356,6 +356,11 @@ export const stationModuleSchema = z
   })
   .strict();
 
+/** A percentage (0-50, whole) per bot type. */
+const perBotType = z
+  .object({ htm: z.number().int().min(0).max(50), vtm: z.number().int().min(0).max(50) })
+  .strict();
+
 export const agentConfigSchema = z
   .object({
     fleet: z
@@ -364,9 +369,12 @@ export const agentConfigSchema = z
         vtm: z.number().int().min(0).max(200),
       })
       .strict(),
-    /** Share of time bots are unavailable, in percent. */
+    /** Share of time bots are in error, in percent. */
     botOutagePct: z.number().int().min(0).max(50),
-    botCharging: z.boolean(),
+    /** Share of the run each bot type spends docked at chargers instead of working, in percent. */
+    charging: perBotType,
+    /** Share of the run each bot type spends turning instead of travelling, in percent. */
+    turning: perBotType,
   })
   .strict();
 

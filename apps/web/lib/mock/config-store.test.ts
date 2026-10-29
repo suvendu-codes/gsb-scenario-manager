@@ -152,7 +152,7 @@ describe("patchScenarioConfig: set", () => {
 
   it("changes updatedAt", () => {
     const before = config.getScenarioConfig(DRAFT_ID).updatedAt;
-    const after = config.patchScenarioConfig(DRAFT_ID, { set: { "agent.botCharging": false } });
+    const after = config.patchScenarioConfig(DRAFT_ID, { set: { "agent.charging.htm": 20 } });
 
     expect(after.updatedAt).not.toBe(before);
   });
@@ -249,8 +249,8 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("rejects a value of the wrong kind", () => {
-    expect(problemCodes(failure(DRAFT_ID, { set: { "agent.botCharging": "yes" } }))).toEqual([
-      ["INVALID_VALUE", "agent.botCharging"],
+    expect(problemCodes(failure(DRAFT_ID, { set: { "agent.charging.htm": "yes" } }))).toEqual([
+      ["INVALID_VALUE", "agent.charging.htm"],
     ]);
   });
 
@@ -335,7 +335,7 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("rejects an edit of a scenario that is not a draft, with its own code", () => {
-    expect(failure(COMPLETED_ID, { set: { "agent.botCharging": false } })).toMatchObject({
+    expect(failure(COMPLETED_ID, { set: { "agent.charging.htm": 20 } })).toMatchObject({
       status: 409,
       message: "Only draft scenarios can be edited.",
       details: { code: "SCENARIO_NOT_EDITABLE", params: { status: "completed" } },
@@ -343,6 +343,6 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("throws 404 for an unknown scenario", () => {
-    expect(failure("nope", { set: { "agent.botCharging": false } })).toMatchObject({ status: 404 });
+    expect(failure("nope", { set: { "agent.charging.htm": 20 } })).toMatchObject({ status: 404 });
   });
 });
