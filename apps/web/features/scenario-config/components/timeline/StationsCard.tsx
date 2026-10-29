@@ -13,6 +13,7 @@ import {
   INITIAL_TIMELINE_VIEW,
   setFilter,
   toggleAll,
+  toggleCompare,
   toggleExpanded,
   visibleTypes,
   type TimelineView,
@@ -21,6 +22,7 @@ import { formatHours, MODE_LABELS } from "../schedule/schedule-text";
 import { isStationCustomized } from "../station/field-edits";
 import { stationSelection, typeSelection } from "../station/station-view";
 import { isTypeCustomized } from "../station/StationTypeList";
+import { CompareTable } from "./CompareTable";
 import { TimelineBlock } from "./TimelineBlock";
 import { TimelineCard } from "./TimelineCard";
 import { TimelineLane, TimelineRuler } from "./TimelineLane";
@@ -76,13 +78,27 @@ export function StationsCard({
       selected={opened !== null}
       onOpen={() => onSelect({ area: "station", station: ALL_STATIONS })}
       actions={
-        <button
-          type="button"
-          className={styles.expandAll}
-          onClick={() => setView(toggleAll(view, shownIds))}
-        >
-          {allExpanded(view, shownIds) ? "Collapse all" : "Expand all"}
-        </button>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.expandAll}
+            onClick={() => setView(toggleAll(view, shownIds))}
+          >
+            {allExpanded(view, shownIds) ? "Collapse all" : "Expand all"}
+          </button>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={view.compare}
+            className={styles.compare}
+            onClick={() => setView(toggleCompare(view))}
+          >
+            Compare view
+            <span className={styles.switchTrack} aria-hidden="true">
+              <span className={styles.switchThumb} />
+            </span>
+          </button>
+        </div>
       }
     >
       <div className={styles.toolbar}>
@@ -129,118 +145,141 @@ export function StationsCard({
         <span className={styles.configure}>Configure ›</span>
       </button>
 
-      <TimelineRuler runHours={run} />
+      {ids.length === 0 ? (
+        <p className={styles.empty}>The site registry lists no stations for this map.</p>
+      ) : view.compare ? (
+        <CompareTable
+          editor={editor}
+          types={shown}
+          expanded={view.expanded}
+          onToggle={(typeId) => setView(toggleExpanded(view, typeId))}
+          onSelect={onSelect}
+        />
+      ) : (
+        <>
+          <TimelineRuler runHours={run} />
 
-      {shown.map((type) => {
-        const open = view.expanded.includes(type.id);
-        return (
-          <div key={type.id}>
-            <div
-              className={cn(
-                styles.typeRow,
-                opened?.kind === "type" && opened.id === type.id && styles.rowSelected,
-              )}
-            >
-              <button
-                type="button"
-                className={styles.chevron}
-                aria-expanded={open}
-                aria-label={`${open ? "Collapse" : "Expand"} ${type.label}`}
-                onClick={() => setView(toggleExpanded(view, type.id))}
-              >
-                {open ? (
-                  <ChevronDown className={styles.chevronIcon} />
-                ) : (
-                  <ChevronRight className={styles.chevronIcon} />
-                )}
-              </button>
-              <button
-                type="button"
-                className={styles.typeLabel}
-                onClick={() => onSelect(typeSelection(type.id))}
-              >
-                {type.label}
-                <span className={styles.count}>×{type.stationIds.length}</span>
-                {isTypeCustomized(editor, type) && (
-                  <i
-                    className={styles.dot}
-                    role="img"
-                    aria-label="A station of this type is modified"
-                  />
-                )}
-              </button>
-              <button
-                type="button"
-                className={styles.configure}
-                aria-label={`Configure ${type.label}`}
-                onClick={() => onSelect(typeSelection(type.id))}
-              >
-                Configure ›
-              </button>
-            </div>
-            {open &&
-              type.stationIds.map((id) => {
-                const station = editor.stations.find((candidate) => candidate.id === id);
-                const schedule = editor.config.station.stations[id].schedule;
-                const label = station?.label ?? id;
-                const select = () => onSelect(stationSelection(id));
-                return (
-                  <div
-                    key={id}
-                    className={cn(
-                      styles.stationRow,
-                      opened?.kind === "station" && opened.id === id && styles.rowSelected,
-                    )}
+          {shown.map((type) => {
+            const open = view.expanded.includes(type.id);
+            return (
+              <div key={type.id}>
+                <div
+                  className={cn(
+                    styles.typeRow,
+                    opened?.kind === "type" && opened.id === type.id && styles.rowSelected,
+                  )}
+                >
+                  <button
+                    type="button"
+                    className={styles.chevron}
+                    aria-expanded={open}
+                    aria-label={`${open ? "Collapse" : "Expand"} ${type.label}`}
+                    onClick={() => setView(toggleExpanded(view, type.id))}
                   >
-                    <TimelineLane
-                      runHours={run}
-                      label={
-                        <button type="button" className={styles.stationLabel} onClick={select}>
-                          {label}
-                          {isStationCustomized(
-                            editor.config,
-                            editor.overrides,
+                    {open ? (
+                      <ChevronDown className={styles.chevronIcon} />
+                    ) : (
+                      <ChevronRight className={styles.chevronIcon} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.typeLabel}
+                    onClick={() => onSelect(typeSelection(type.id))}
+                  >
+                    {type.label}
+                    <span className={styles.count}>×{type.stationIds.length}</span>
+                    {isTypeCustomized(editor, type) && (
+                      <i
+                        className={styles.dot}
+                        role="img"
+                        aria-label="A station of this type is modified"
+                      />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.configure}
+                    aria-label={`Configure ${type.label}`}
+                    onClick={() => onSelect(typeSelection(type.id))}
+                  >
+                    Configure ›
+                  </button>
+                </div>
+                {open &&
+                  type.stationIds.map((id) => {
+                    const station = editor.stations.find((candidate) => candidate.id === id);
+                    const schedule = editor.config.station.stations[id].schedule;
+                    const label = station?.label ?? id;
+                    const select = () => onSelect(stationSelection(id));
+                    return (
+                      <div
+                        key={id}
+                        role="group"
+                        aria-label={`${label}: ${
+                          schedule.length === 0
+                            ? "not assigned"
+                            : schedule
+                                .map((b) => `${MODE_LABELS[b.mode]} ${formatHours(b.hours)}`)
+                                .join(", ")
+                        }`}
+                        className={cn(
+                          styles.stationRow,
+                          opened?.kind === "station" && opened.id === id && styles.rowSelected,
+                        )}
+                      >
+                        <TimelineLane
+                          runHours={run}
+                          label={
+                            <button type="button" className={styles.stationLabel} onClick={select}>
+                              {label}
+                              {isStationCustomized(
+                                editor.config,
+                                editor.overrides,
+                                id,
+                                type.stationIds,
+                                editor.defaults,
+                              ) && <i className={styles.dot} role="img" aria-label="Modified" />}
+                            </button>
+                          }
+                        >
+                          {schedule.length === 0 && (
+                            <span className={styles.unassigned}>Not assigned</span>
+                          )}
+                          {laneSegments(schedule, run).map((segment, index) => (
+                            <TimelineBlock
+                              key={`${index}-${segment.mode}`}
+                              tone={segment.mode}
+                              leftPct={segment.leftPct}
+                              widthPct={segment.widthPct}
+                              label={MODE_LABELS[segment.mode]}
+                              detail={formatHours(segment.hours)}
+                              title={`${label}: ${MODE_LABELS[segment.mode]} for ${formatHours(segment.hours)}`}
+                              onOpen={select}
+                            />
+                          ))}
+                          {breakMarks(schedule, run, {
                             id,
-                            type.stationIds,
-                            editor.defaults,
-                          ) && <i className={styles.dot} role="img" aria-label="Modified" />}
-                        </button>
-                      }
-                    >
-                      {schedule.length === 0 && (
-                        <span className={styles.unassigned}>Not assigned</span>
-                      )}
-                      {laneSegments(schedule, run).map((segment, index) => (
-                        <TimelineBlock
-                          key={`${index}-${segment.mode}`}
-                          tone={segment.mode}
-                          leftPct={segment.leftPct}
-                          widthPct={segment.widthPct}
-                          label={MODE_LABELS[segment.mode]}
-                          detail={formatHours(segment.hours)}
-                          title={`${label}: ${MODE_LABELS[segment.mode]} for ${formatHours(segment.hours)}`}
-                          onOpen={select}
-                        />
-                      ))}
-                      {breakMarks(schedule, run, {
-                        id,
-                        index: ids.indexOf(id),
-                        count: ids.length,
-                      }).map((mark) => (
-                        <i
-                          key={`${mark.kind}-${mark.at}`}
-                          className={cn(styles.mark, mark.kind === "tea" && styles.markTea)}
-                          style={{ left: `${mark.leftPct}%`, width: `${mark.widthPct}%` }}
-                          title={`${mark.kind === "tea" ? "Tea break" : "Break"}, ${Math.round(mark.duration * 60)} min`}
-                        />
-                      ))}
-                    </TimelineLane>
-                  </div>
-                );
-              })}
-          </div>
-        );
-      })}
+                            index: ids.indexOf(id),
+                            count: ids.length,
+                          }).map((mark) => (
+                            <i
+                              key={`${mark.kind}-${mark.at}`}
+                              aria-hidden="true"
+                              className={cn(styles.mark, mark.kind === "tea" && styles.markTea)}
+                              style={{ left: `${mark.leftPct}%`, width: `${mark.widthPct}%` }}
+                              title={`${mark.kind === "tea" ? "Tea break" : "Break"}, ${Math.round(mark.duration * 60)} min`}
+                            />
+                          ))}
+                        </TimelineLane>
+                      </div>
+                    );
+                  })}
+              </div>
+            );
+          })}
+        </>
+      )}
     </TimelineCard>
   );
 }

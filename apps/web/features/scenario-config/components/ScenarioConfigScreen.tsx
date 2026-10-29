@@ -71,8 +71,12 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
             selection={selection}
             onSelect={setSelection}
           />
+        ) : editor.status === "error" ? (
+          <p className={styles.timelineError} role="alert">
+            Couldn’t load the timeline: {editor.error?.message}
+          </p>
         ) : (
-          <div className={styles.timelineLoading} aria-hidden="true" />
+          <div className={styles.timelineLoading} role="status" aria-label="Loading the timeline" />
         )}
         <ConfigPanel
           scenarioId={scenario.id}

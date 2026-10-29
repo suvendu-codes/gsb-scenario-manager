@@ -1,5 +1,11 @@
 /** Class groups for the StationsCard component. */
 export const stationsCardStyles = {
+  actions: "flex items-center gap-3",
+  compare:
+    "flex cursor-pointer items-center gap-2 rounded-full border-[1.5px] border-line-strong bg-panel py-1 pr-1.5 pl-3 text-[12.5px] font-semibold text-ink aria-checked:border-ink focus-visible:outline-2 focus-visible:outline-accent [&[aria-checked=true]>span]:bg-ink [&[aria-checked=true]>span>span]:translate-x-3",
+  switchTrack: "relative h-4 w-7 rounded-full bg-line-strong transition-colors",
+  switchThumb: "absolute top-0.5 left-0.5 size-3 rounded-full bg-panel transition-transform",
+  empty: "border-t border-line px-4 py-6 text-[12.5px] text-faint",
   expandAll:
     "cursor-pointer text-[12.5px] font-semibold text-muted hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-accent",
   toolbar: "flex flex-wrap items-center justify-between gap-3 px-4 pt-2 pb-2",
