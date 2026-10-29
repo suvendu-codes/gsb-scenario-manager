@@ -32,8 +32,8 @@ const globalStore = globalThis as typeof globalThis & {
 };
 const configs: Record<string, ConfigState> = (globalStore.mockConfigs ??= {});
 
-/** Puts list values in their canonical order (stations in map order), so equal lists compare equal. */
-function normalise(path: string, value: unknown, stationIds: string[]): unknown {
+/** Puts list values in their canonical order, so equal lists compare equal. */
+function normalise(path: string, value: unknown): unknown {
   if (!Array.isArray(value)) return value;
   if (path === "wms.orderTypes") {
     return [...value].sort(
@@ -41,9 +41,6 @@ function normalise(path: string, value: unknown, stationIds: string[]): unknown 
         ORDER_TYPES.indexOf(a as (typeof ORDER_TYPES)[number]) -
         ORDER_TYPES.indexOf(b as (typeof ORDER_TYPES)[number]),
     );
-  }
-  if (path.startsWith("station.apply.") || path.startsWith("station.override.")) {
-    return [...value].sort((a, b) => stationIds.indexOf(String(a)) - stationIds.indexOf(String(b)));
   }
   return value;
 }
@@ -110,7 +107,6 @@ export function patchScenarioConfig(id: string, body: PatchConfigBody): Scenario
   }
 
   const defaults = defaultsForMap(detail.mapId);
-  const stationIds = Object.keys(defaults.station.stations);
   const next: Overrides = { ...(configs[id]?.overrides ?? {}) };
   const problems: Problem[] = [];
 
@@ -131,7 +127,7 @@ export function patchScenarioConfig(id: string, body: PatchConfigBody): Scenario
     } else if (!isLeafPath(defaults, path)) {
       problems.push(configProblem("NOT_A_SINGLE_VALUE", { path }, path));
     } else {
-      next[path] = normalise(path, (body.set ?? {})[path], stationIds);
+      next[path] = normalise(path, (body.set ?? {})[path]);
     }
   }
   if (problems.length > 0) throw configInvalid(problems);

@@ -1,4 +1,4 @@
-import type { ConfigCatalog, ModuleId } from "./types";
+import type { CatalogSection, ConfigCatalog, ModuleId } from "./types";
 
 /** A setting that matched a search: where it is and what it is called. */
 export type SearchHit = {
@@ -6,6 +6,8 @@ export type SearchHit = {
   moduleLabel: string;
   /** Label of the section the setting is in. */
   section: string;
+  /** Where the section is shown: site-wide, or per station (a type's or a station's panel). */
+  scope: CatalogSection["scope"];
   label: string;
   hint?: string;
 };
@@ -21,6 +23,7 @@ function indexCatalog(catalog: ConfigCatalog): SearchHit[] {
           module: catalogModule.id,
           moduleLabel: catalogModule.label,
           section: section.label,
+          scope: section.scope,
           label,
           hint,
         });

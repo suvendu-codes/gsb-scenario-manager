@@ -5,7 +5,7 @@ import { operationPath, setOperationValue, type OperationMode } from "./operatio
 /** Which stations an operations edit changes, and the panel view it comes from. */
 export type OperationsContext = {
   view: StationView;
-  /** The stations written to: the one station, or every station in the All-stations view. */
+  /** The stations written to: the one station, or every station of the type. */
   targets: string[];
 };
 
@@ -13,7 +13,7 @@ export type OperationsContext = {
 export function operationsContextFor(view: StationView): OperationsContext {
   return {
     view,
-    targets: view.isAll ? view.editor.stations.map((station) => station.id) : [view.station],
+    targets: view.isGroup ? view.group : [view.station],
   };
 }
 

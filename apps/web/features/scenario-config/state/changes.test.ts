@@ -79,13 +79,11 @@ describe("applyPatchToOverrides", () => {
       {
         set: {
           "wms.orderTypes": ["outbound", "inbound"],
-          "station.override.schedule": ["PPS-103", "PPS-101"],
         },
       },
     );
     // Reordered, the order types equal their default, so they are not kept as a change.
     expect(result).not.toHaveProperty(["wms.orderTypes"]);
-    expect(result["station.override.schedule"]).toEqual(["PPS-101", "PPS-103"]);
   });
 
   it("does not change its inputs", () => {

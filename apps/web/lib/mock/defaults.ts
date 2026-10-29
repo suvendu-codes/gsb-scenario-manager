@@ -171,8 +171,6 @@ export function buildDefaults(
         },
         limits: { queueLimitPerStation: 10 },
       },
-      apply: { schedule: [], structure: [] },
-      override: { schedule: [], structure: [] },
       stations: Object.fromEntries(
         stations.map((station) => [station.id, defaultStation(station)]),
       ),

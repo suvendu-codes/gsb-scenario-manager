@@ -19,8 +19,8 @@ type TabId = (typeof TABS)[number]["id"];
 
 /**
  * How Pick, Put and Audit behave, in three tabs. In a station's panel the edits change that
- * station; in the All-stations view they change every station (operations have no "keeps its
- * own value" tracking, so an edit there overwrites that setting everywhere).
+ * station; in a type's panel they change every station of the type (operations have no "keeps
+ * its own value", so an edit there sets that setting on all of them).
  *
  * @param view - The station panel's view.
  */
@@ -39,9 +39,9 @@ export function OperationsEditor({ view }: { view: StationView }): React.JSX.Ele
 
   return (
     <div className={styles.root}>
-      {view.isAll && (
+      {view.isGroup && (
         <p className={styles.note}>
-          Editing all stations. A change here sets that setting on every station.
+          Editing every {view.type?.label} station. A change here sets that setting on all of them.
         </p>
       )}
       <div className={styles.tabs} role="tablist" aria-label="Operations">

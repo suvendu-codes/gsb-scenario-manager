@@ -85,12 +85,6 @@ export const CONFIG_PROBLEMS = {
     side: string;
     category: string;
   }>((p) => `${p.stationId}: "${p.flowId}" is not a ${p.side} put flow for ${p.category}.`),
-  UNKNOWN_STATION: template<{ list: string; section: string; stationIds: string }>(
-    (p) => `Unknown station: ${p.stationIds}.`,
-  ),
-  STATION_LISTED_TWICE: template<{ list: string; section: string }>(
-    () => "A station is listed twice.",
-  ),
 
   // Problems that would stop the run (`issues`).
   DATASET_MISSING_OR_INVALID: template<NoParams>(

@@ -173,8 +173,7 @@ function stationProblems(
 /**
  * Checks the rules that span several values, which the schema alone can't express: every
  * assigned station schedule fills the run with one block per mode, its breaks fit their blocks,
- * the data window is not empty, and the All-stations lists only name real stations. Every
- * problem found is returned, not only the first.
+ * and the data window is not empty. Every problem found is returned, not only the first.
  *
  * @param values - The effective config.
  * @param runDurationHours - How long the run is.
@@ -206,25 +205,6 @@ export function validateConfig(
   const stationIds = Object.keys(station.stations);
   for (const id of stationIds) {
     problems.push(...stationProblems(id, station.stations[id], runDurationHours, allowedModes[id]));
-  }
-  for (const section of ["schedule", "structure"] as const) {
-    for (const kind of ["apply", "override"] as const) {
-      const list = station[kind][section];
-      const path = `station.${kind}.${section}`;
-      const unknown = list.filter((id) => !stationIds.includes(id));
-      if (unknown.length > 0) {
-        problems.push(
-          configProblem(
-            "UNKNOWN_STATION",
-            { list: kind, section, stationIds: unknown.join(", ") },
-            path,
-          ),
-        );
-      }
-      if (new Set(list).size !== list.length) {
-        problems.push(configProblem("STATION_LISTED_TWICE", { list: kind, section }, path));
-      }
-    }
   }
   return problems;
 }

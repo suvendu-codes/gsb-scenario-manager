@@ -35,6 +35,9 @@ export const overviewPanelStyles = {
   module: "flex items-center gap-2 border-b border-line py-2.5 last:border-b-0",
   moduleLabel: "min-w-0 flex-1 truncate text-[13px] font-medium text-ink",
   customDot: "size-1.5 flex-none rounded-full bg-accent",
+  typeRow: "border-b-0 py-1.5 pl-4",
+  typeLabel: "min-w-0 truncate text-[12.5px] text-muted",
+  typeCount: "flex-1 text-[12px] text-faint",
   configure:
     "inline-flex flex-none cursor-pointer items-center gap-0.5 rounded-md px-2 py-1 text-[12px] font-medium text-accent transition-colors hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-accent",
   configureIcon: "size-3.5",
