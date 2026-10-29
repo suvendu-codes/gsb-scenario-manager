@@ -111,6 +111,44 @@ describe("request: failures", () => {
     expect(error.problems).toEqual([problem, { code: "Z", message: "z" }]);
   });
 
+  it("reads the nested error shape and its request id", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            code: "validation_failed",
+            message: "Invalid",
+            details: { errors: [{ path: "a.b", reason: "out_of_range" }] },
+            request_id: "req-9",
+          },
+        },
+        422,
+      ),
+    );
+
+    const error = await errorOf(request("/x", z.object({})));
+
+    expect(error).toMatchObject({
+      status: 422,
+      code: "validation_failed",
+      message: "Invalid",
+      requestId: "req-9",
+    });
+    expect(error.problems).toEqual([
+      { code: "out_of_range", message: "a.b: out_of_range", path: "a.b" },
+    ]);
+  });
+
+  it("takes the request id from the X-Request-Id header when the body has none", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("oops", { status: 500, headers: { "X-Request-Id": "req-h" } }),
+    );
+
+    const error = await errorOf(request("/x", z.object({}), { method: "POST" }));
+
+    expect(error.requestId).toBe("req-h");
+  });
+
   it("gives an error with no envelope an empty problem list and no code", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Not here" }, 404));
 

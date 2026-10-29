@@ -2,7 +2,7 @@
 
 import { useQuery, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
 
-import { getConfigCatalog, getScenarioConfig, patchScenarioConfig } from "./api";
+import { configApi } from "./api";
 import type { SessionSource } from "./state/edit-session";
 import type { ConfigCatalog, ScenarioConfig } from "./types";
 
@@ -19,7 +19,7 @@ export const configKeys = {
 export function useConfigCatalog(): UseQueryResult<ConfigCatalog, Error> {
   return useQuery({
     queryKey: configKeys.catalog,
-    queryFn: getConfigCatalog,
+    queryFn: () => configApi.getCatalog(),
     staleTime: Infinity,
   });
 }
@@ -32,7 +32,7 @@ export function useConfigCatalog(): UseQueryResult<ConfigCatalog, Error> {
 export function useScenarioConfig(scenarioId: string): UseQueryResult<ScenarioConfig, Error> {
   return useQuery({
     queryKey: configKeys.scenario(scenarioId),
-    queryFn: () => getScenarioConfig(scenarioId),
+    queryFn: () => configApi.getScenarioConfig(scenarioId),
   });
 }
 
@@ -47,14 +47,14 @@ export function scenarioConfigSource(queryClient: QueryClient, scenarioId: strin
   const key = configKeys.scenario(scenarioId);
   return {
     save: async (patch) => {
-      const saved = await patchScenarioConfig(scenarioId, patch);
+      const saved = await configApi.patchScenarioConfig(scenarioId, patch);
       queryClient.setQueryData(key, saved);
       return saved;
     },
     load: () =>
       queryClient.fetchQuery({
         queryKey: key,
-        queryFn: () => getScenarioConfig(scenarioId),
+        queryFn: () => configApi.getScenarioConfig(scenarioId),
         staleTime: 0,
       }),
   };

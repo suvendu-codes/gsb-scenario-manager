@@ -34,15 +34,82 @@ export const errorBodySchema = problemSchema.extend({
 
 export type ErrorBody = z.infer<typeof errorBodySchema>;
 
+/** An error body read into one shape, with the request id when the server sent one. */
+export type ParsedError = ErrorBody & { requestId?: string };
+
+type Json = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is Json =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The scalar entries of an object, as problem params; `skip` names keys to leave out. */
+function scalars(source: Json, skip: string[] = []): ProblemParams | undefined {
+  const params: ProblemParams = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (skip.includes(key)) continue;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      params[key] = value;
+    }
+  }
+  return Object.keys(params).length > 0 ? params : undefined;
+}
+
 /**
- * Reads an error response body.
+ * Reads the nested shape `{ error: { code, message, details?, request_id? } }`. Its `details`
+ * can list problems as `errors: [{ path, reason }]` or `issues: [{ code, message? }]`; the other
+ * scalar details become `params`. Anything that does not fit is left out, never thrown on.
+ */
+function fromNestedError(body: unknown): ParsedError | null {
+  if (!isRecord(body) || !isRecord(body.error)) return null;
+  const { code, message, details, request_id: requestId } = body.error;
+  if (typeof code !== "string" || typeof message !== "string") return null;
+
+  const info = isRecord(details) ? details : {};
+  const problems: Problem[] = [];
+  for (const item of Array.isArray(info.errors) ? info.errors : []) {
+    if (!isRecord(item)) continue;
+    const path = typeof item.path === "string" ? item.path : undefined;
+    const reason = typeof item.reason === "string" ? item.reason : "invalid";
+    const params = scalars(item, ["path", "reason"]);
+    problems.push({
+      code: reason,
+      message: path ? `${path}: ${reason}` : reason,
+      ...(params && { params }),
+      ...(path && { path }),
+    });
+  }
+  for (const item of Array.isArray(info.issues) ? info.issues : []) {
+    if (!isRecord(item)) continue;
+    const issueCode = typeof item.code === "string" ? item.code : "issue";
+    const params = scalars(item, ["code", "message"]);
+    problems.push({
+      code: issueCode,
+      message: typeof item.message === "string" ? item.message : issueCode,
+      ...(params && { params }),
+    });
+  }
+
+  const params = scalars(info, ["errors", "issues"]);
+  return {
+    code,
+    message,
+    ...(params && { params }),
+    ...(problems.length > 0 && { problems }),
+    ...(typeof requestId === "string" && { requestId }),
+  };
+}
+
+/**
+ * Reads an error response body. The API's error shape is not settled, so this accepts the
+ * envelope used here (`{ code, message, params?, path?, problems? }`) and the nested
+ * `{ error: { code, message, details, request_id } }`.
  *
  * @param body - The parsed JSON of a non-2xx response.
- * @returns The error body, or null if it does not follow the envelope.
+ * @returns The error body, or null if it follows neither shape.
  */
-export function parseErrorBody(body: unknown): ErrorBody | null {
-  const parsed = errorBodySchema.safeParse(body);
-  return parsed.success ? parsed.data : null;
+export function parseErrorBody(body: unknown): ParsedError | null {
+  const envelope = errorBodySchema.safeParse(body);
+  return envelope.success ? envelope.data : fromNestedError(body);
 }
 
 /**

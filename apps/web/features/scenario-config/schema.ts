@@ -404,7 +404,8 @@ export const configIssueSchema = problemSchema.extend({
  */
 export const scenarioConfigSchema = z.object({
   scenarioId: z.string(),
-  updatedAt: z.string(),
+  /** When the config last changed. Opaque to the client and not required. */
+  updatedAt: z.string().optional(),
   /** How long the run is, in hours. Read-only here; the setup screen owns it. */
   runDurationHours: z.number(),
   defaults: configValuesSchema,
