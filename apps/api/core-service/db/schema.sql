@@ -167,19 +167,6 @@ BEGIN
     received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT run_event_inbox_run_id_sequence_pk PRIMARY KEY (run_id, sequence)
   );
-
-  -- project_id / map_id reference upstream services (not FKs).
-  CREATE TABLE map_bot (
-    project_id  TEXT NOT NULL,
-    map_id      TEXT NOT NULL,
-    type        TEXT NOT NULL,
-    name        TEXT NOT NULL,
-    image_url   TEXT NOT NULL DEFAULT '',
-    count       INTEGER NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT map_bot_project_id_map_id_type_pk PRIMARY KEY (project_id, map_id, type)
-  );
 END
 $bootstrap$;
 COMMIT;
