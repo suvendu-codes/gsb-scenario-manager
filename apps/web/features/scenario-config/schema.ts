@@ -255,11 +255,6 @@ export const stationGlobalSchema = z
         c: z.number().int().min(0).max(100).multipleOf(5),
       })
       .strict(),
-    orderHandling: z
-      .object({
-        crossStationRebalance: z.boolean(),
-      })
-      .strict(),
     pickScheduler: z
       .object({
         weights: z
@@ -271,11 +266,23 @@ export const stationGlobalSchema = z
           .strict(),
       })
       .strict(),
-    limits: z
-      .object({
-        queueLimitPerStation: z.number().int().min(1).max(50),
-      })
+  })
+  .strict();
+
+/** Seconds an operator's working time can drift past the standard time: 0-9995, in 5 s steps. */
+const varianceSeconds = z.number().int().min(0).max(9995).multipleOf(5);
+
+/** A station's setup beyond its structure: operator time variance, queue and rebalancing. */
+export const stationSetupSchema = z
+  .object({
+    /** Operator working-time variance per mode, in seconds. */
+    variance: z
+      .object({ pick: varianceSeconds, put: varianceSeconds, audit: varianceSeconds })
       .strict(),
+    /** Most carriers that can wait at the station. */
+    queueLimit: z.number().int().min(1).max(50),
+    /** Whether work is shared with other stations when this one backs up. */
+    rebalancing: z.boolean(),
   })
   .strict();
 
@@ -350,6 +357,7 @@ export const stationConfigSchema = z
     /** Empty when the station is not assigned any mode. */
     schedule: z.array(scheduleBlockSchema).max(MAX_SCHEDULE_BLOCKS),
     structure: stationStructureSchema,
+    setup: stationSetupSchema,
     hardware: stationHardwareSchema,
     operations: z
       .object({ pick: pickConfigSchema, put: putConfigSchema, audit: auditConfigSchema })

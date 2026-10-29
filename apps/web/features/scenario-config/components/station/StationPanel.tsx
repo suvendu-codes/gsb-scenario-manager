@@ -1,3 +1,7 @@
+"use client";
+
+import { useId, useState } from "react";
+
 import { ALL_STATIONS, type ModulePanelProps } from "../../panel";
 import { stationTypes } from "../../station-types";
 import { isCustomized } from "../../state/customized";
@@ -8,6 +12,8 @@ import { SchedulerWeights } from "./SchedulerWeights";
 import { StationDetails } from "./StationDetails";
 import { StationPicker, typeValue } from "./StationPicker";
 import { StationSection } from "./StationSection";
+import { tabOf, type StationTabId } from "./station-tabs";
+import { StationTabs } from "./StationTabs";
 import { stationPanelStyles as styles } from "./StationPanel.styles";
 import { buildStationView, type StationSectionRenderer, type StationView } from "./station-view";
 import { isTypeCustomized, StationTypeList } from "./StationTypeList";
@@ -30,9 +36,9 @@ function pickerValue(view: StationView): string {
 /**
  * The Stations panel, for all stations, one station type, or one station:
  * - all stations: the site-wide settings, then the station types to open;
- * - a type: its schedule, setup and operations, edited for its stations together (stations that
- *   keep their own value are skipped);
- * - a station: its own schedule, setup and operations, and its registry details.
+ * - a type: its schedule, setup and operations, in the design's three tabs, edited for its
+ *   stations together (stations that keep their own schedule or structure are skipped);
+ * - a station: the same tabs for the station alone, with its registry details under setup.
  *
  * @param module - The station module's catalog entry.
  * @param editor - The loaded config editor.
@@ -48,6 +54,15 @@ export function StationPanel({
   sectionRenderers,
 }: StationPanelProps): React.JSX.Element {
   const view = buildStationView(editor, selection, onSelect);
+  // The tab follows a selection that names one (a search hit), and is the user's choice otherwise.
+  const askedTab = "stationType" in selection ? selection.tab : undefined;
+  const [tab, setTab] = useState<StationTabId>(askedTab ?? "modes");
+  const [lastSelection, setLastSelection] = useState(selection);
+  if (selection !== lastSelection) {
+    setLastSelection(selection);
+    if (askedTab) setTab(askedTab);
+  }
+  const panelId = useId();
   const types = stationTypes(editor.stations);
   const info = editor.stations.find((station) => station.id === view.station);
 
@@ -123,24 +138,34 @@ export function StationPanel({
             )}
           </>
         ) : (
-          <div className={styles.stationSections}>
-            {sections.map((section) => {
-              const render = sectionRenderers?.[section.id];
-              if (render) {
-                return (
-                  <StationSection key={section.id} section={section} view={view}>
-                    {render(section, view)}
-                  </StationSection>
-                );
-              }
-              // Schedule and operations have no generic body; skip them until a renderer is given.
-              if (section.fieldsFrom || section.fields.some((field) => field.type === "schedule")) {
-                return null;
-              }
-              return <StationSection key={section.id} section={section} view={view} />;
-            })}
-            {view.kind === "station" && info && <StationDetails station={info} />}
-          </div>
+          <>
+            <StationTabs value={tab} onChange={setTab} panelId={panelId} />
+            <div className={styles.stationSections} role="tabpanel" id={panelId}>
+              {sections
+                .filter((section) => tabOf(section) === tab)
+                .map((section) => {
+                  const render = sectionRenderers?.[section.id];
+                  if (render) {
+                    return (
+                      <StationSection key={section.id} section={section} view={view}>
+                        {render(section, view)}
+                      </StationSection>
+                    );
+                  }
+                  // Schedule and operations have no generic body; skip them until a renderer is given.
+                  if (
+                    section.fieldsFrom ||
+                    section.fields.some((field) => field.type === "schedule")
+                  ) {
+                    return null;
+                  }
+                  return <StationSection key={section.id} section={section} view={view} />;
+                })}
+              {view.kind === "station" && tab === "setup" && info && (
+                <StationDetails station={info} />
+              )}
+            </div>
+          </>
         )}
       </div>
     </>

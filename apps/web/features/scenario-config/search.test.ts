@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { configCatalog } from "./catalog";
+import { tabOf } from "./components/station/station-tabs";
 import { searchSettings } from "./search";
 
 const labels = (query: string, limit?: number) =>
@@ -23,6 +24,17 @@ describe("searchSettings", () => {
     ]);
   });
 
+  it("finds queue limit and rebalancing per station, in the Station Setup tab (review of #45)", () => {
+    for (const query of ["queue limit", "rebalancing"]) {
+      const [hit] = searchSettings(configCatalog, query);
+      expect(hit).toMatchObject({ scope: "eachStation", sectionId: "limits" });
+      const section = configCatalog.modules
+        .find((module) => module.id === "station")!
+        .sections.find((candidate) => candidate.id === hit.sectionId)!;
+      expect(tabOf(section)).toBe("setup");
+    }
+  });
+
   it("says where a setting is shown: site-wide or per station", () => {
     expect(searchSettings(configCatalog, "front positions")[0].scope).toBe("eachStation");
     expect(searchSettings(configCatalog, "replenishment")[0].scope).toBe("allStations");
@@ -33,12 +45,12 @@ describe("searchSettings", () => {
       module: "station",
       moduleLabel: "Stations & operators",
       section: "Queue and rebalancing",
-      label: "Queue limit per station",
+      label: "Queue limit",
     });
   });
 
   it("needs every word to match, in any order", () => {
-    expect(labels("limit queue")).toContain("Queue limit per station");
+    expect(labels("limit queue")).toContain("Queue limit");
     expect(labels("queue banana")).toEqual([]);
   });
 
