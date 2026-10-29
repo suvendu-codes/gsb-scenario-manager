@@ -1,0 +1,115 @@
+/** A complete, valid scenario config (defaults for every section, no overrides). Test-only. */
+export const validScenarioConfig = {
+  wms_order: {
+    defaults: {
+      volume_multiplier: 1,
+      distribution: 'as_in_dataset',
+      data_window: { start: '06:00', end: '22:00' },
+      order_types: ['outbound'],
+      critical_priority_pct: 10,
+      release_pattern: 'waves',
+      number_of_waves: 4,
+      pbt_window_hours: 2,
+      order_cutoff: '18:00',
+    },
+    overrides: {},
+  },
+  agent: {
+    defaults: { fleet: [{ type: 'htm', count: 10 }], outage_pct: 2, charging_enabled: true },
+    overrides: {},
+  },
+  station: {
+    shared: {
+      defaults: {
+        errors: { error_injection: false },
+        order_handling: { cross_station_rebalancing: true, order_sequencing: 'fifo' },
+        pick_scheduler: {
+          strategy: 'max_ppf_with_pbt',
+          weights: {
+            ppf: 1,
+            pbt_sla: 1,
+            pbt_breached: 1,
+            pbt_risk_of_breach: 1,
+            large_orders: 1,
+            sku_consolidation: 1,
+          },
+        },
+        queue_and_replenishment: { queue_limit_per_station: 5, replenishment_threshold_pct: 20 },
+      },
+      overrides: {},
+    },
+    station_level: {
+      defaults: {
+        schedule: [{ mode: 'pick', hours: 8, tea_breaks: [] }],
+        structure: {
+          front_operation: 'single_front',
+          front_positions: 2,
+          staffed_positions: 2,
+          back_operator: 'manual',
+          picking_destination: 'tote',
+          carrier_association_side: 'front',
+          bin_clearing_side: 'back',
+          staffed_back_seats: 1,
+        },
+        operations: {
+          pick: {
+            bin_structure: 'front_only',
+            orders: {
+              scheduling_strategy: 'sequential',
+              order_sequence: 'as_given',
+              uom: 'flexible',
+              inventory_reservation: 'soft',
+              packing: 'pack_after_picking',
+              when_stock_runs_short: 'replan_first',
+              allow_partial_picks: false,
+              single_uom_picking: false,
+              group_single_line_orders: false,
+              split_large_orders: false,
+            },
+            allocation_to_station: { pick_flow: 'automatic', back_rack_selection: 'balanced' },
+            picking_from_carrier: {
+              pick_confirmation: 'automatic_scan',
+              when_item_missing: 'skip_to_next_order',
+              pick_from_opened_cases: false,
+              confirm_empty_slots: false,
+              low_stock_count_check: false,
+            },
+            picking_into_bin: {
+              pick_mode: 'standard',
+              docking: 'manual_imtu',
+              bin_packing: 'running_bin',
+              rack_release: 'when_list_scanned',
+              when_bin_is_full: 'stop_at_capacity',
+              bin_full_applies_to: 'all_bins',
+            },
+            bin_handling: {
+              bin_release_timing: 'early',
+              bin_assignment: 'fixed_map',
+              early_bin_release: 'off',
+              bin_grouping: 'off',
+              use_bin_volume: false,
+              show_bin_age: false,
+            },
+            operator_aids: {
+              one_press_confirmation: false,
+              validate_box_labels_lpn: false,
+              show_next_item_early: false,
+              reuse_totes_immediately: false,
+              prompt_remove_empty_totes: false,
+              allow_carrier_change: false,
+            },
+            clearing_and_labels: {
+              bin_release_side: 'front',
+              bin_clearing: 'automatic',
+              pick_labels_ppfl: 'none',
+              invoice_printing: 'dont_print',
+            },
+          },
+          put: {},
+          audit: {},
+        },
+      },
+      overrides: {},
+    },
+  },
+};

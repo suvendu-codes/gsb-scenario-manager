@@ -12,6 +12,7 @@ node_modules
 
 # testing
 /coverage
+/test-results/
 
 # next.js
 .next/
@@ -24,6 +25,7 @@ node_modules
 .turbo
 
 dist
+dist-tools
 
 # misc
 .DS_Store

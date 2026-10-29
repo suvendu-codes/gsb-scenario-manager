@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, gt, lt, or, type AnyColumn, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, type AnyColumn } from 'drizzle-orm';
 import { DRIZZLE } from '../../db/db.constants.js';
 import type { DrizzleDB } from '../../db/db.module.js';
 import { scenario } from '../../db/schema/scenario.js';
@@ -27,7 +27,9 @@ const SORT_COLUMNS: Record<ScenarioSortField, AnyColumn> = {
 
 type StoredConfig = {
   configUri?: string;
+  body?: Record<string, unknown>;
   updatedBy?: string;
+  version?: number;
   clonedFromScenarioId?: string;
 };
 
@@ -49,31 +51,27 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
     return rows.map(toScenario);
   }
 
-  async list({ status, mapId, projectId, sort, limit, after }: ScenarioPageFilter) {
+  async list({ status, mapId, projectId, sort, page, limit }: ScenarioPageFilter) {
     const column = SORT_COLUMNS[sort.field];
-    const descending = sort.direction === 'desc';
-    const beyond = descending ? lt : gt;
-    const order = descending ? desc : asc;
+    const order = sort.direction === 'desc' ? desc : asc;
 
-    const conditions: (SQL | undefined)[] = [
+    const where = and(
       status ? eq(scenario.status, status) : undefined,
       mapId ? eq(scenario.mapId, mapId) : undefined,
       projectId ? eq(scenario.projectId, projectId) : undefined,
-    ];
-    if (after) {
-      const value = sort.field === 'name' ? after.value : new Date(after.value);
-      conditions.push(
-        or(beyond(column, value), and(eq(column, value), beyond(scenario.id, after.id))),
-      );
-    }
+    );
 
-    const rows = await this.db
-      .select()
-      .from(scenario)
-      .where(and(...conditions))
-      .orderBy(order(column), order(scenario.id))
-      .limit(limit + 1);
-    return rows.map(toScenario);
+    const [rows, [totals]] = await Promise.all([
+      this.db
+        .select()
+        .from(scenario)
+        .where(where)
+        .orderBy(order(column), order(scenario.id))
+        .limit(limit)
+        .offset((page - 1) * limit),
+      this.db.select({ total: count() }).from(scenario).where(where),
+    ]);
+    return { items: rows.map(toScenario), total: totals?.total ?? 0 };
   }
 
   async findById(id: string) {
@@ -85,11 +83,12 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
     const [row] = await this.db.select().from(scenario).where(eq(scenario.id, s.id)).limit(1);
     if (!row) return null;
     const cfg = readConfig(row);
-    if (!cfg.configUri) return null;
+    if (!cfg.configUri && !cfg.body) return null;
     return Object.assign(new ScenarioVersion(), {
       id: row.id,
       scenarioId: row.id,
-      configUri: cfg.configUri,
+      configUri: cfg.configUri ?? '',
+      config: cfg.body,
       createdBy: cfg.updatedBy ?? row.authorId,
       createdAt: row.updatedAt,
     });
@@ -106,6 +105,7 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
           authorId: input.authorId,
           config: {
             configUri: input.configUri,
+            body: input.config,
             updatedBy: input.createdBy,
             clonedFromScenarioId: input.clonedFromScenarioId,
           },
@@ -119,25 +119,30 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
 
   async update(id: string, changes: ScenarioChanges) {
     try {
-      const [current] = await this.db.select().from(scenario).where(eq(scenario.id, id)).limit(1);
-      if (!current) throw new ScenarioNotFoundError(id);
-      toScenario(current).assertEditable();
+      // FOR UPDATE serializes concurrent writers on this row, so a patch is always applied to the latest config.
+      return await this.db.transaction(async (tx) => {
+        const [current] = await tx
+          .select()
+          .from(scenario)
+          .where(eq(scenario.id, id))
+          .limit(1)
+          .for('update');
+        if (!current) throw new ScenarioNotFoundError(id);
+        toScenario(current).assertEditable();
+        const config = nextStoredConfig(readConfig(current), changes);
 
-      const [updated] = await this.db
-        .update(scenario)
-        .set({
-          name: changes.name ?? current.name,
-          config: {
-            ...readConfig(current),
-            configUri: changes.configUri,
-            updatedBy: changes.updatedBy,
-          },
-          updatedAt: new Date(),
-        })
-        .where(and(eq(scenario.id, id), eq(scenario.status, ScenarioStatus.Draft)))
-        .returning();
-      if (!updated) throw new ScenarioLockedError(id, current.status, 'updated');
-      return toScenario(updated);
+        const [updated] = await tx
+          .update(scenario)
+          .set({
+            name: changes.name ?? current.name,
+            config,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(scenario.id, id), eq(scenario.status, ScenarioStatus.Draft)))
+          .returning();
+        if (!updated) throw new ScenarioLockedError(id, current.status, 'updated');
+        return toScenario(updated);
+      });
     } catch (error) {
       throw translate(error, undefined, changes.name);
     }
@@ -157,6 +162,23 @@ export class DrizzleScenarioRepository implements ScenarioRepository {
   }
 }
 
+/**
+ * Pointing configUri somewhere new makes that blob the source of truth: the stored inline body and its
+ * version are dropped (otherwise the body would keep winning on read), and a patch applies to the new blob.
+ */
+export function nextStoredConfig(stored: StoredConfig, changes: ScenarioChanges): StoredConfig {
+  const repointed = changes.configUri !== undefined && changes.configUri !== stored.configUri;
+  const base: StoredConfig = repointed ? { ...stored, body: undefined, version: undefined } : stored;
+  const body = changes.patchConfig ? changes.patchConfig(base.body) : changes.config;
+
+  return {
+    ...base,
+    configUri: changes.configUri ?? stored.configUri,
+    ...(body && { body, version: (base.version ?? 1) + 1 }),
+    updatedBy: changes.updatedBy,
+  };
+}
+
 const readConfig = (row: typeof scenario.$inferSelect): StoredConfig => {
   const config = row.config;
   if (config && typeof config === 'object' && !Array.isArray(config)) {
@@ -174,6 +196,7 @@ const toScenario = (row: typeof scenario.$inferSelect) => {
     status: row.status,
     authorId: row.authorId,
     clonedFromScenarioId: readConfig(row).clonedFromScenarioId,
+    version: readConfig(row).version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
