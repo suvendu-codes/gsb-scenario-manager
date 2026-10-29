@@ -21,9 +21,9 @@ export interface NewScenario {
   mapId: string;
   name: string;
   authorId: string;
-  /** Absent for a fresh draft; the config blob is attached by the first update. */
+  /** External config blob; set when cloning a blob-backed scenario. */
   configUri?: string;
-  /** Inline config stored in the database; used when there is no external blob. */
+  /** Inline config stored in the database. One of `config` or `configUri` is required. */
   config?: Record<string, unknown>;
   createdBy: string;
   clonedFromScenarioId?: string;

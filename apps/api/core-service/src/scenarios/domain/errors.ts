@@ -51,3 +51,9 @@ export class ScenarioConfigUriInvalidError extends DomainError {
     super('configUri must be a gs:// URI inside the configured scenario config location', 'invalid');
   }
 }
+
+export class ScenarioConfigRequiredError extends DomainError {
+  constructor() {
+    super('A scenario needs an inline config or a configUri', 'invalid', 'scenario_config_required');
+  }
+}
