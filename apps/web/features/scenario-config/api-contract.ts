@@ -77,6 +77,9 @@ const problemPaths = (error: ApiError) => error.problems.map((problem) => proble
  * 404 and 409, whether checks stop at the first kind of problem found (the mock checks paths,
  * then values, then rules across fields), and any version or timestamp fields.
  *
+ * One thing it relies on the server for: values written whole (arrays, such as a schedule) are
+ * sent back with any fields the server added to their items, and the server must accept them.
+ *
  * @param name - Names the implementation under test, e.g. "mock".
  * @param setup - Called before each test; returns the client and ids to use.
  */
