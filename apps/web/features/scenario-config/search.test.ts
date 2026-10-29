@@ -23,6 +23,11 @@ describe("searchSettings", () => {
     ]);
   });
 
+  it("says where a setting is shown: site-wide or per station", () => {
+    expect(searchSettings(configCatalog, "front positions")[0].scope).toBe("eachStation");
+    expect(searchSettings(configCatalog, "replenishment")[0].scope).toBe("allStations");
+  });
+
   it("says which module and section the setting is in", () => {
     expect(searchSettings(configCatalog, "queue limit")[0]).toMatchObject({
       module: "station",

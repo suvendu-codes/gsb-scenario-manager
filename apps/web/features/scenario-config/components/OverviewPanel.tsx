@@ -11,13 +11,24 @@ import { useScenarioDetail } from "@/features/scenario-setup/hooks";
 
 import { datasetSummary } from "../dataset-summary";
 import { ALL_STATIONS, type PanelSelection, type ReadyConfigEditor } from "../panel";
-import { searchSettings } from "../search";
-import { stationTypes } from "../station-types";
+import { searchSettings, type SearchHit } from "../search";
+import { stationTypes, type StationType } from "../station-types";
 import { isCustomized } from "../state/customized";
 import type { ModuleId } from "../types";
 import { overviewPanelStyles as styles } from "./OverviewPanel.styles";
 import { typeSelection } from "./station/station-view";
 import { isTypeCustomized } from "./station/StationTypeList";
+
+/**
+ * Where a search hit opens: its module, and for a per-station setting the first station type
+ * (site-wide settings open on all stations, where they are shown).
+ */
+function hitSelection(hit: SearchHit, types: StationType[]): PanelSelection {
+  if (hit.module === "station" && hit.scope !== "allStations" && types[0]) {
+    return typeSelection(types[0].id);
+  }
+  return selectionFor(hit.module);
+}
 
 /** What to show when a module is chosen: the station module opens on "All stations". */
 function selectionFor(module: ModuleId): PanelSelection {
@@ -87,7 +98,7 @@ export function OverviewPanel({
                   className={styles.result}
                   onClick={() => {
                     setQuery("");
-                    onSelect(selectionFor(hit.module));
+                    onSelect(hitSelection(hit, types));
                   }}
                 >
                   <span className={styles.resultLabel}>{hit.label}</span>

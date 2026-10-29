@@ -42,10 +42,11 @@ export function isStationCustomized(
   overrides: Overrides,
   id: string,
   group: readonly string[],
+  defaults?: ConfigValues,
 ): boolean {
   return (
     isCustomized(overrides, `station.stations.${id}`) ||
-    keepingOwn(config, group, "schedule").includes(id) ||
-    keepingOwn(config, group, "structure").includes(id)
+    keepingOwn(config, group, "schedule", defaults).includes(id) ||
+    keepingOwn(config, group, "structure", defaults).includes(id)
   );
 }

@@ -57,11 +57,13 @@ export function StationSection({
       if (isGroup) {
         return {
           ...base,
-          changed: followers(config, group, "structure").some((id) =>
+          changed: followers(config, group, "structure", defaults).some((id) =>
             isCustomized(overrides, `station.stations.${id}.structure.${key}`),
           ),
-          write: (next) => editor.edit((c) => writeGroupStructure(c, group, patchFor(next))),
-          reset: () => editor.edit((c) => writeGroupStructure(c, group, patchFor(defaultValue))),
+          write: (next) =>
+            editor.edit((c) => writeGroupStructure(c, group, patchFor(next), defaults)),
+          reset: () =>
+            editor.edit((c) => writeGroupStructure(c, group, patchFor(defaultValue), defaults)),
         };
       }
       return {

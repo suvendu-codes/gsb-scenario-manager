@@ -47,3 +47,16 @@ describe("effectiveAllowedModes: the editor and the server agree", () => {
     }
   });
 });
+
+describe("copyTargets", () => {
+  it("copies only to stations that allow every mode of the schedule, naming the others", async () => {
+    const { copyTargets } = await import("./ScheduleEditor");
+    const stations = [station("1", ["pick"]), station("2", ["put"]), station("3", ["pick", "put"])];
+    const schedule = [{ hours: 8, mode: "pick" as const, breaks: [] }];
+    expect(copyTargets(stations, ["1", "2", "3"], schedule)).toEqual({
+      to: ["1", "3"],
+      skipped: ["2"],
+      modes: ["pick"],
+    });
+  });
+});

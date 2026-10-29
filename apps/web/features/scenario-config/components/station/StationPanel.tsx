@@ -60,10 +60,16 @@ export function StationPanel({
 
   const customized =
     view.kind === "all"
-      ? isCustomized(editor.overrides, stationModule.id)
+      ? isCustomized(editor.overrides, "station.global")
       : view.kind === "type" && view.type
         ? isTypeCustomized(editor, view.type)
-        : isStationCustomized(editor.config, editor.overrides, view.station, view.group);
+        : isStationCustomized(
+            editor.config,
+            editor.overrides,
+            view.station,
+            view.group,
+            editor.defaults,
+          );
 
   const title =
     view.kind === "all"
