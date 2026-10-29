@@ -27,7 +27,7 @@ describe("searchSettings", () => {
     expect(searchSettings(configCatalog, "queue limit")[0]).toMatchObject({
       module: "station",
       moduleLabel: "Station Config",
-      section: "Queue and replenishment",
+      section: "Queue and rebalancing",
       label: "Queue limit per station",
     });
   });
