@@ -11,7 +11,7 @@ const CreateScenarioSchema = z.object({
     .int()
     .positive()
     .meta({ description: 'Map version the scenario targets; maps are not versioned yet, so it is not persisted' }),
-  config: ScenarioConfigSchema.optional().meta({ description: 'Scenario config, stored in the local database' }),
+  config: ScenarioConfigSchema.meta({ description: 'Scenario config, stored in the local database' }),
 });
 
 export class CreateScenarioDto extends createZodDto(CreateScenarioSchema) {}

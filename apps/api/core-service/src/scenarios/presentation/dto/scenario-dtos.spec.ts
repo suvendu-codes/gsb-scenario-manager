@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CloneScenarioDto } from './clone-scenario.dto.js';
 import { CreateScenarioDto } from './create-scenario.dto.js';
 import { ListAllScenariosQuery } from './list-all-scenarios.query.js';
+import { validScenarioConfig } from './scenario-config.fixture.js';
 import { PatchScenarioDto } from './update-scenario.dto.js';
 
 vi.mock('../../../config.js', () => ({
@@ -15,6 +16,7 @@ const validCreate = {
   project_id: uuid,
   map_id: uuid,
   map_version: 1,
+  config: validScenarioConfig,
 };
 type ValidCreateKey = keyof typeof validCreate;
 const issuePaths = (result: { success: boolean; error?: { issues: { path: PropertyKey[] }[] } }) =>
@@ -38,6 +40,20 @@ describe('CreateScenarioDto', () => {
       expect(issuePaths(result)).toEqual([field]);
     }
   );
+
+  it.each(Object.keys(validCreate))('rejects a missing %s', (field) => {
+    const body: Record<string, unknown> = { ...validCreate };
+    delete body[field];
+    const result = parse(body);
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toEqual([field]);
+  });
+
+  it('rejects an empty or partial config', () => {
+    expect(parse({ ...validCreate, config: {} }).success).toBe(false);
+    expect(parse({ ...validCreate, config: { agent: validScenarioConfig.agent } }).success).toBe(false);
+  });
+
   it.each(['name', 'project_id', 'map_id'])('rejects an empty %s', (field) => {
     const result = parse({ ...validCreate, [field]: '' });
     expect(result.success).toBe(false);
