@@ -8,15 +8,16 @@ SELECT pg_advisory_xact_lock(hashtext('scenario-manager-fresh-schema'));
 DO $bootstrap$
 BEGIN
   IF to_regclass('public.scenario') IS NOT NULL OR to_regclass('public.run') IS NOT NULL
-     OR to_regclass('public.run_event_inbox') IS NOT NULL THEN
+     OR to_regclass('public.run_event_inbox') IS NOT NULL OR to_regclass('public.run_outbox') IS NOT NULL THEN
     IF to_regclass('public.scenario') IS NULL OR to_regclass('public.run') IS NULL
-       OR to_regclass('public.run_event_inbox') IS NULL THEN
+       OR to_regclass('public.run_event_inbox') IS NULL OR to_regclass('public.run_outbox') IS NULL THEN
       RAISE EXCEPTION 'Partial Scenario Manager schema. Use a fresh database; existing tables are not modified.';
     END IF;
     -- Validate columns, enum values and safety constraints before accepting a no-op.
-    PERFORM "id", "correlation_id", "run_id", "scenario_id", "retry_of_run_id", "engine", "status", "verdict", "pending_command", "command_sequence", "decision", "command_reason", "last_event_sequence", "recovery_required", "heartbeat_emitted_at", "heartbeat_received_at", "progress", "reason", "results", "engine_ref", "status_message", "status_event_at", "result_event_at", "created_at", "updated_at", "completed_at" FROM public."run" LIMIT 0;
+    PERFORM "id", "correlation_id", "run_id", "scenario_id", "retry_of_run_id", "engine", "status", "verdict", "pending_command", "command_sequence", "decision", "command_reason", "last_event_sequence", "recovery_required", "heartbeat_emitted_at", "heartbeat_received_at", "progress", "reason", "results", "engine_ref", "status_message", "status_event_at", "result_event_at", "priority", "triggered_by", "map_version", "sizer_version", "config_snapshot_uri", "idempotency_key", "request_hash", "created_at", "updated_at", "completed_at" FROM public."run" LIMIT 0;
     PERFORM "id", "name", "project_id", "map_id", "solution_id", "status", "current_run_id", "config", "inbound_uri", "outbound_uri", "masterdata_uri", "mockput_uri", "author_id", "created_at", "updated_at" FROM public."scenario" LIMIT 0;
     PERFORM "run_id", "sequence", "payload", "received_at" FROM public."run_event_inbox" LIMIT 0;
+    PERFORM "id", "scenario_id", "run_id", "correlation_id", "engine", "event_type", "command_id", "sequence", "topic", "message_key", "payload", "headers", "status", "attempts", "available_at", "locked_by", "locked_until", "last_error", "created_at", "published_at" FROM public."run_outbox" LIMIT 0;
     IF ARRAY(SELECT enumlabel::text FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid
       JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='run_engine'
       ORDER BY enumsortorder) IS DISTINCT FROM ARRAY['emulator', 'simulator']::text[] THEN
@@ -75,6 +76,27 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_event_inbox'::regclass AND conname='run_event_inbox_run_id_sequence_pk') THEN
       RAISE EXCEPTION 'Existing schema is missing run_event_inbox_run_id_sequence_pk. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run'::regclass AND conname='run_priority_enum') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_priority_enum. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run'::regclass AND conname='run_scenario_idempotency_key') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_scenario_idempotency_key. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_outbox'::regclass AND conname='run_outbox_correlation_sequence_key') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_outbox_correlation_sequence_key. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_outbox'::regclass AND conname='run_outbox_command_enum') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_outbox_command_enum. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_outbox'::regclass AND conname='run_outbox_status_enum') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_outbox_status_enum. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_outbox'::regclass AND conname='run_outbox_published_consistent') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_outbox_published_consistent. Use a fresh database; no automatic conversion is performed.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.run_outbox'::regclass AND conname='run_outbox_run_id_run_id_fk') THEN
+      RAISE EXCEPTION 'Existing schema is missing run_outbox_run_id_run_id_fk. Use a fresh database; no automatic conversion is performed.';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
       JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='run_one_active_per_scenario' AND i.indisunique AND i.indisvalid) THEN
@@ -145,6 +167,13 @@ BEGIN
     status_message  TEXT,
     status_event_at TIMESTAMPTZ,
     result_event_at TIMESTAMPTZ,
+    priority        TEXT NOT NULL DEFAULT 'normal' CONSTRAINT run_priority_enum CHECK (priority IN ('high','normal','low')),
+    triggered_by    TEXT,                            -- acting user at trigger time
+    map_version     TEXT,                            -- upstream versions pinned at trigger time
+    sizer_version   TEXT,
+    config_snapshot_uri TEXT,                        -- create-only blob with the effective config
+    idempotency_key TEXT,                            -- client Idempotency-Key of the trigger request
+    request_hash    TEXT,                            -- sha256 of the canonical trigger request
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at    TIMESTAMPTZ
@@ -153,6 +182,7 @@ BEGIN
   CREATE INDEX run_status_idx ON run(status);
 
   ALTER TABLE run ADD CONSTRAINT run_scenario_id_id_key UNIQUE(scenario_id, id);
+  ALTER TABLE run ADD CONSTRAINT run_scenario_idempotency_key UNIQUE(scenario_id, idempotency_key);
   ALTER TABLE run ADD CONSTRAINT run_retry_same_scenario_fk FOREIGN KEY (scenario_id, retry_of_run_id) REFERENCES run(scenario_id, id);
   ALTER TABLE run ADD CONSTRAINT run_retry_not_self CHECK (retry_of_run_id IS NULL OR retry_of_run_id <> id);
   ALTER TABLE scenario ADD CONSTRAINT scenario_current_run_same_scenario_fk FOREIGN KEY (id, current_run_id) REFERENCES run(scenario_id, id);
@@ -167,6 +197,35 @@ BEGIN
     received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT run_event_inbox_run_id_sequence_pk PRIMARY KEY (run_id, sequence)
   );
+
+  -- Transactional outbox for SM -> engine commands. The trigger API inserts the complete wire
+  -- event in the same transaction as the run; the outbox worker only delivers it to Kafka.
+  CREATE TABLE run_outbox (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    scenario_id    UUID NOT NULL CONSTRAINT run_outbox_scenario_id_scenario_id_fk REFERENCES scenario(id),
+    run_id         UUID NOT NULL CONSTRAINT run_outbox_run_id_run_id_fk REFERENCES run(id),
+    correlation_id TEXT NOT NULL,
+    engine         run_engine NOT NULL,
+    event_type     TEXT NOT NULL,                    -- run.trigger | run.pause | run.resume | run.cancel
+    command_id     TEXT NOT NULL CONSTRAINT run_outbox_command_enum CHECK (command_id IN ('run','pause','resume','cancel')),
+    sequence       INTEGER NOT NULL CONSTRAINT run_outbox_sequence_valid CHECK (sequence > 0), -- SM command sequence
+    topic          TEXT NOT NULL,                    -- engine trigger topic, fixed at enqueue time
+    message_key    TEXT NOT NULL,                    -- = correlation_id
+    payload        JSONB NOT NULL,                   -- exact Kafka record value
+    headers        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status         TEXT NOT NULL DEFAULT 'pending' CONSTRAINT run_outbox_status_enum CHECK (status IN ('pending','published','dead')),
+    attempts       INTEGER NOT NULL DEFAULT 0 CONSTRAINT run_outbox_attempts_valid CHECK (attempts >= 0),
+    available_at   TIMESTAMPTZ NOT NULL DEFAULT now(), -- earliest next attempt (backoff)
+    locked_by      TEXT,                             -- worker holding the lease
+    locked_until   TIMESTAMPTZ,                      -- lease expiry; expired leases are reclaimable
+    last_error     TEXT,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    published_at   TIMESTAMPTZ,
+    CONSTRAINT run_outbox_correlation_sequence_key UNIQUE (correlation_id, sequence),
+    CONSTRAINT run_outbox_published_consistent CHECK ((status = 'published') = (published_at IS NOT NULL))
+  );
+  CREATE INDEX run_outbox_due_idx ON run_outbox(available_at, created_at) WHERE status = 'pending';
+  CREATE INDEX run_outbox_run_idx ON run_outbox(run_id);
 END
 $bootstrap$;
 COMMIT;

@@ -5,6 +5,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { DomainErrorFilter } from './common/presentation/http-exception.filter.js';
 import { DbModule } from './db/db.module.js';
 import { PpsModule } from './pps/pps.module.js';
+import { RunsModule } from './runs/runs.module.js';
 import { ScenariosModule } from './scenarios/scenarios.module.js';
 import { StatusWorkerModule } from './status-worker/status-worker.module.js';
 import { KafkaEventSourceModule } from './status-worker/infrastructure/kafka-event-source.module.js';
@@ -16,6 +17,7 @@ import { DrizzleScenarioRepository } from './scenarios/infrastructure/drizzle-sc
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), DbModule, PpsModule,
     ScenariosModule.register({ repository: { useClass: DrizzleScenarioRepository } }),
+    RunsModule,
     StatusWorkerModule.register({
       imports: [KafkaEventSourceModule],
       eventSource: { useExisting: KafkaEventSource },

@@ -65,7 +65,7 @@ outbox relay are not exercised.
 | SW-46 | Run the schema initializer against an already initialized database containing execution data | Rows and receipts remain unchanged; no migration-history table is required; subsequent events still process |
 | SW-47 | Run initialization against a partial database containing only scenario data | Fail clearly; preserve existing data and do not create the missing tables |
 | SW-48 | Force a type-name conflict during a fresh initialization | Roll back all newly created objects; preserve the pre-existing type |
-| SW-49 | Initialize the same fresh database concurrently from two connections | Advisory lock serializes creation; both calls succeed with exactly three complete application tables |
+| SW-49 | Initialize the same fresh database concurrently from two connections | Advisory lock serializes creation; both calls succeed with exactly four complete application tables (`run`, `run_event_inbox`, `run_outbox`, `scenario`) |
 | SW-50 | Send a heartbeat for a running current run | Heartbeat fields are stored on the run; the scenario row is not updated at all (row version unchanged) |
 | SW-51 | Send accepted, setup_ready, running, then paused for a current run whose scenario is already running | The first three leave the scenario row untouched; only the pause (a real change) updates it to paused |
 | SW-52 | Hold sequences 5 and 4 behind a missing 3, then deliver 3 as a terminal failure | 3 commits and is acknowledged (run failed, scenario finished); the held 4 and 5 are invalid after a terminal state, stay stored with recovery still required, and a later valid event is stored and acknowledged instead of blocking the run |
@@ -145,3 +145,6 @@ The negative-offset assertion runs after a successful read, outside the retry lo
 a record committed by mistake must still fail the test. Unit regressions verify retry
 classification, eventual success, deadline exhaustion, and immediate propagation of
 non-coordinator errors. No production event handling or retry policy is changed.
+
+
+Outbox (trigger → Kafka) module tests are described in [OUTBOX.md](OUTBOX.md).

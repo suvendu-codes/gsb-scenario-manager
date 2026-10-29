@@ -15,7 +15,7 @@ const event: RunEvent = {
 const row: typeof run.$inferSelect = {
   ...contractSeed, retryOfRunId: null, id: 'run-id', correlationId: 'cid', engineRunId: null, scenarioId: 'scenario-id',
   engine: 'emulator', status: 'accepted', verdict: null, reason: null, results: {},
-  engineRef: null, statusMessage: null, statusEventAt: null, resultEventAt: null,
+  engineRef: null, statusMessage: null, statusEventAt: null, resultEventAt: null, priority: 'normal', triggeredBy: null, mapVersion: null, sizerVersion: null, configSnapshotUri: null, idempotencyKey: null, requestHash: null,
   createdAt: new Date(), updatedAt: new Date(), completedAt: null,
 };
 
