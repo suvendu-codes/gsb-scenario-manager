@@ -9,6 +9,8 @@ export interface ScenarioProps {
   status: ScenarioStatus;
   authorId: string;
   clonedFromScenarioId?: string;
+  /** Config revision; starts at 1 and increments on every config update. */
+  version?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,7 +21,10 @@ export interface NewScenario {
   mapId: string;
   name: string;
   authorId: string;
-  configUri: string;
+  /** Absent for a fresh draft; the config blob is attached by the first update. */
+  configUri?: string;
+  /** Inline config stored in the database; used when there is no external blob. */
+  config?: Record<string, unknown>;
   createdBy: string;
   clonedFromScenarioId?: string;
 }
@@ -32,11 +37,13 @@ export class Scenario {
   status!: ScenarioStatus;
   authorId!: string;
   clonedFromScenarioId?: string;
+  version = 1;
   createdAt!: Date;
   updatedAt!: Date;
 
-  constructor(props: ScenarioProps) {
+  constructor({ version, ...props }: ScenarioProps) {
     Object.assign(this, props);
+    if (version) this.version = version;
   }
 
   canEdit() {
@@ -55,14 +62,16 @@ export class Scenario {
     if (!this.canDelete()) throw new ScenarioLockedError(this.id, this.status, 'deleted');
   }
 
-  clone(configUri: string, name?: string): NewScenario {
+  /** @param actor Who is cloning; becomes the author of the new scenario. */
+  clone(actor: string, configUri: string, name?: string, config?: Record<string, unknown>): NewScenario {
     return {
       projectId: this.projectId,
       mapId: this.mapId,
       name: name ?? `${this.name} (copy)`,
-      authorId: this.authorId,
-      configUri,
-      createdBy: this.authorId,
+      authorId: actor,
+      configUri: configUri || undefined,
+      config,
+      createdBy: actor,
       clonedFromScenarioId: this.id,
     };
   }
@@ -71,7 +80,9 @@ export class Scenario {
 export class ScenarioVersion {
   id!: string;
   scenarioId!: string;
+  /** Empty when the config lives inline in `config`. */
   configUri!: string;
+  config?: Record<string, unknown>;
   createdBy!: string;
   createdAt!: Date;
 }

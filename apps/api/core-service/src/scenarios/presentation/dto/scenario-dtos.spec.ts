@@ -1,20 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CloneScenarioDto } from './clone-scenario.dto.js';
 import { CreateScenarioDto } from './create-scenario.dto.js';
 import { ListAllScenariosQuery } from './list-all-scenarios.query.js';
-import { UpdateScenarioDto } from './update-scenario.dto.js';
+import { validScenarioConfig } from './scenario-config.fixture.js';
+import { PatchScenarioDto } from './update-scenario.dto.js';
+
+vi.mock('../../../config.js', () => ({
+  appConfig: { scenarioConfig: { bucket: 'scenario-bucket', prefix: 'scenarios/' } },
+}));
 
 const uuid = '3f2b8c1e-9d4a-4b6e-8a1f-2c7d5e9b0a13';
 
 const validCreate = {
-  projectId: uuid,
-  mapId: uuid,
   name: 'Peak load',
-  authorId: 'u1',
-  configUri: 'gs://bucket/config.json',
-  createdBy: 'u1',
+  project_id: uuid,
+  map_id: uuid,
+  map_version: 1,
+  config: validScenarioConfig,
 };
-
+type ValidCreateKey = keyof typeof validCreate;
 const issuePaths = (result: { success: boolean; error?: { issues: { path: PropertyKey[] }[] } }) =>
   result.error?.issues.map((i) => i.path.join('.')) ?? [];
 
@@ -25,15 +29,32 @@ describe('CreateScenarioDto', () => {
     expect(parse(validCreate).success).toBe(true);
   });
 
+  it.each(Object.keys(validCreate) as ValidCreateKey[])(
+    'rejects an explicit undefined for %s',
+    (field) => {
+      const body = { ...validCreate, [field]: undefined };
+  
+      const result = parse(body);
+  
+      expect(result.success).toBe(false);
+      expect(issuePaths(result)).toEqual([field]);
+    }
+  );
+
   it.each(Object.keys(validCreate))('rejects a missing %s', (field) => {
-    const body: Record<string, string> = { ...validCreate };
+    const body: Record<string, unknown> = { ...validCreate };
     delete body[field];
     const result = parse(body);
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
   });
 
-  it.each(Object.keys(validCreate))('rejects an empty %s', (field) => {
+  it('rejects an empty or partial config', () => {
+    expect(parse({ ...validCreate, config: {} }).success).toBe(false);
+    expect(parse({ ...validCreate, config: { agent: validScenarioConfig.agent } }).success).toBe(false);
+  });
+
+  it.each(['name', 'project_id', 'map_id'])('rejects an empty %s', (field) => {
     const result = parse({ ...validCreate, [field]: '' });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
@@ -51,10 +72,16 @@ describe('CreateScenarioDto', () => {
     expect(issuePaths(result)).toEqual(['name']);
   });
 
-  it.each(['projectId', 'mapId'])('rejects a non-uuid %s', (field) => {
+  it.each(['project_id', 'map_id'])('rejects a non-uuid %s', (field) => {
     const result = parse({ ...validCreate, [field]: 'not-a-uuid' });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
+  });
+
+  it.each([0, -1, 1.5, '1', null])('rejects map_version %j', (value) => {
+    const result = parse({ ...validCreate, map_version: value });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toEqual(['map_version']);
   });
 
   it.each([null, 'text', 7, []])('rejects a non-object body (%j)', (body) => {
@@ -62,60 +89,66 @@ describe('CreateScenarioDto', () => {
   });
 });
 
-describe('UpdateScenarioDto', () => {
-  const parse = (input: unknown) => UpdateScenarioDto.schema.safeParse(input);
+describe('PatchScenarioDto', () => {
+  const parse = (input: unknown) => PatchScenarioDto.schema.safeParse(input);
 
-  it('accepts updatedBy alone', () => {
-    expect(parse({ updatedBy: 'u1' }).success).toBe(true);
+  it('accepts an empty body and each field alone', () => {
+    expect(parse({}).success).toBe(true);
+    expect(parse({ name: 'New name' }).success).toBe(true);
+    expect(parse({ configUri: 'gs://scenario-bucket/scenarios/config.json' }).success).toBe(true);
   });
 
-  it('rejects a missing updatedBy', () => {
-    const result = parse({ name: 'New name' });
-    expect(result.success).toBe(false);
-    expect(issuePaths(result)).toEqual(['updatedBy']);
-  });
-
-  it.each(['name', 'configUri', 'updatedBy'])('rejects an empty %s', (field) => {
-    const result = parse({ updatedBy: 'u1', [field]: '' });
+  it.each(['name', 'configUri'])('rejects an empty %s', (field) => {
+    const result = parse({ [field]: '' });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
   });
 
-  it.each(['name', 'configUri', 'updatedBy'])('rejects a non-string %s', (field) => {
-    const result = parse({ updatedBy: 'u1', [field]: 123 });
+  it.each([
+    'gs://other-bucket/scenarios/config.json',
+    'gs://scenario-bucket/other/config.json',
+    'gs://scenario-bucket/scenarios/../other/config.json',
+    'https://storage.googleapis.com/scenario-bucket/scenarios/config.json',
+    'file:///etc/passwd',
+    'scenarios/config.json',
+  ])('rejects out-of-scope configUri %s', (configUri) => {
+    const result = parse({ configUri });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toEqual(['configUri']);
+  });
+
+  it.each(['name', 'configUri'])('rejects a non-string %s', (field) => {
+    const result = parse({ [field]: 123 });
     expect(result.success).toBe(false);
     expect(issuePaths(result)).toEqual([field]);
+  });
+
+  it('rejects a blank or over-long name', () => {
+    expect(parse({ name: '   ' }).success).toBe(false);
+    expect(parse({ name: 'x'.repeat(101) }).success).toBe(false);
+  });
+
+  it('accepts a partial overrides patch and a null reset', () => {
+    expect(parse({ config: { agent: { overrides: { outage_pct: 8 } } } }).success).toBe(true);
+    const reset = parse({
+      config: { wms_order: { overrides: { data_window: { start: '06:00' }, order_cutoff: null } } },
+    });
+    expect(reset.success).toBe(true);
   });
 });
 
 describe('CloneScenarioDto', () => {
   const parse = (input: unknown) => CloneScenarioDto.schema.safeParse(input);
 
-  it('accepts an id with or without a name', () => {
-    expect(parse({ id: uuid }).success).toBe(true);
-    expect(parse({ id: uuid, name: 'Copy' }).success).toBe(true);
+  it('accepts a body with or without a name', () => {
+    expect(parse({}).success).toBe(true);
+    expect(parse({ name: 'Copy' }).success).toBe(true);
   });
 
-  it('rejects a missing id', () => {
-    const result = parse({ name: 'Copy' });
+  it.each(['', '   ', 'x'.repeat(101), 1])('rejects an invalid name (%j)', (name) => {
+    const result = parse({ name });
     expect(result.success).toBe(false);
-    expect(issuePaths(result)).toEqual(['id']);
-  });
-
-  it.each(['id', 'name'])('rejects an empty %s', (field) => {
-    const result = parse({ id: uuid, [field]: '' });
-    expect(result.success).toBe(false);
-    expect(issuePaths(result)).toEqual([field]);
-  });
-
-  it('rejects a non-string id', () => {
-    expect(parse({ id: 1 }).success).toBe(false);
-  });
-
-  it('rejects a non-uuid id', () => {
-    const result = parse({ id: 's1' });
-    expect(result.success).toBe(false);
-    expect(issuePaths(result)).toEqual(['id']);
+    expect(issuePaths(result)).toEqual(['name']);
   });
 });
 
@@ -129,6 +162,15 @@ describe('ListAllScenariosQuery', () => {
   it('coerces limit from a query string', () => {
     const result = parse({ limit: '50' });
     expect(result.success && result.data.limit).toBe(50);
+  });
+
+  it('defaults page to 1 and limit to 20', () => {
+    const result = parse({});
+    expect(result.success && [result.data.page, result.data.limit]).toEqual([1, 20]);
+  });
+
+  it('accepts the maximum page', () => {
+    expect(parse({ page: '10000' }).success).toBe(true);
   });
 
   it.each(['all', 'draft', 'running', 'paused', 'finished'])('accepts status=%s', (status) => {
@@ -148,7 +190,10 @@ describe('ListAllScenariosQuery', () => {
     ['zero limit', { limit: '0' }],
     ['limit over max', { limit: '101' }],
     ['fractional limit', { limit: '1.5' }],
-    ['non-string cursor', { cursor: 5 }],
+    ['zero page', { page: '0' }],
+    ['page over max', { page: '10001' }],
+    ['huge page', { page: '100000000' }],
+    ['non-numeric page', { page: 'abc' }],
   ])('rejects %s', (_label, query) => {
     expect(parse(query).success).toBe(false);
   });

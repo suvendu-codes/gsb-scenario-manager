@@ -1,18 +1,17 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
-
-const CONFIG_URI_REGEX = /^gs:\/\/[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]\/\S+$/;
+import { ScenarioConfigSchema } from './scenario-config.schema.js';
 
 const CreateScenarioSchema = z.object({
-  projectId: z.uuid(),
-  mapId: z.uuid(),
   name: z.string().min(1).max(100),
-  authorId: z.string().min(1),
-  configUri: z
-    .string()
-    .regex(CONFIG_URI_REGEX, 'configUri must be a gs://<bucket>/<object> URI')
-    .meta({ description: 'URI of the scenario config blob (e.g. gs://bucket/path/config.json)' }),
-  createdBy: z.string().min(1),
+  project_id: z.uuid(),
+  map_id: z.uuid(),
+  map_version: z
+    .number()
+    .int()
+    .positive()
+    .meta({ description: 'Map version the scenario targets; maps are not versioned yet, so it is not persisted' }),
+  config: ScenarioConfigSchema.meta({ description: 'Scenario config, stored in the local database' }),
 });
 
 export class CreateScenarioDto extends createZodDto(CreateScenarioSchema) {}

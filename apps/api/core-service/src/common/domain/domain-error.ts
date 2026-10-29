@@ -11,6 +11,10 @@ export abstract class DomainError extends Error {
   constructor(
     message: string,
     readonly kind: DomainErrorKind,
+    /** Machine-readable code (e.g. `project_not_found`) echoed in the response body. */
+    readonly code?: string,
+    /** Extra fields the client needs to act on the error (e.g. the blocking status). */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = new.target.name;
@@ -20,11 +24,5 @@ export abstract class DomainError extends Error {
 export class UpstreamUnavailableError extends DomainError {
   constructor(what: string, status: number) {
     super(`${what} unavailable (${status})`, 'unavailable');
-  }
-}
-
-export class InvalidCursorError extends DomainError {
-  constructor(reason = 'Invalid cursor') {
-    super(reason, 'invalid');
   }
 }

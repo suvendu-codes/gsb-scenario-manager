@@ -21,6 +21,11 @@ const schema = z
       host: z.string().default('localhost'),
       port: z.coerce.number().int().positive().default(6379),
     }),
+    // Only config blobs under gs://<bucket>/<prefix> may be dereferenced by the GCS config reader.
+    scenarioConfig: z.object({
+      bucket: z.string().optional(),
+      prefix: z.string().default(''),
+    }),
     databaseUrl: z.string().url().optional(),
     db: z.object({
       user: z.string().optional(),
@@ -111,6 +116,10 @@ export class ConfigBuilder<S extends z.ZodType> {
       redis: {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,
+      },
+      scenarioConfig: {
+        bucket: env.SCENARIO_CONFIG_BUCKET,
+        prefix: env.SCENARIO_CONFIG_PREFIX,
       },
       databaseUrl: env.DATABASE_URL,
       db: {

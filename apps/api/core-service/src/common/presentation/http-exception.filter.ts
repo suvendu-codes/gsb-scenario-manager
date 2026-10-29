@@ -20,7 +20,13 @@ export class DomainErrorFilter implements ExceptionFilter<DomainError> {
     const statusCode = STATUS[error.kind];
     this.adapterHost.httpAdapter.reply(
       host.switchToHttp().getResponse(),
-      { statusCode, error: error.name, message: error.message },
+      {
+        statusCode,
+        error: error.name,
+        ...(error.code && { code: error.code }),
+        message: error.message,
+        ...(error.details && { details: error.details }),
+      },
       statusCode,
     );
   }
