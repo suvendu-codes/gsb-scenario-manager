@@ -21,23 +21,30 @@ function selectionFor(module: ModuleId): PanelSelection {
   return module === "station" ? { area: "station", station: ALL_STATIONS } : { area: module };
 }
 
+/** The names of the scenario's project and map. */
+export type ScenarioSetupNames = { projectName: string; mapName: string };
+
 type OverviewPanelProps = {
   scenarioId: string;
+  setup: ScenarioSetupNames;
   editor: ReadyConfigEditor;
   onSelect: (selection: PanelSelection) => void;
 };
 
 /**
- * The panel shown when nothing is selected: a search box for settings, the problems that would
- * stop the run, the scenario's datasets with a link back to setup, the run length, and the
- * modules to open. Typing in the search box replaces the rest with the matching settings.
+ * The summary, shown when nothing is selected: a search box for settings, the problems that
+ * would stop the run, the scenario's setup (project, map, datasets, run length) with a link
+ * back to it, and a row per module to configure. Typing in the search box replaces the rest
+ * with the matching settings.
  *
  * @param scenarioId - The scenario being configured.
+ * @param setup - The scenario's project and map names.
  * @param editor - The loaded config editor.
  * @param onSelect - Called with the module the user opens.
  */
 export function OverviewPanel({
   scenarioId,
+  setup,
   editor,
   onSelect,
 }: OverviewPanelProps): React.JSX.Element {
@@ -49,7 +56,10 @@ export function OverviewPanel({
   return (
     <div className={styles.root}>
       <div className={styles.head}>
-        <h2 className={styles.title}>Overview</h2>
+        <div>
+          <h2 className={styles.title}>Summary</h2>
+          <p className={styles.subtitle}>Configure any timeline from here.</p>
+        </div>
         <div className={styles.searchWrap}>
           <Search className={styles.searchIcon} aria-hidden="true" />
           <Input
@@ -89,11 +99,6 @@ export function OverviewPanel({
         )
       ) : (
         <>
-          <p className={cn(styles.section, styles.intro)}>
-            Defaults are pre-loaded and runnable. Choose a module to review or change its settings,
-            or search for a setting by name.
-          </p>
-
           {editor.issues.length > 0 && (
             <section className={styles.section} aria-label="Needs attention">
               <div className={styles.issues}>
@@ -110,46 +115,44 @@ export function OverviewPanel({
             </section>
           )}
 
-          <section className={styles.section} aria-label="Datasets and setup">
+          <section className={styles.section} aria-label="Scenario setup">
             <div className={styles.sectionHead}>
-              <h3 className={styles.sectionTitle}>Datasets and setup</h3>
+              <h3 className={styles.sectionTitle}>Scenario setup</h3>
               <Link
                 href={`/scenarios/${encodeURIComponent(scenarioId)}/setup`}
                 className={styles.link}
               >
-                Edit setup
+                Edit ›
               </Link>
             </div>
-            <ul className={styles.datasets}>
+            <dl className={styles.rows}>
+              <div className={styles.row}>
+                <dt className={styles.rowLabel}>Project</dt>
+                <dd className={styles.rowValue}>{setup.projectName}</dd>
+              </div>
+              <div className={styles.row}>
+                <dt className={styles.rowLabel}>Map</dt>
+                <dd className={styles.rowValue}>{setup.mapName}</dd>
+              </div>
               {DATASET_SLOTS.map((slot) => {
                 const record = detail.data?.datasets[slot.key] ?? null;
                 return (
-                  <li key={slot.key} className={styles.dataset}>
-                    {record ? (
-                      <Check
-                        className={cn(
-                          styles.datasetIcon,
-                          record.valid ? styles.datasetOk : styles.datasetBad,
-                        )}
-                        aria-label={record.valid ? "Valid" : "Has problems"}
-                      />
-                    ) : (
-                      <span
-                        className={cn(styles.datasetIcon, styles.datasetNone)}
-                        aria-hidden="true"
-                      >
-                        –
-                      </span>
-                    )}
-                    <span className={styles.datasetText}>
+                  <div key={slot.key} className={styles.row}>
+                    <dt className={styles.rowLabel}>{slot.label}</dt>
+                    <dd className={styles.rowValue}>
                       {record ? (
-                        <>
+                        <span className={styles.dataset} title={datasetSummary(record)}>
+                          <Check
+                            className={cn(
+                              styles.datasetIcon,
+                              record.valid ? styles.datasetOk : styles.datasetBad,
+                            )}
+                            aria-label={record.valid ? "Valid" : "Has problems"}
+                          />
                           <span className={styles.datasetName}>{record.fileName}</span>
-                          <span className={styles.datasetDetail}>{datasetSummary(record)}</span>
-                        </>
+                        </span>
                       ) : (
                         <span className={styles.datasetMissing}>
-                          {slot.label} ·{" "}
                           {detail.isPending
                             ? "Loading…"
                             : slot.required
@@ -157,35 +160,34 @@ export function OverviewPanel({
                               : "Not added (optional)"}
                         </span>
                       )}
-                    </span>
-                  </li>
+                    </dd>
+                  </div>
                 );
               })}
-            </ul>
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>Run duration</span>
-              <span className={styles.rowValue}>{editor.runDurationHours}h</span>
-            </div>
+              <div className={styles.row}>
+                <dt className={styles.rowLabel}>Run duration</dt>
+                <dd className={styles.rowValue}>{editor.runDurationHours}h</dd>
+              </div>
+            </dl>
           </section>
 
-          <section className={styles.section} aria-label="Settings">
-            <h3 className={styles.sectionTitle}>Settings</h3>
+          <section className={styles.section} aria-label="Configure">
+            <h3 className={styles.sectionTitle}>Configure</h3>
             <ul className={styles.modules}>
               {editor.catalog.modules.map((module) => (
-                <li key={module.id}>
+                <li key={module.id} className={styles.module}>
+                  <span className={styles.moduleLabel}>{module.label}</span>
+                  {isCustomized(editor.overrides, module.id) && (
+                    <span className={styles.customDot} role="img" aria-label="Customized" />
+                  )}
                   <button
                     type="button"
-                    className={styles.module}
+                    className={styles.configure}
+                    aria-label={`Configure ${module.label}`}
                     onClick={() => onSelect(selectionFor(module.id))}
                   >
-                    <span className={styles.moduleText}>
-                      <span className={styles.moduleLabel}>{module.label}</span>
-                      <span className={styles.moduleDescription}>{module.description}</span>
-                    </span>
-                    {isCustomized(editor.overrides, module.id) && (
-                      <span className={styles.moduleTag}>Customized</span>
-                    )}
-                    <ChevronRight className={styles.moduleChevron} aria-hidden="true" />
+                    Configure
+                    <ChevronRight className={styles.configureIcon} aria-hidden="true" />
                   </button>
                 </li>
               ))}

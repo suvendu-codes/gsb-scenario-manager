@@ -4,10 +4,12 @@ import type { ConfigEditor } from "../use-config-editor";
 import { isReady, type ModulePanels, type PanelSelection } from "../panel";
 import { configPanelStyles as styles } from "./ConfigPanel.styles";
 import { ModulePanel } from "./ModulePanel";
-import { OverviewPanel } from "./OverviewPanel";
+import { OverviewPanel, type ScenarioSetupNames } from "./OverviewPanel";
 
 type ConfigPanelProps = {
   scenarioId: string;
+  /** The scenario's project and map names, for the summary. */
+  setup: ScenarioSetupNames;
   editor: ConfigEditor;
   selection: PanelSelection;
   onSelect: (selection: PanelSelection) => void;
@@ -20,6 +22,7 @@ type ConfigPanelProps = {
  * config loads it shows a message, and another if it could not be loaded.
  *
  * @param scenarioId - The scenario being configured.
+ * @param setup - The scenario's project and map names, for the summary.
  * @param editor - The config editor.
  * @param selection - What to show.
  * @param onSelect - Called when the user opens or leaves a module.
@@ -27,6 +30,7 @@ type ConfigPanelProps = {
  */
 export function ConfigPanel({
   scenarioId,
+  setup,
   editor,
   selection,
   onSelect,
@@ -57,7 +61,7 @@ export function ConfigPanel({
       {selected && Panel ? (
         <Panel module={selected} editor={editor} selection={selection} onSelect={onSelect} />
       ) : (
-        <OverviewPanel scenarioId={scenarioId} editor={editor} onSelect={onSelect} />
+        <OverviewPanel scenarioId={scenarioId} setup={setup} editor={editor} onSelect={onSelect} />
       )}
     </aside>
   );

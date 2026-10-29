@@ -144,7 +144,7 @@ export const configCatalog: ConfigCatalog = {
     },
     {
       id: "station",
-      label: "Station Config",
+      label: "Stations & operators",
       description:
         "When stations work, in which mode, and how they are built. All stations edits every station that still shares a setting.",
       sections: [
@@ -430,7 +430,7 @@ export const configCatalog: ConfigCatalog = {
     },
     {
       id: "agent",
-      label: "Agent",
+      label: "Agents",
       description:
         "How many bots of each type, how often they are in error, and their charging and turning time.",
       sections: [
