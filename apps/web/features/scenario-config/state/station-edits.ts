@@ -60,17 +60,20 @@ function sectionValue(config: ConfigValues, id: string, section: StationSection)
 
 /**
  * The stations of a group that share its most common value for a section: the largest set of
- * stations with equal values (on a tie, the one with the earliest station). Empty for an empty
- * group.
+ * stations with equal values. On a tie, the set still on its defaults wins (so changing one
+ * station of a two-station type makes that one keep its own, not the other); failing that, the
+ * set with the earliest station. Empty for an empty group.
  *
  * @param config - The config.
  * @param group - The stations of the group, in order.
  * @param section - `schedule` or `structure`.
+ * @param defaults - The default config, to break ties; without it, the earliest set wins.
  */
 export function followers(
   config: ConfigValues,
   group: readonly string[],
   section: StationSection,
+  defaults?: ConfigValues,
 ): string[] {
   const sets: string[][] = [];
   for (const id of group) {
@@ -79,7 +82,15 @@ export function followers(
     if (set) set.push(id);
     else sets.push([id]);
   }
-  return sets.reduce<string[]>((best, ids) => (ids.length > best.length ? ids : best), []);
+  const onDefaults = (ids: string[]) =>
+    defaults !== undefined &&
+    ids.every((id) =>
+      deepEqual(sectionValue(config, id, section), sectionValue(defaults, id, section)),
+    );
+  return sets.reduce<string[]>((best, ids) => {
+    if (ids.length !== best.length) return ids.length > best.length ? ids : best;
+    return onDefaults(ids) && !onDefaults(best) ? ids : best;
+  }, []);
 }
 
 /** The stations of a group that keep their own value for a section. */
@@ -87,8 +98,9 @@ export function keepingOwn(
   config: ConfigValues,
   group: readonly string[],
   section: StationSection,
+  defaults?: ConfigValues,
 ): string[] {
-  const shared = followers(config, group, section);
+  const shared = followers(config, group, section, defaults);
   return group.filter((id) => !shared.includes(id));
 }
 
@@ -96,14 +108,19 @@ export function keepingOwn(
 export function sharedBlocks(
   config: ConfigValues,
   group: readonly string[],
+  defaults?: ConfigValues,
 ): ScheduleBlock[] | null {
-  const [first] = followers(config, group, "schedule");
+  const [first] = followers(config, group, "schedule", defaults);
   return first ? config.station.stations[first].schedule : null;
 }
 
 /** A station whose structure is the one the group shares, or null for an empty group. */
-export function sharedStructureId(config: ConfigValues, group: readonly string[]): string | null {
-  return followers(config, group, "structure")[0] ?? null;
+export function sharedStructureId(
+  config: ConfigValues,
+  group: readonly string[],
+  defaults?: ConfigValues,
+): string | null {
+  return followers(config, group, "structure", defaults)[0] ?? null;
 }
 
 function withStationBlocks(
@@ -142,8 +159,9 @@ export function writeGroupSchedule(
   config: ConfigValues,
   group: readonly string[],
   blocks: ScheduleBlock[],
+  defaults?: ConfigValues,
 ): ConfigValues {
-  return withStationBlocks(config, followers(config, group, "schedule"), blocks);
+  return withStationBlocks(config, followers(config, group, "schedule", defaults), blocks);
 }
 
 /** Gives every station of a group one station's schedule, so none keeps its own. */
@@ -172,8 +190,9 @@ export function writeGroupStructure(
   config: ConfigValues,
   group: readonly string[],
   patch: Partial<Structure>,
+  defaults?: ConfigValues,
 ): ConfigValues {
-  return updateStations(config, followers(config, group, "structure"), (station) => ({
+  return updateStations(config, followers(config, group, "structure", defaults), (station) => ({
     ...station,
     structure: normaliseStructure({ ...station.structure, ...patch }),
   }));
@@ -187,9 +206,10 @@ export function sharedScheduleFor(
   config: ConfigValues,
   group: readonly string[],
   id: string,
+  defaults?: ConfigValues,
 ): ScheduleBlock[] | null {
   const others = group.filter((other) => other !== id);
-  return sharedBlocks(config, others);
+  return sharedBlocks(config, others, defaults);
 }
 
 /**
@@ -199,15 +219,17 @@ export function sharedScheduleFor(
  * @param group - The station's group.
  * @param id - The station.
  * @param section - `schedule` or `structure`.
+ * @param defaults - The default config, to break ties.
  */
 export function revertToShared(
   config: ConfigValues,
   group: readonly string[],
   id: string,
   section: StationSection,
+  defaults?: ConfigValues,
 ): ConfigValues {
   const others = group.filter((other) => other !== id);
-  const [source] = followers(config, others, section);
+  const [source] = followers(config, others, section, defaults);
   if (!source) return config;
   if (section === "schedule") {
     return withStationBlocks(config, [id], config.station.stations[source].schedule);

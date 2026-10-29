@@ -1,8 +1,13 @@
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-import { MAX_BREAKS_PER_BLOCK } from "../../schema";
-import { addBreak, removeBreak, updateBreak } from "../../state/schedule-blocks";
+import {
+  addBreak,
+  canAddBreak,
+  MIN_HOURS_FOR_BREAK,
+  removeBreak,
+  updateBreak,
+} from "../../state/schedule-blocks";
 import type { ScheduleBlock, ScheduleBreak, StationMode } from "../../types";
 import { Stepper } from "../fields/Stepper";
 import { RegularBreakEditor } from "./RegularBreakEditor";
@@ -85,7 +90,6 @@ export function ScheduleBlockCard({
 }: ScheduleBlockCardProps): React.JSX.Element {
   const label = `Block ${index + 1}`;
   const names = breakNames(block.breaks);
-  const full = block.breaks.length >= MAX_BREAKS_PER_BLOCK;
 
   return (
     <div className={styles.root} role="group" aria-label={`${label}: ${MODE_LABELS[block.mode]}`}>
@@ -154,7 +158,12 @@ export function ScheduleBlockCard({
           <button
             type="button"
             className={styles.add}
-            disabled={full}
+            disabled={!canAddBreak(block, "break")}
+            title={
+              block.hours < MIN_HOURS_FOR_BREAK
+                ? "A block needs an hour for a regular break."
+                : undefined
+            }
             onClick={() => onChange(addBreak(block, "break", newBreakId()))}
           >
             + Add break
@@ -162,7 +171,7 @@ export function ScheduleBlockCard({
           <button
             type="button"
             className={styles.add}
-            disabled={full}
+            disabled={!canAddBreak(block, "tea")}
             onClick={() => onChange(addBreak(block, "tea", newBreakId()))}
           >
             + Add tea break
