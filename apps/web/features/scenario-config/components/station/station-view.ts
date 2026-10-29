@@ -59,7 +59,8 @@ export function buildStationView(
   if (selection.area === "station" && "stationType" in selection) {
     const type = types.find((candidate) => candidate.id === selection.stationType);
     if (type) {
-      const referenceId = sharedStructureId(editor.config, type.stationIds) ?? type.stationIds[0];
+      const referenceId =
+        sharedStructureId(editor.config, type.stationIds, editor.defaults) ?? type.stationIds[0];
       return {
         ...base,
         kind: "type",
@@ -90,6 +91,7 @@ export function buildStationView(
     station: "",
     type: null,
     group: all,
-    referenceId: followers(editor.config, all, "structure")[0] ?? all[0] ?? ALL_STATIONS,
+    referenceId:
+      followers(editor.config, all, "structure", editor.defaults)[0] ?? all[0] ?? ALL_STATIONS,
   };
 }
