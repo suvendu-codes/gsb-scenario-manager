@@ -1,0 +1,804 @@
+[
+  {
+    "version": "3",
+    "pps_id": 1,
+    "orchestrator": "butler",
+    "location": [6, 7],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [6, 7],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "3123",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["1", "2"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-1", "presentation_point-1", "block-2"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-1" },
+          { "to": "block-2", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["1", "2"],
+    "pps_url": "http://localhost:8181/pps/1/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 2,
+    "orchestrator": "butler",
+    "location": [6, 23],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "audit", "pick"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [6, 23],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "2904",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["3", "4"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-3", "presentation_point-1", "block-4"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-3" },
+          { "to": "block-4", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["3", "4"],
+    "pps_url": "http://localhost:8181/pps/2/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 3,
+    "orchestrator": "butler",
+    "location": [6, 33],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [6, 33],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "2699",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["5", "6"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-5", "presentation_point-1", "block-6"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-5" },
+          { "to": "block-6", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["5", "6"],
+    "pps_url": "http://localhost:8181/pps/3/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 4,
+    "orchestrator": "butler",
+    "location": [6, 43],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [6, 43],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "2456",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["7", "8"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-7", "presentation_point-1", "block-8"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-7" },
+          { "to": "block-8", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["7", "8"],
+    "pps_url": "http://localhost:8181/pps/4/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 5,
+    "orchestrator": "butler",
+    "location": [5, 51],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 51],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "2267",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["9", "10"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-9", "presentation_point-1", "block-10"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-9" },
+          { "to": "block-10", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["9", "10"],
+    "pps_url": "http://localhost:8181/pps/5/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 6,
+    "orchestrator": "butler",
+    "location": [5, 61],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 61],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "2019",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["11", "12"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-11", "presentation_point-1", "block-12"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-11" },
+          { "to": "block-12", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["11", "12"],
+    "pps_url": "http://localhost:8181/pps/6/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 7,
+    "orchestrator": "butler",
+    "location": [5, 71],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 71],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "1770",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["13", "14"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-13", "presentation_point-1", "block-14"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-13" },
+          { "to": "block-14", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["13", "14"],
+    "pps_url": "http://localhost:8181/pps/7/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 8,
+    "orchestrator": "butler",
+    "location": [5, 81],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 81],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "1526",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["15", "16"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-15", "presentation_point-1", "block-16"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-15" },
+          { "to": "block-16", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["15", "16"],
+    "pps_url": "http://localhost:8181/pps/8/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 9,
+    "orchestrator": "butler",
+    "location": [5, 91],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 91],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "1285",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["17", "18"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-17", "presentation_point-1", "block-18"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-17" },
+          { "to": "block-18", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["17", "18"],
+    "pps_url": "http://localhost:8181/pps/9/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 10,
+    "orchestrator": "butler",
+    "location": [5, 101],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 101],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "1036",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["19", "20"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-19", "presentation_point-1", "block-20"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-19" },
+          { "to": "block-20", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["19", "20"],
+    "pps_url": "http://localhost:8181/pps/10/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 11,
+    "orchestrator": "butler",
+    "location": [5, 112],
+    "type": "manual",
+    "system": ["relay"],
+    "allowed_modes": ["put", "pick", "audit"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["rack"],
+          "presenting_agent_type": "bot",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [5, 112],
+            "display_attributes": { "display_id": "1", "direction": 1 },
+            "barcode": "775",
+            "presentation_height": 950,
+            "is_workbench": false,
+            "pick_direction": 1,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["21", "22"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-21", "presentation_point-1", "block-22"],
+        "connections": [
+          { "to": "presentation_point-1", "from": "block-21" },
+          { "to": "block-22", "from": "presentation_point-1" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["21", "22"],
+    "pps_url": "http://localhost:8181/pps/11/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 12,
+    "orchestrator": "butler",
+    "location": [28, 143],
+    "type": "tote_extraction",
+    "system": ["relay"],
+    "allowed_modes": ["pick"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["tote"],
+          "presenting_agent_type": "cantilever",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [28, 143],
+            "display_attributes": { "display_id": "1", "direction": 2 },
+            "barcode": "56",
+            "presentation_height": 770,
+            "is_workbench": false,
+            "pick_direction": 2,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["32", "33"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-32", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-32" }]
+      },
+      {
+        "id": 2,
+        "type": "allowed_transport",
+        "entities": ["block-33", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-33" }]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["32", "33"],
+    "pps_url": "http://localhost:8181/pps/12/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 13,
+    "orchestrator": "butler",
+    "location": [46, 143],
+    "type": "tote_extraction",
+    "system": ["relay"],
+    "allowed_modes": ["pick"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["tote"],
+          "presenting_agent_type": "cantilever",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [46, 143],
+            "display_attributes": { "display_id": "1", "direction": 2 },
+            "barcode": "54",
+            "presentation_height": 770,
+            "is_workbench": false,
+            "pick_direction": 2,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["34", "35"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-34", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-34" }]
+      },
+      {
+        "id": 2,
+        "type": "allowed_transport",
+        "entities": ["block-35", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-35" }]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["34", "35"],
+    "pps_url": "http://localhost:8181/pps/13/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 14,
+    "orchestrator": "butler",
+    "location": [63, 143],
+    "type": "tote_extraction",
+    "system": ["relay"],
+    "allowed_modes": ["pick"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["tote"],
+          "presenting_agent_type": "cantilever",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [63, 143],
+            "display_attributes": { "display_id": "1", "direction": 2 },
+            "barcode": "52",
+            "presentation_height": 770,
+            "is_workbench": false,
+            "pick_direction": 2,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["36", "37"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-36", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-36" }]
+      },
+      {
+        "id": 2,
+        "type": "allowed_transport",
+        "entities": ["block-37", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-37" }]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["36", "37"],
+    "pps_url": "http://localhost:8181/pps/14/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 15,
+    "orchestrator": "butler",
+    "location": [84, 143],
+    "type": "tote_extraction",
+    "system": ["relay"],
+    "allowed_modes": ["pick"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["tote"],
+          "presenting_agent_type": "cantilever",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [84, 143],
+            "display_attributes": { "display_id": "1", "direction": 2 },
+            "barcode": "50",
+            "presentation_height": 770,
+            "is_workbench": false,
+            "pick_direction": 2,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["38", "39"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-38", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-38" }]
+      },
+      {
+        "id": 2,
+        "type": "allowed_transport",
+        "entities": ["block-39", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-39" }]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["38", "39"],
+    "pps_url": "http://localhost:8181/pps/15/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 16,
+    "orchestrator": "butler",
+    "location": [108, 143],
+    "type": "tote_extraction",
+    "system": ["relay"],
+    "allowed_modes": ["pick"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["tote"],
+          "presenting_agent_type": "cantilever",
+          "presented_for": "inventory",
+          "presenting_agent_id": "",
+          "attributes": {
+            "world_coordinates": [108, 143],
+            "display_attributes": { "display_id": "1", "direction": 2 },
+            "barcode": "48",
+            "presentation_height": 770,
+            "is_workbench": false,
+            "pick_direction": 2,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["40", "41"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-40", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-40" }]
+      },
+      {
+        "id": 2,
+        "type": "allowed_transport",
+        "entities": ["block-41", "presentation_point-1"],
+        "connections": [{ "to": "presentation_point-1", "from": "block-41" }]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["40", "41"],
+    "pps_url": "http://localhost:8181/pps/16/api/"
+  },
+  {
+    "version": "3",
+    "pps_id": 101,
+    "orchestrator": "butler",
+    "location": [999, 986],
+    "type": "auto_tote_induction",
+    "system": ["relay"],
+    "allowed_modes": ["put"],
+    "entities": {
+      "presentation_points": [
+        {
+          "point_id": "1",
+          "light_curtain": false,
+          "presented_entity_allowed_types": ["tote"],
+          "presenting_agent_type": "conveyor",
+          "presented_for": "inventory",
+          "presenting_agent_id": "101",
+          "attributes": {
+            "world_coordinates": [999, 968],
+            "display_attributes": { "display_id": "1", "direction": 0 },
+            "barcode": "3188",
+            "presentation_height": 0,
+            "is_workbench": false,
+            "pick_direction": 0,
+            "bot_type": "HTM_QT_M5F"
+          }
+        }
+      ],
+      "blocks": ["42", "23", "24", "25", "26", "28", "29", "30", "31"]
+    },
+    "associations": [
+      {
+        "id": 1,
+        "type": "allowed_transport",
+        "entities": ["block-42", "block-23", "block-24", "block-25", "block-26"],
+        "connections": [
+          { "to": "block-23", "from": "block-42" },
+          { "to": "block-24", "from": "block-42" },
+          { "to": "block-25", "from": "block-42" },
+          { "to": "block-26", "from": "block-42" }
+        ]
+      },
+      {
+        "id": 2,
+        "type": "allowed_transport",
+        "entities": [
+          "block-23",
+          "block-28",
+          "block-24",
+          "block-29",
+          "block-25",
+          "block-30",
+          "block-26",
+          "block-31"
+        ],
+        "connections": [
+          { "to": "block-28", "from": "block-23" },
+          { "to": "block-29", "from": "block-24" },
+          { "to": "block-30", "from": "block-25" },
+          { "to": "block-31", "from": "block-26" }
+        ]
+      }
+    ],
+    "status": "disconnected",
+    "blocks": ["42", "23", "24", "25", "26", "28", "29", "30", "31"],
+    "pps_url": "http://localhost:8181/pps/101/api/"
+  }
+]

@@ -30,7 +30,7 @@ import { TriggerScenarioUseCase } from '../../src/runs/application/use-cases/tri
 import { RunTriggerEventSchema } from '../../src/runs/domain/run-trigger-event.js';
 import { InMemoryRunTriggerRepository } from '../../src/runs/infrastructure/in-memory-run-trigger.repository.js';
 import { RunsController } from '../../src/runs/presentation/runs.controller.js';
-import { eventually, sleep } from './support/eventually.js';
+import { sleep, waitFor } from './support/wait.js';
 import { FakeKafka } from './support/fake-kafka.js';
 import { startHttpApp, type HttpApp } from './support/http-app.js';
 
@@ -90,12 +90,11 @@ describe('Outbox flow (in-process module)', () => {
       status: 'trigger_requested',
       pendingCommand: 'run',
       commandSequence: 1,
-      priority: 'normal',
       replayed: false,
     });
     expect(res.body.correlationId).toMatch(/^cid_/);
 
-    const [message] = await eventually(() => {
+    const [message] = await waitFor(() => {
       expect(kafka.delivered).toHaveLength(1);
       return kafka.delivered;
     });
@@ -113,7 +112,7 @@ describe('Outbox flow (in-process module)', () => {
       references: { project_id: PROJECT_ID, scenario_id: SCENARIO_ID, map_id: MAP_ID },
     });
 
-    await eventually(() => expect(outbox.rows[0]).toMatchObject({ status: 'published', attempts: 1 }));
+    await waitFor(() => expect(outbox.rows[0]).toMatchObject({ status: 'published', attempts: 1 }));
     // Publishing never confirms engine state: the run stays trigger_requested with Run pending.
     expect(repo.runs[0]).toMatchObject({ status: 'trigger_requested', pendingCommand: 'run' });
     expect(repo.scenarios.get(SCENARIO_ID)?.status).toBe('running');
@@ -142,7 +141,7 @@ describe('Outbox flow (in-process module)', () => {
     expect((await http.post(trigger(), triggerBody())).status).toBe(202);
     const res = await http.post(trigger(), triggerBody());
     expect(res.status).toBe(409);
-    await eventually(() => expect(kafka.delivered).toHaveLength(1));
+    await waitFor(() => expect(kafka.delivered).toHaveLength(1));
     await sleep(60);
     expect(kafka.delivered).toHaveLength(1);
   });
@@ -162,7 +161,7 @@ describe('Outbox flow (in-process module)', () => {
     const bad = await http.post(trigger(OTHER_SCENARIO_ID), triggerBody(), { 'Idempotency-Key': 'has space' });
     expect(bad.status).toBe(400);
 
-    await eventually(() => expect(kafka.delivered).toHaveLength(1));
+    await waitFor(() => expect(kafka.delivered).toHaveLength(1));
   });
 
   it('MT-07 rejects data that contradicts the stored scenario files with 400', async () => {
@@ -180,14 +179,14 @@ describe('Outbox flow (in-process module)', () => {
     const res = await http.post(trigger(), triggerBody());
     expect(res.status).toBe(202);
 
-    await eventually(() => {
+    await waitFor(() => {
       expect(kafka.attempts).toBeGreaterThanOrEqual(2);
       expect(outbox.rows[0]).toMatchObject({ status: 'pending', lastError: 'PublishError: broker unavailable' });
     });
     expect(kafka.delivered).toHaveLength(0);
 
     kafka.recover();
-    await eventually(() => expect(outbox.rows[0].status).toBe('published'));
+    await waitFor(() => expect(outbox.rows[0].status).toBe('published'));
     expect(kafka.delivered).toHaveLength(1);
     expect(kafka.delivered[0].messageKey).toBe(res.body.correlationId);
     expect(outbox.rows[0].lastError).toBeNull();
@@ -197,7 +196,7 @@ describe('Outbox flow (in-process module)', () => {
     kafka.goDown(false, 'record too large');
     await http.post(trigger(), triggerBody());
 
-    await eventually(() => expect(outbox.rows[0]).toMatchObject({ status: 'dead', attempts: 1 }));
+    await waitFor(() => expect(outbox.rows[0]).toMatchObject({ status: 'dead', attempts: 1 }));
     const attempts = kafka.attempts;
     await sleep(80);
     expect(kafka.attempts).toBe(attempts);
@@ -208,14 +207,14 @@ describe('Outbox flow (in-process module)', () => {
     const emu = await http.post(trigger(), triggerBody());
     const sim = await http.post(trigger(OTHER_SCENARIO_ID), triggerBody({ engine: 'simulator' }));
 
-    await eventually(() => expect(kafka.delivered).toHaveLength(2));
+    await waitFor(() => expect(kafka.delivered).toHaveLength(2));
     expect(kafka.byTopic(TOPICS.emulator).map((m) => m.messageKey)).toEqual([emu.body.correlationId]);
     expect(kafka.byTopic(TOPICS.simulator).map((m) => m.messageKey)).toEqual([sim.body.correlationId]);
   });
 
   it('MT-11 a re-run after a terminal execution gets a new correlation and is delivered too', async () => {
     const first = await http.post(trigger(), triggerBody());
-    await eventually(() => expect(kafka.delivered).toHaveLength(1));
+    await waitFor(() => expect(kafka.delivered).toHaveLength(1));
 
     // The status worker would do this when the engine reports completion.
     repo.runs[0].status = 'completed';
@@ -225,7 +224,7 @@ describe('Outbox flow (in-process module)', () => {
     const second = await http.post(trigger(), triggerBody());
     expect(second.status).toBe(202);
     expect(second.body.correlationId).not.toBe(first.body.correlationId);
-    await eventually(() => expect(kafka.delivered).toHaveLength(2));
+    await waitFor(() => expect(kafka.delivered).toHaveLength(2));
     expect(kafka.delivered.map((m) => m.messageKey)).toEqual([first.body.correlationId, second.body.correlationId]);
   });
 
@@ -236,7 +235,7 @@ describe('Outbox flow (in-process module)', () => {
     const responses = await Promise.all(ids.map((id) => http.post(trigger(id), triggerBody())));
     expect(responses.every((r) => r.status === 202)).toBe(true);
 
-    await eventually(() => expect(kafka.delivered).toHaveLength(12));
+    await waitFor(() => expect(kafka.delivered).toHaveLength(12));
     expect(new Set(kafka.delivered.map((m) => m.correlationId)).size).toBe(12);
     expect(outbox.rows.every((r) => r.status === 'published')).toBe(true);
   });

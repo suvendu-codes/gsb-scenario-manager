@@ -8,12 +8,14 @@ export class CloneScenarioUseCase {
     @Inject(SCENARIO_REPOSITORY) private readonly scenarios: ScenarioRepository,
   ) {}
 
-  async execute(id: string, name?: string) {
+  async execute(id: string, actor: string, name?: string) {
     const scenario = await this.scenarios.findById(id);
     if (!scenario) throw new ScenarioNotFoundError(id);
     const version = await this.scenarios.findCurrentVersion(scenario);
     if (!version) throw new ScenarioConfigNotFoundError(id);
-    const created = await this.scenarios.create(scenario.clone(version.configUri, name));
+    const created = await this.scenarios.create(
+      scenario.clone(actor, version.configUri, name, version.config),
+    );
     return { scenario: created, configUri: version.configUri };
   }
 }

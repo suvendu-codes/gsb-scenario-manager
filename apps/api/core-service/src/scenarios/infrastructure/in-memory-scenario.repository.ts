@@ -13,8 +13,14 @@ import {
 } from '../domain/errors.js';
 import { NewScenario, Scenario, ScenarioProps, ScenarioVersion } from '../domain/scenario.js';
 import { ScenarioStatus } from '../domain/scenario-status.js';
+import { nextStoredConfig } from './drizzle-scenario.repository.js';
 
-type Row = ScenarioProps & { configUri: string; updatedBy: string };
+type Row = ScenarioProps & {
+  configUri?: string;
+  body?: Record<string, unknown>;
+  version?: number;
+  updatedBy: string;
+};
 
 @Injectable()
 export class InMemoryScenarioRepository implements ScenarioRepository {
@@ -32,14 +38,8 @@ export class InMemoryScenarioRepository implements ScenarioRepository {
       .map(toScenario);
   }
 
-  async list({ status, mapId, projectId, sort, limit, after }: ScenarioPageFilter) {
+  async list({ status, mapId, projectId, sort, page, limit }: ScenarioPageFilter) {
     const dir = sort.direction === 'desc' ? -1 : 1;
-    const compare = (a: Row, b: Row) => {
-      const av = sortValue(a, sort.field);
-      const bv = sortValue(b, sort.field);
-      const cmp = av < bv ? -1 : av > bv ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-      return cmp * dir;
-    };
     const sorted = this.rows
       .filter(
         (row) =>
@@ -47,19 +47,16 @@ export class InMemoryScenarioRepository implements ScenarioRepository {
           (!mapId || row.mapId === mapId) &&
           (!projectId || row.projectId === projectId),
       )
-      .sort(compare);
-    const afterRow = after
-      ? ({
-          id: after.id,
-          name: after.value,
-          createdAt: new Date(after.value),
-          updatedAt: new Date(after.value),
-        } as Row)
-      : undefined;
-    return sorted
-      .filter((row) => !afterRow || compare(row, afterRow) > 0)
-      .slice(0, limit + 1)
-      .map(toScenario);
+      .sort((a, b) => {
+        const av = sortValue(a, sort.field);
+        const bv = sortValue(b, sort.field);
+        const cmp = av < bv ? -1 : av > bv ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+        return cmp * dir;
+      });
+    return {
+      items: sorted.slice((page - 1) * limit, page * limit).map(toScenario),
+      total: sorted.length,
+    };
   }
 
   async findById(id: string) {
@@ -69,11 +66,12 @@ export class InMemoryScenarioRepository implements ScenarioRepository {
 
   async findCurrentVersion(scenario: Scenario) {
     const row = this.rows.find((item) => item.id === scenario.id);
-    if (!row?.configUri) return null;
+    if (!row?.configUri && !row?.body) return null;
     return Object.assign(new ScenarioVersion(), {
       id: row.id,
       scenarioId: row.id,
-      configUri: row.configUri,
+      configUri: row.configUri ?? '',
+      config: row.body,
       createdBy: row.updatedBy,
       createdAt: row.updatedAt,
     });
@@ -120,7 +118,13 @@ export class InMemoryScenarioRepository implements ScenarioRepository {
       throw new DuplicateScenarioNameError(row.mapId, name);
     }
     row.name = name;
-    row.configUri = changes.configUri;
+    const next = nextStoredConfig(
+      { configUri: row.configUri, body: row.body, version: row.version, updatedBy: row.updatedBy },
+      changes,
+    );
+    row.configUri = next.configUri;
+    row.body = next.body;
+    row.version = next.version;
     row.updatedBy = changes.updatedBy;
     row.updatedAt = new Date();
     return toScenario(row);

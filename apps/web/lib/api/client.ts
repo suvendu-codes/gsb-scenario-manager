@@ -17,27 +17,29 @@ export type RequestOptions = RequestInit & {
 };
 
 /**
- * Reads an error response: the API's error envelope when the body follows it, just `{ message }`
- * when only that is there, and the status text when the body is empty or not JSON.
+ * Reads an error response: an error body in any shape `parseErrorBody` knows, just `{ message }`
+ * when only that is there, and the status text when the body is empty or not JSON. The request
+ * id comes from the body or the `X-Request-Id` header.
  */
 async function readError(
   response: Response,
 ): Promise<{ message: string; details: ApiErrorDetails }> {
+  const requestId = response.headers.get("X-Request-Id") ?? undefined;
   try {
     const body: unknown = await response.json();
-    const envelope = parseErrorBody(body);
-    if (envelope) {
-      const { message, ...details } = envelope;
-      return { message, details };
+    const parsed = parseErrorBody(body);
+    if (parsed) {
+      const { message, requestId: bodyRequestId, ...details } = parsed;
+      return { message, details: { ...details, requestId: bodyRequestId ?? requestId } };
     }
     const messageOnly = z.object({ message: z.string() }).safeParse(body);
-    if (messageOnly.success) return { message: messageOnly.data.message, details: {} };
+    if (messageOnly.success) return { message: messageOnly.data.message, details: { requestId } };
   } catch {
     // Body was empty or not JSON; use the status text below.
   }
   return {
     message: response.statusText || `Request failed with status ${response.status}`,
-    details: {},
+    details: { requestId },
   };
 }
 

@@ -184,6 +184,24 @@ export function listProjectMaps(projectId: string): ProjectMap[] {
   return projectMaps.filter((map) => map.projectId === projectId);
 }
 
+/**
+ * Checks that a map exists in a project, for the map lookups.
+ *
+ * @throws {MockApiError} 404 `project_not_found` or `map_not_found`.
+ */
+export function assertProjectMap(projectId: string, mapId: string): void {
+  if (!projects.some((project) => project.id === projectId)) {
+    throw new MockApiError(404, `Project ${projectId} does not exist.`, {
+      code: "project_not_found",
+    });
+  }
+  if (!projectMaps.some((map) => map.id === mapId && map.projectId === projectId)) {
+    throw new MockApiError(404, `Map ${mapId} does not exist in project ${projectId}.`, {
+      code: "map_not_found",
+    });
+  }
+}
+
 /** Throws 404 if the map does not exist in the project. */
 function assertMapInProject(input: CreateScenarioInput): void {
   const map = projectMaps.find((m) => m.id === input.mapId && m.projectId === input.projectId);
@@ -255,8 +273,15 @@ export function getScenarioDetail(id: string): ScenarioDetail {
   return { ...scenario, datasets: datasetsByScenario[id] ?? emptyDatasets() };
 }
 
+/** Marks a scenario as running (`active`), as triggering its run does. */
+export function markScenarioActive(id: string): Scenario {
+  const scenario = requireScenario(id);
+  Object.assign(scenario, { status: "active", updatedAt: new Date().toISOString() });
+  return scenario;
+}
+
 /**
- * Edits a draft scenario's project, map and name, with the same rules as creating one.
+ * Updates a draft scenario's name, project and map.
  *
  * @param id - The scenario id.
  * @param input - Validated project, map and name.

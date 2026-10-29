@@ -7,7 +7,6 @@ import type {
   catalogSectionSchema,
   configCatalogSchema,
   schedulerPresetSchema,
-  stationInfoSchema,
 } from "./catalog/schema";
 import {
   agentConfigSchema,
@@ -31,11 +30,15 @@ export type ConfigValues = z.infer<typeof configValuesSchema>;
 export type WmsConfig = z.infer<typeof wmsConfigSchema>;
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 
-/** The full settings of one station: schedule, structure, hardware and operations. */
+/** The full settings of one station: schedule, structure, setup and operations. */
 export type StationConfig = z.infer<typeof stationConfigSchema>;
 
 /** One period of a station's schedule. */
 export type ScheduleBlock = z.infer<typeof scheduleBlockSchema>;
+/** A regular or tea break of a schedule block. */
+export type ScheduleBreak = ScheduleBlock["breaks"][number];
+/** A mode a station works in. */
+export type StationMode = ScheduleBlock["mode"];
 
 /** Changes by dot-notation path, e.g. `{ "wms.volumeMultiplier": 2.25 }`. */
 export type Overrides = Record<string, unknown>;
@@ -57,5 +60,4 @@ export type CatalogModule = z.infer<typeof catalogModuleSchema>;
 export type CatalogSection = z.infer<typeof catalogSectionSchema>;
 export type CatalogField = z.infer<typeof catalogFieldSchema>;
 export type SchedulerPreset = z.infer<typeof schedulerPresetSchema>;
-export type StationInfo = z.infer<typeof stationInfoSchema>;
 export type BotType = z.infer<typeof botTypeSchema>;

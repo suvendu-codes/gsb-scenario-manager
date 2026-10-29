@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDefaults } from "./defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { deepEqual, getAtPath, hasPath, isLeafPath, resolveConfig, splitPath } from "./paths";
 
 describe("splitPath", () => {
@@ -91,7 +91,7 @@ describe("resolveConfig", () => {
   });
 
   it("does not share objects with the overrides", () => {
-    const blocks = [{ hours: 8, mode: "pick", teaBreaks: [] }];
+    const blocks = [{ hours: 8, mode: "pick", breaks: [] }];
     const resolved = resolveConfig(buildDefaults(), {
       "station.stations.PPS-101.schedule": blocks,
     });

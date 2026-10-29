@@ -28,8 +28,6 @@ const fieldBase = {
   label: z.string(),
   hint: z.string().optional(),
   visibleWhen: conditionSchema.optional(),
-  /** Per-station field that only makes sense for stations whose type has this hardware. */
-  stationFeature: z.enum(["gravityInduction", "easyLoop"]).optional(),
 };
 
 /** One control of the config panel. */
@@ -51,7 +49,13 @@ export const catalogFieldSchema = z.discriminatedUnion("type", [
     variant: z.enum(["select", "cards", "segmented"]),
     options: z.array(optionSchema).min(2),
   }),
-  z.object({ ...fieldBase, type: z.literal("multiCheck"), options: z.array(optionSchema).min(2) }),
+  z.object({
+    ...fieldBase,
+    type: z.literal("multiCheck"),
+    options: z.array(optionSchema).min(2),
+    /** How many options must stay checked; the last ones can't be unchecked. */
+    minSelected: z.number().int().min(0).optional(),
+  }),
   /** A whole-hour clock select, 00:00 to 23:00. */
   z.object({ ...fieldBase, type: z.literal("hour"), min: z.number(), max: z.number() }),
   /** Start and end hour of the data window; `path` points at the `{ startHour, endHour }` pair. */
@@ -104,19 +108,6 @@ export const schedulerPresetSchema = z.object({
 });
 
 /** A station as the site registry describes it. Shown for reference; not editable here. */
-export const stationInfoSchema = z.object({
-  id: z.string(),
-  type: z.string(),
-  hasGravityInduction: z.boolean(),
-  hasEasyLoop: z.boolean(),
-  category: z.string(),
-  location: z.string(),
-  pickDirection: z.number(),
-  status: z.enum(["connected", "disconnected"]),
-  eligibleSystem: z.string(),
-  registryUrl: z.string(),
-});
-
 export const botTypeSchema = z.object({
   id: z.enum(["htm", "vtm"]),
   label: z.string(),
@@ -132,7 +123,6 @@ export const configCatalogSchema = z.object({
   version: z.number(),
   modules: z.array(catalogModuleSchema),
   presets: z.array(schedulerPresetSchema),
-  stations: z.array(stationInfoSchema),
   botTypes: z.array(botTypeSchema),
   operations: operationsCatalogSchema,
 });

@@ -9,12 +9,13 @@ export const MODULE_IDS = ["wms", "station", "agent"] as const;
 export const moduleIdSchema = z.enum(MODULE_IDS);
 
 /** Order types a scenario can generate, in the order the panel lists them. */
-export const ORDER_TYPES = ["inbound", "outbound", "replenishment", "audit"] as const;
+export const ORDER_TYPES = ["inbound", "outbound"] as const;
 
 /** What a station does during one period of its schedule. */
-export const STATION_MODES = ["pick", "put", "audit", "off"] as const;
+/** The modes a station works in. A station not working at all has an empty schedule. */
+export const STATION_MODES = ["pick", "put", "audit"] as const;
 
-/** The two station sections where an All-stations edit skips stations that keep their own value. */
+/** The two station sections where a station can keep its own value within its type. */
 export const STATION_SECTIONS = ["schedule", "structure"] as const;
 
 export const TEA_PATTERNS = ["staggered", "random"] as const;
@@ -214,7 +215,7 @@ export const auditConfigSchema = z
 export const wmsConfigSchema = z
   .object({
     /** Scales the outbound profile; above 1 the extra volume is synthetic. */
-    volumeMultiplier: z.number().min(0.25).max(5).multipleOf(0.25),
+    volumeMultiplier: z.number().min(0.5).max(2.5).multipleOf(0.25),
     outboundDistribution: z.enum(["as_in_dataset", "flatline", "pareto", "staggered"]),
     /** Only this part of the day (hours 0-24) feeds the run. */
     dataWindow: z
@@ -224,6 +225,8 @@ export const wmsConfigSchema = z
       })
       .strict(),
     orderTypes: z.array(z.enum(ORDER_TYPES)),
+    /** The order in which released orders are picked. */
+    orderSequencing: z.enum(["fifo", "priority_weighted", "shortest_path"]),
     /** Share of incoming orders flagged critical, in percent. */
     criticalPct: z.number().min(0).max(100).multipleOf(5),
     release: z
@@ -242,11 +245,14 @@ export const wmsConfigSchema = z
 /** Settings that apply to the whole site, not to one station (the "Warehouse manager" settings). */
 export const stationGlobalSchema = z
   .object({
-    errorInjection: z.boolean(),
-    orderHandling: z
+    /** Share of time stations are in error (navigation errors, inlet and outlet blockages), in percent. */
+    timeInErrorPct: z.number().int().min(0).max(50),
+    /** Stock level, in percent of a slot, at which it is replenished, per slot class. */
+    replenishment: z
       .object({
-        crossStationRebalance: z.boolean(),
-        orderSequencing: z.enum(["fifo", "priority_weighted", "shortest_path"]),
+        a: z.number().int().min(0).max(100).multipleOf(5),
+        b: z.number().int().min(0).max(100).multipleOf(5),
+        c: z.number().int().min(0).max(100).multipleOf(5),
       })
       .strict(),
     pickScheduler: z
@@ -260,31 +266,64 @@ export const stationGlobalSchema = z
           .strict(),
       })
       .strict(),
-    limits: z
-      .object({
-        queueLimitPerStation: z.number().int().min(1).max(50),
-        replenishmentThresholdPct: z.number().int().min(0).max(90).multipleOf(5),
-      })
-      .strict(),
   })
   .strict();
 
+/** Seconds an operator's working time can drift past the standard time: 0-9995, in 5 s steps. */
+const varianceSeconds = z.number().int().min(0).max(9995).multipleOf(5);
+
+/** A station's setup beyond its structure: operator time variance, queue and rebalancing. */
+export const stationSetupSchema = z
+  .object({
+    /** Operator working-time variance per mode, in seconds. */
+    variance: z
+      .object({ pick: varianceSeconds, put: varianceSeconds, audit: varianceSeconds })
+      .strict(),
+    /** Most carriers that can wait at the station. */
+    queueLimit: z.number().int().min(1).max(50),
+    /** Whether work is shared with other stations when this one backs up. */
+    rebalancing: z.boolean(),
+  })
+  .strict();
+
+/** A regular break: every `everyHours` within its block, for `durationHours`. */
+const regularBreakSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.literal("break"),
+    everyHours: z.number().min(0.5).multipleOf(0.5),
+    durationHours: z.number().min(0.25).max(2).multipleOf(0.25),
+  })
+  .strict();
+
+/** A tea break: `count` times within its block, placed by `pattern`. */
 const teaBreakSchema = z
   .object({
     id: z.string().min(1),
+    type: z.literal("tea"),
     pattern: z.enum(TEA_PATTERNS),
-    durationMinutes: z.number().int().min(5).max(120).multipleOf(5),
-    /** How many times the break happens within the period. */
+    durationMinutes: z.number().int().min(5).max(60).multipleOf(5),
     count: z.number().int().min(1).max(6),
   })
   .strict();
 
-/** One period of a station's schedule. The periods of a station add up to the run duration. */
+/** Most breaks one block can have. */
+export const MAX_BREAKS_PER_BLOCK = 4;
+
+/** Most blocks a station's schedule can have: one per mode. */
+export const MAX_SCHEDULE_BLOCKS = 3;
+
+/**
+ * One block of a station's schedule: a length and the mode the station works in. A station's
+ * blocks each have their own mode and add up to the run duration.
+ */
 export const scheduleBlockSchema = z
   .object({
     hours: z.number().min(0.5).multipleOf(0.5),
     mode: z.enum(STATION_MODES),
-    teaBreaks: z.array(teaBreakSchema),
+    breaks: z
+      .array(z.discriminatedUnion("type", [regularBreakSchema, teaBreakSchema]))
+      .max(MAX_BREAKS_PER_BLOCK),
   })
   .strict();
 
@@ -301,33 +340,12 @@ const stationStructureSchema = z
   })
   .strict();
 
-/** Hardware settings; a station only uses the ones its type has (gravity induction or EasyLoop). */
-const stationHardwareSchema = z
-  .object({
-    inductionSpeed: z.number().int().min(4).max(30),
-    singulationGap: z.number().int().min(10).max(60).multipleOf(5),
-    jamAutoRecovery: z.boolean(),
-    loopSpeed: z.number().int().min(20).max(100).multipleOf(5),
-    trayCapacity: z.number().int().min(10).max(80).multipleOf(5),
-    recirculation: z.enum(["immediate", "delayed", "manual"]),
-  })
-  .strict();
-
-const stationIdListSchema = z.array(z.string());
-
-/**
- * Per section (`schedule` and `structure`), a list of station ids. What an empty list means
- * depends on which list it is, so the two are documented where they are used.
- */
-const sectionListsSchema = z
-  .object({ schedule: stationIdListSchema, structure: stationIdListSchema })
-  .strict();
-
 export const stationConfigSchema = z
   .object({
-    schedule: z.array(scheduleBlockSchema).min(1),
+    /** Empty when the station is not assigned any mode. */
+    schedule: z.array(scheduleBlockSchema).max(MAX_SCHEDULE_BLOCKS),
     structure: stationStructureSchema,
-    hardware: stationHardwareSchema,
+    setup: stationSetupSchema,
     operations: z
       .object({ pick: pickConfigSchema, put: putConfigSchema, audit: auditConfigSchema })
       .strict(),
@@ -337,22 +355,13 @@ export const stationConfigSchema = z
 export const stationModuleSchema = z
   .object({
     global: stationGlobalSchema,
-    /**
-     * Editor metadata, kept with the config as the design does: per section, the stations an
-     * All-stations edit reaches. **An empty list means every station.**
-     */
-    apply: sectionListsSchema,
-    /**
-     * Editor metadata, kept with the config as the design does: per section, the stations that
-     * keep their own value, so All-stations edits skip them. **An empty list means no station.**
-     *
-     * The run engine only needs the per-station values in `stations`; it can ignore `apply` and
-     * `override`. Whether core-service stores them, or the editor keeps them elsewhere, is still
-     * to be agreed (review S4).
-     */
-    override: sectionListsSchema,
     stations: z.record(z.string(), stationConfigSchema),
   })
+  .strict();
+
+/** A percentage (0-50, whole) per bot type. */
+const perBotType = z
+  .object({ htm: z.number().int().min(0).max(50), vtm: z.number().int().min(0).max(50) })
   .strict();
 
 export const agentConfigSchema = z
@@ -363,9 +372,12 @@ export const agentConfigSchema = z
         vtm: z.number().int().min(0).max(200),
       })
       .strict(),
-    /** Share of time bots are unavailable, in percent. */
+    /** Share of time bots are in error, in percent. */
     botOutagePct: z.number().int().min(0).max(50),
-    botCharging: z.boolean(),
+    /** Share of the run each bot type spends docked at chargers instead of working, in percent. */
+    charging: perBotType,
+    /** Share of the run each bot type spends turning instead of travelling, in percent. */
+    turning: perBotType,
   })
   .strict();
 
@@ -404,7 +416,8 @@ export const configIssueSchema = problemSchema.extend({
  */
 export const scenarioConfigSchema = z.object({
   scenarioId: z.string(),
-  updatedAt: z.string(),
+  /** When the config last changed. Opaque to the client and not required. */
+  updatedAt: z.string().optional(),
   /** How long the run is, in hours. Read-only here; the setup screen owns it. */
   runDurationHours: z.number(),
   defaults: configValuesSchema,

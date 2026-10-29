@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Kafka, logLevel, type Consumer, type KafkaMessage } from 'kafkajs';
 import { Client, Pool } from 'pg';
 import type { DrizzleDB } from '../../../src/db/db.module.js';
@@ -14,7 +13,6 @@ export const infraEnv = {
 };
 export const hasInfra = Boolean(infraEnv.databaseUrl && infraEnv.kafkaBrokers?.length);
 
-const MIGRATIONS = fileURLToPath(new URL('../../../drizzle', import.meta.url));
 const SCHEMA_SQL = fileURLToPath(new URL('../../../db/schema.sql', import.meta.url));
 
 const withDatabase = (url: string, name: string) => {
@@ -23,8 +21,10 @@ const withDatabase = (url: string, name: string) => {
   return u.toString();
 };
 
-/** A throwaway database on the configured server; dropped by `drop()`. */
-export async function createTestDatabase(init: 'migrations' | 'schema.sql') {
+export const readSchemaSql = () => readFile(SCHEMA_SQL, 'utf8');
+
+/** A throwaway database on the configured server, initialised by db/schema.sql; dropped by `drop()`. */
+export async function createTestDatabase(init: 'schema.sql' | 'empty' = 'schema.sql') {
   const name = `sm_outbox_mt_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
   const admin = new Client({ connectionString: infraEnv.databaseUrl });
   await admin.connect();
@@ -34,11 +34,7 @@ export async function createTestDatabase(init: 'migrations' | 'schema.sql') {
   const url = withDatabase(infraEnv.databaseUrl!, name);
   const pool = new Pool({ connectionString: url, max: 10 });
   const db: DrizzleDB = drizzle(pool, { schema });
-  if (init === 'migrations') {
-    await migrate(db, { migrationsFolder: MIGRATIONS });
-  } else {
-    await pool.query(await readFile(SCHEMA_SQL, 'utf8'));
-  }
+  if (init === 'schema.sql') await pool.query(await readSchemaSql());
 
   return {
     name,

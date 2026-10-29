@@ -1,9 +1,9 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 
-// Unit tests: no network, no database.
+// Unit tests. Outbox module suites (*.module.spec.ts) run via vitest.module.config.ts.
 export default defineConfig({
   test: {
-    include: ['src/**/*.spec.ts'],
     environment: 'node',
+    exclude: [...configDefaults.exclude, 'test/module/**/*.module.spec.ts'],
   },
 });

@@ -1,101 +1,15 @@
 import { operationsCatalog } from "../schema";
-import type { ConfigCatalog, StationInfo } from "../types";
+import type { ConfigCatalog } from "../types";
 
 /**
  * The config catalog served by the mock `GET /api/config/catalog`: the field definitions the
- * config panel is built from, the scheduler presets, the stations and the bot types.
+ * config panel is built from, the scheduler presets and the bot types. Stations are not here:
+ * they depend on the map and come from its PPS lookup.
  *
  * Ranges, labels and help text follow the design's config panel. Pick, put and audit fields
  * are generated from the design into `operations.json`. The consistency test in
  * `catalog.test.ts` checks these ranges against the schema that validates the values.
  */
-
-/**
- * Stations of the mock site, as the registry describes them.
- *
- * MOCK: this is one fixed list for every map, and it ships inside the catalog. The real list
- * depends on the map and comes from the station registry, so the stations should move out of
- * the catalog, and the functions that read `STATION_IDS` (defaults, validation, the config
- * store, the station edit logic) should take the list as a parameter. Deferred until the
- * registry's fields are agreed (review M1).
- */
-const STATIONS: StationInfo[] = [
-  {
-    id: "PPS-101",
-    type: "Standard PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: false,
-    category: "Fixed",
-    location: "A-01.2",
-    pickDirection: 0,
-    status: "connected",
-    eligibleSystem: "rtp",
-    registryUrl: "/v1/pps/pps-101",
-  },
-  {
-    id: "PPS-102",
-    type: "Easyloop PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: true,
-    category: "Fixed",
-    location: "A-04.1",
-    pickDirection: 1,
-    status: "connected",
-    eligibleSystem: "rtp",
-    registryUrl: "/v1/pps/pps-102",
-  },
-  {
-    id: "PPS-103",
-    type: "Roll Cage PPS",
-    hasGravityInduction: true,
-    hasEasyLoop: false,
-    category: "Dynamic",
-    location: "B-03.7",
-    pickDirection: 0,
-    status: "disconnected",
-    eligibleSystem: "rtp",
-    registryUrl: "/v1/pps/pps-103",
-  },
-  {
-    id: "PPS-104",
-    type: "Standard PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: false,
-    category: "Fixed",
-    location: "B-01.4",
-    pickDirection: 0,
-    status: "connected",
-    eligibleSystem: "relay",
-    registryUrl: "/v1/pps/pps-104",
-  },
-  {
-    id: "PPS-105",
-    type: "Easyloop PPS",
-    hasGravityInduction: false,
-    hasEasyLoop: true,
-    category: "Dynamic",
-    location: "C-02.3",
-    pickDirection: 1,
-    status: "connected",
-    eligibleSystem: "relay",
-    registryUrl: "/v1/pps/pps-105",
-  },
-  {
-    id: "PPS-106",
-    type: "Roll Cage PPS",
-    hasGravityInduction: true,
-    hasEasyLoop: false,
-    category: "Fixed",
-    location: "C-05.9",
-    pickDirection: 0,
-    status: "connected",
-    eligibleSystem: "p2p",
-    registryUrl: "/v1/pps/pps-106",
-  },
-];
-
-/** Ids of the stations of the mock site, in display order. */
-export const STATION_IDS: readonly string[] = STATIONS.map((station) => station.id);
 
 const STATION = "station.stations.{stationId}";
 
@@ -105,11 +19,11 @@ export const configCatalog: ConfigCatalog = {
     {
       id: "wms",
       label: "WMS (Order)",
-      description: "Order types, the outbound distribution, and how orders are released.",
+      description: "How much demand the run replays, and how orders are sequenced and released.",
       sections: [
         {
           id: "volume",
-          label: "Volume",
+          label: "Volume & distribution",
           description:
             "Reshapes the outbound dataset for this scenario. The file itself is not changed.",
           scope: "module",
@@ -118,161 +32,31 @@ export const configCatalog: ConfigCatalog = {
               type: "stepper",
               path: "wms.volumeMultiplier",
               label: "Volume multiplier",
-              hint: "Volume above 1× is synthetic, not real order lines.",
-              min: 0.25,
-              max: 5,
+              hint: "Scales the profile. Extra volume is synthetic.",
+              min: 0.5,
+              max: 2.5,
               step: 0.25,
               unit: "x",
-            },
-            {
-              type: "choice",
-              variant: "select",
-              path: "wms.outboundDistribution",
-              label: "Distribution over the day",
-              options: [
-                {
-                  value: "as_in_dataset",
-                  label: "As in dataset",
-                  note: "The dataset’s own hourly curve",
-                },
-                { value: "flatline", label: "Flatline", note: "The same volume every hour" },
-                {
-                  value: "pareto",
-                  label: "Pareto",
-                  note: "Front-loaded, decaying through the day",
-                },
-                {
-                  value: "staggered",
-                  label: "Staggered",
-                  note: "The dataset’s curve shifted 6 hours later",
-                },
-              ],
             },
             {
               type: "dataWindow",
               path: "wms.dataWindow",
               label: "Data window",
-              hint: "Only this part of the day feeds the run; the rest is left out.",
+              hint: "Hours of the day whose data feeds the run.",
             },
           ],
         },
         {
           id: "demand",
-          label: "Demand",
-          scope: "module",
-          fields: [
-            {
-              type: "multiCheck",
-              path: "wms.orderTypes",
-              label: "Order types",
-              options: [
-                { value: "inbound", label: "Inbound" },
-                { value: "outbound", label: "Outbound" },
-                { value: "replenishment", label: "Replenishment" },
-                { value: "audit", label: "Audit" },
-              ],
-            },
-            {
-              type: "stepper",
-              path: "wms.criticalPct",
-              label: "Critical priority orders",
-              hint: "Share of incoming orders flagged critical.",
-              min: 0,
-              max: 100,
-              step: 5,
-              unit: "%",
-            },
-          ],
-        },
-        {
-          id: "release",
-          label: "Release",
+          label: "Demand profile",
           scope: "module",
           fields: [
             {
               type: "choice",
-              variant: "cards",
-              path: "wms.release.pattern",
-              label: "Release pattern",
-              options: [
-                {
-                  value: "waves",
-                  label: "Waves",
-                  note: "Orders are released in batches at fixed times.",
-                },
-                {
-                  value: "streaming",
-                  label: "Streaming",
-                  note: "Orders are released continuously as they arrive.",
-                },
-              ],
-            },
-            {
-              type: "stepper",
-              path: "wms.release.waves",
-              label: "Number of waves",
-              hint: "Released at even intervals across the run.",
-              min: 1,
-              max: 24,
-              visibleWhen: { path: "wms.release.pattern", equals: "waves" },
-            },
-            {
-              type: "stepper",
-              path: "wms.pbtWindowHours",
-              label: "PBT window",
-              hint: "How far ahead of an order’s pick-before time it can be released.",
-              min: 0.5,
-              max: 24,
-              step: 0.5,
-              unit: "h",
-            },
-            {
-              type: "hour",
-              path: "wms.cutoffHour",
-              label: "Order cutoff",
-              hint: "Orders still open after this time are late.",
-              min: 0,
-              max: 23,
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: "station",
-      label: "Station Config",
-      description:
-        "When stations work, in which mode, and how they are built. All stations edits every station that still shares a setting.",
-      sections: [
-        {
-          id: "errors",
-          label: "Errors",
-          scope: "allStations",
-          fields: [
-            {
-              type: "toggle",
-              path: "station.global.errorInjection",
-              label: "Error injection",
-              hint: "Simulates real-world errors, such as station blockages, during the run.",
-            },
-          ],
-        },
-        {
-          id: "orderHandling",
-          label: "Order handling",
-          scope: "allStations",
-          fields: [
-            {
-              type: "toggle",
-              path: "station.global.orderHandling.crossStationRebalance",
-              label: "Cross-station rebalancing",
-              hint: "Bots carry a rack straight to another station that needs it, instead of returning it to storage first.",
-            },
-            {
-              type: "choice",
-              variant: "cards",
-              path: "station.global.orderHandling.orderSequencing",
+              variant: "select",
+              path: "wms.orderSequencing",
               label: "Order sequencing",
+              hint: "Order in which released orders are picked.",
               options: [
                 { value: "fifo", label: "FIFO", note: "First in, first out." },
                 {
@@ -287,8 +71,83 @@ export const configCatalog: ConfigCatalog = {
                 },
               ],
             },
+            {
+              type: "choice",
+              variant: "select",
+              path: "wms.release.pattern",
+              label: "Batching / wave rule",
+              hint: "Release orders continuously or in waves.",
+              options: [
+                {
+                  value: "streaming",
+                  label: "Streaming",
+                  note: "Orders are released continuously as they arrive.",
+                },
+                {
+                  value: "waves",
+                  label: "Wave",
+                  note: "Orders are released in batches at fixed times.",
+                },
+              ],
+            },
+            {
+              type: "stepper",
+              path: "wms.release.waves",
+              label: "No. of waves",
+              hint: "Number of release waves across the run.",
+              min: 1,
+              max: 24,
+              visibleWhen: { path: "wms.release.pattern", equals: "waves" },
+            },
+            {
+              type: "multiCheck",
+              path: "wms.orderTypes",
+              label: "Order types",
+              hint: "Which order flows the run replays.",
+              minSelected: 1,
+              options: [
+                { value: "inbound", label: "Inbound" },
+                { value: "outbound", label: "Outbound" },
+              ],
+            },
+            {
+              type: "stepper",
+              path: "wms.criticalPct",
+              label: "Critical priority orders",
+              hint: "Share of incoming orders flagged critical priority.",
+              min: 0,
+              max: 100,
+              step: 5,
+              unit: "%",
+            },
+            {
+              type: "stepper",
+              path: "wms.pbtWindowHours",
+              label: "PBT window",
+              hint: "Waving window ahead of each order’s pick-before time.",
+              min: 0.5,
+              max: 24,
+              step: 0.5,
+              unit: "h",
+            },
+            {
+              type: "hour",
+              path: "wms.cutoffHour",
+              label: "Cutoff time",
+              hint: "Orders arriving after this time are not released.",
+              min: 0,
+              max: 23,
+            },
           ],
         },
+      ],
+    },
+    {
+      id: "station",
+      label: "Stations & operators",
+      description:
+        "When stations work, in which mode, and how they are built. All stations edits every station that still shares a setting.",
+      sections: [
         {
           id: "pickScheduler",
           label: "Pick scheduler",
@@ -317,26 +176,52 @@ export const configCatalog: ConfigCatalog = {
           ],
         },
         {
-          id: "queue",
-          label: "Queue and replenishment",
+          id: "replenishment",
+          label: "Replenishment threshold",
+          description: "Level at which a slot is replenished, by class. All pick stations.",
           scope: "allStations",
           fields: [
             {
               type: "stepper",
-              path: "station.global.limits.queueLimitPerStation",
-              label: "Queue limit per station",
-              hint: "Tasks that can wait at a station before new work is held back.",
-              min: 1,
-              max: 50,
+              path: "station.global.replenishment.a",
+              label: "Class A",
+              min: 0,
+              max: 100,
+              step: 5,
+              unit: "%",
             },
             {
               type: "stepper",
-              path: "station.global.limits.replenishmentThresholdPct",
-              label: "Replenishment threshold",
-              hint: "Stock level, as a share of capacity, that triggers replenishment.",
+              path: "station.global.replenishment.b",
+              label: "Class B",
               min: 0,
-              max: 90,
+              max: 100,
               step: 5,
+              unit: "%",
+            },
+            {
+              type: "stepper",
+              path: "station.global.replenishment.c",
+              label: "Class C",
+              min: 0,
+              max: 100,
+              step: 5,
+              unit: "%",
+            },
+          ],
+        },
+        {
+          id: "timeInError",
+          label: "Time in error",
+          scope: "allStations",
+          fields: [
+            {
+              type: "stepper",
+              path: "station.global.timeInErrorPct",
+              label: "Percentage of time in error",
+              hint: "Simulates navigation errors and station inlet/outlet blockages to match real-world scenarios. Applies to all stations.",
+              min: 0,
+              max: 50,
               unit: "%",
             },
           ],
@@ -345,7 +230,7 @@ export const configCatalog: ConfigCatalog = {
           id: "schedule",
           label: "Schedule",
           description:
-            "Each period runs one mode and always fills the run — lengthening one shortens the next. Tea breaks are short station pauses; staggered ones don’t stop every station at once.",
+            "Up to three blocks, one mode each, that fill the run. Regular breaks repeat through a block; tea breaks are short pauses, staggered so stations don’t all stop at once.",
           scope: "eachStation",
           overrideSection: "schedule",
           fields: [{ type: "schedule", path: `${STATION}.schedule`, label: "Schedule" }],
@@ -436,77 +321,61 @@ export const configCatalog: ConfigCatalog = {
           ],
         },
         {
-          id: "gravityInduction",
-          label: "Gravity induction",
-          scope: "singleStation",
+          id: "variance",
+          label: "Operator working time variance",
+          description: "Seconds actual operator time can drift later than the standard time.",
+          scope: "eachStation",
           fields: [
             {
               type: "stepper",
-              path: `${STATION}.hardware.inductionSpeed`,
-              label: "Induction speed",
-              hint: "How fast items are fed in.",
-              min: 4,
-              max: 30,
-              unit: "m/min",
-              stationFeature: "gravityInduction",
+              path: "station.stations.{stationId}.setup.variance.pick",
+              label: "Pick variance",
+              hint: "Seconds actual pick operator time can drift, later than the standard time.",
+              min: 0,
+              max: 9995,
+              step: 5,
+              unit: "s",
             },
             {
               type: "stepper",
-              path: `${STATION}.hardware.singulationGap`,
-              label: "Singulation gap",
-              hint: "Space kept between items as they’re separated.",
-              min: 10,
-              max: 60,
+              path: "station.stations.{stationId}.setup.variance.put",
+              label: "Put variance",
+              hint: "Seconds actual put operator time can drift, later than the standard time.",
+              min: 0,
+              max: 9995,
               step: 5,
-              unit: "mm",
-              stationFeature: "gravityInduction",
+              unit: "s",
             },
             {
-              type: "toggle",
-              path: `${STATION}.hardware.jamAutoRecovery`,
-              label: "Jam auto-recovery",
-              hint: "Jams clear without an operator stepping in.",
-              stationFeature: "gravityInduction",
+              type: "stepper",
+              path: "station.stations.{stationId}.setup.variance.audit",
+              label: "Audit variance",
+              hint: "Seconds actual audit operator time can drift, later than the standard time.",
+              min: 0,
+              max: 9995,
+              step: 5,
+              unit: "s",
             },
           ],
         },
         {
-          id: "easyLoop",
-          label: "EasyLoop",
-          scope: "singleStation",
+          id: "limits",
+          label: "Queue and rebalancing",
+          scope: "eachStation",
           fields: [
             {
               type: "stepper",
-              path: `${STATION}.hardware.loopSpeed`,
-              label: "Loop speed",
-              hint: "Share of the loop’s top speed.",
-              min: 20,
-              max: 100,
-              step: 5,
-              unit: "%",
-              stationFeature: "easyLoop",
+              path: "station.stations.{stationId}.setup.queueLimit",
+              label: "Queue limit",
+              hint: "Most carriers that can wait at a station.",
+              min: 1,
+              max: 50,
             },
             {
-              type: "stepper",
-              path: `${STATION}.hardware.trayCapacity`,
-              label: "Tray capacity",
-              hint: "How much the loop’s trays hold at once.",
-              min: 10,
-              max: 80,
-              step: 5,
-              stationFeature: "easyLoop",
-            },
-            {
-              type: "choice",
-              variant: "select",
-              path: `${STATION}.hardware.recirculation`,
-              label: "Recirculation",
-              options: [
-                { value: "immediate", label: "Immediate" },
-                { value: "delayed", label: "Delayed" },
-                { value: "manual", label: "Manual" },
-              ],
-              stationFeature: "easyLoop",
+              type: "toggle",
+              path: "station.stations.{stationId}.setup.rebalancing",
+              label: "Cross-station rebalancing",
+              hint: "Shares work between stations when one backs up.",
             },
           ],
         },
@@ -522,12 +391,13 @@ export const configCatalog: ConfigCatalog = {
     },
     {
       id: "agent",
-      label: "Agent",
-      description: "HTM and VTM counts, and how often those bots are unavailable.",
+      label: "Agents",
+      description:
+        "How many bots of each type, how often they are in error, and their charging and turning time.",
       sections: [
         {
           id: "fleet",
-          label: "Fleet and bot types",
+          label: "Fleet & bot types",
           description:
             "HTM and VTM are fixed by the site’s flow. Only how many of each is set here.",
           scope: "module",
@@ -549,24 +419,61 @@ export const configCatalog: ConfigCatalog = {
           ],
         },
         {
-          id: "availability",
-          label: "Availability",
+          id: "outage",
+          label: "Bot outage",
           scope: "module",
           fields: [
             {
               type: "stepper",
               path: "agent.botOutagePct",
-              label: "Bot outage",
-              hint: "Share of time bots are unavailable: navigation errors, blocked station inlets and outlets.",
+              label: "Percentage of time bots are in error",
+              hint: "Share of time bots are in error. Placement on the timeline is illustrative.",
+              min: 0,
+              max: 50,
+              unit: "%",
+            },
+          ],
+        },
+        {
+          id: "chargingTurning",
+          label: "Bot charging and turning",
+          scope: "module",
+          fields: [
+            {
+              type: "stepper",
+              path: "agent.charging.htm",
+              label: "HTM charging time",
+              hint: "Share of the run this bot type spends docked at chargers instead of working.",
               min: 0,
               max: 50,
               unit: "%",
             },
             {
-              type: "toggle",
-              path: "agent.botCharging",
-              label: "Bot charging",
-              hint: "Bots leave work to charge during the run.",
+              type: "stepper",
+              path: "agent.turning.htm",
+              label: "HTM turning time",
+              hint: "Share of the run this bot type spends turning instead of travelling.",
+              min: 0,
+              max: 50,
+              unit: "%",
+            },
+            {
+              type: "stepper",
+              path: "agent.charging.vtm",
+              label: "VTM charging time",
+              hint: "Share of the run this bot type spends docked at chargers instead of working.",
+              min: 0,
+              max: 50,
+              unit: "%",
+            },
+            {
+              type: "stepper",
+              path: "agent.turning.vtm",
+              label: "VTM turning time",
+              hint: "Share of the run this bot type spends turning instead of travelling.",
+              min: 0,
+              max: 50,
+              unit: "%",
             },
           ],
         },
@@ -605,7 +512,6 @@ export const configCatalog: ConfigCatalog = {
       weights: { ppf: 2, pbt: 1, pbtBreached: 1, pbtRisk: 1, largeOrders: 5, skuConsolidation: 1 },
     },
   ],
-  stations: STATIONS,
   botTypes: [
     { id: "htm", label: "Quicktron HTM", imageUrl: null },
     { id: "vtm", label: "Quicktron VTM", imageUrl: null },

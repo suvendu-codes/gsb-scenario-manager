@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@google-cloud/storage": "^8.4.0",
     "@nestjs/common": "^12.1.2",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.1.2",
@@ -32,11 +33,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "build:tools": "tsc -p tsconfig.tools.json",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:module": "vitest run --config vitest.module.config.ts",
-    "worker:outbox": "node dist/outbox/worker-main.js",
-    "db:migrate": "drizzle-kit migrate"
+    "worker:mock": "pnpm run build:tools && node dist-tools/tools/local/mock-main.js",
+    "test:outbox-module": "vitest run --config vitest.module.config.ts",
+    "worker:outbox": "node dist/outbox/worker-main.js"
   }
 }

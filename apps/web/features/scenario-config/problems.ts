@@ -43,7 +43,28 @@ export const CONFIG_PROBLEMS = {
       `${p.stationId}: the schedule adds up to ${p.actualHours}h, but the run is ${p.expectedHours}h.`,
   ),
   TEA_BREAK_TOO_LONG: template<{ stationId: string; periodHours: number; durationMinutes: number }>(
-    (p) => `${p.stationId}: a tea break is longer than its ${p.periodHours}h period.`,
+    (p) => `${p.stationId}: a tea break is longer than its ${p.periodHours}h block.`,
+  ),
+  BREAK_LONGER_THAN_INTERVAL: template<{
+    stationId: string;
+    everyHours: number;
+    durationHours: number;
+  }>(
+    (p) =>
+      `${p.stationId}: a ${p.durationHours}h break every ${p.everyHours}h leaves no time to work between breaks.`,
+  ),
+  BREAKS_EXCEED_BLOCK: template<{ stationId: string; periodHours: number; breakHours: number }>(
+    (p) => `${p.stationId}: the breaks take ${p.breakHours}h of a ${p.periodHours}h block.`,
+  ),
+  BREAK_EVERY_TOO_LONG: template<{ stationId: string; periodHours: number; everyHours: number }>(
+    (p) =>
+      `${p.stationId}: a break every ${p.everyHours}h never happens in a ${p.periodHours}h block.`,
+  ),
+  SCHEDULE_MODE_REPEATED: template<{ stationId: string; mode: string }>(
+    (p) => `${p.stationId}: ${p.mode} is scheduled in more than one block.`,
+  ),
+  MODE_NOT_ALLOWED: template<{ stationId: string; mode: string }>(
+    (p) => `${p.stationId} can't work in ${p.mode}; the site registry doesn't allow it.`,
   ),
   TEA_BREAK_TOO_MANY: template<{
     stationId: string;
@@ -64,12 +85,6 @@ export const CONFIG_PROBLEMS = {
     side: string;
     category: string;
   }>((p) => `${p.stationId}: "${p.flowId}" is not a ${p.side} put flow for ${p.category}.`),
-  UNKNOWN_STATION: template<{ list: string; section: string; stationIds: string }>(
-    (p) => `Unknown station: ${p.stationIds}.`,
-  ),
-  STATION_LISTED_TWICE: template<{ list: string; section: string }>(
-    () => "A station is listed twice.",
-  ),
 
   // Problems that would stop the run (`issues`).
   DATASET_MISSING_OR_INVALID: template<NoParams>(

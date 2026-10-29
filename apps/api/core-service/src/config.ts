@@ -59,6 +59,11 @@ const schema = z
       maxAttempts: z.coerce.number().int().min(0).default(0),
     }),
     eventSchemaVersion: z.string().min(1).default('1.1'),
+    // Only config blobs under gs://<bucket>/<prefix> may be dereferenced by the GCS config reader.
+    scenarioConfig: z.object({
+      bucket: z.string().optional(),
+      prefix: z.string().default(''),
+    }),
     databaseUrl: z.string().url().optional(),
     db: z.object({
       user: z.string().optional(),
@@ -156,8 +161,9 @@ export class ConfigBuilder<S extends z.ZodType> {
         ssl: env.KAFKA_SSL || undefined,
         sasl: {
           mechanism: env.KAFKA_SASL_MECHANISM || undefined,
-          username: env.KAFKA_SASL_USERNAME,
-          password: env.KAFKA_SASL_PASSWORD,
+          // Same credentials as the status worker (KAFKA_USERNAME / KAFKA_PASSWORD).
+          username: env.KAFKA_USERNAME,
+          password: env.KAFKA_PASSWORD,
         },
         topics: {
           emulator: env.KAFKA_TOPIC_EMULATOR_COMMANDS || undefined,
@@ -173,6 +179,10 @@ export class ConfigBuilder<S extends z.ZodType> {
         maxAttempts: env.OUTBOX_MAX_ATTEMPTS || undefined,
       },
       eventSchemaVersion: env.EVENT_SCHEMA_VERSION || undefined,
+      scenarioConfig: {
+        bucket: env.SCENARIO_CONFIG_BUCKET,
+        prefix: env.SCENARIO_CONFIG_PREFIX,
+      },
       databaseUrl: env.DATABASE_URL,
       db: {
         user: env.DB_USER,

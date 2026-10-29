@@ -3,7 +3,6 @@ import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { DRIZZLE } from '../../db/db.constants.js';
 import type { DrizzleDB } from '../../db/db.module.js';
 import { isUniqueViolation } from '../../db/pg-errors.js';
-import { terminalRunStatusValues } from '../../db/schema/enums.js';
 import { run } from '../../db/schema/run.js';
 import { scenario } from '../../db/schema/scenario.js';
 import { insertOutboxMessage } from '../../outbox/infrastructure/outbox-writer.js';
@@ -15,7 +14,7 @@ import type {
   TriggerPlan,
 } from '../application/ports/run-trigger.repository.js';
 import { ActiveRunExistsError, IdempotencyKeyReusedError } from '../domain/errors.js';
-import type { Run } from '../domain/run.js';
+import { TERMINAL_RUN_STATUSES, type Run } from '../domain/run.js';
 
 @Injectable()
 export class DrizzleRunTriggerRepository implements RunTriggerRepository {
@@ -49,7 +48,7 @@ export class DrizzleRunTriggerRepository implements RunTriggerRepository {
           .select({ id: run.id, status: run.status })
           .from(run)
           .where(
-            and(eq(run.scenarioId, scenarioId), notInArray(run.status, [...terminalRunStatusValues])),
+            and(eq(run.scenarioId, scenarioId), notInArray(run.status, [...TERMINAL_RUN_STATUSES])),
           )
           .orderBy(desc(run.createdAt))
           .limit(1);
@@ -74,7 +73,8 @@ export class DrizzleRunTriggerRepository implements RunTriggerRepository {
         await insertOutboxMessage(tx, planned.outbox);
         await tx
           .update(scenario)
-          .set({ status: planned.scenarioStatus, updatedAt: new Date() })
+          // current_run_id is what lets the status worker move this scenario with the run.
+          .set({ status: planned.scenarioStatus, currentRunId: created.id, updatedAt: new Date() })
           .where(eq(scenario.id, scenarioId));
 
         return { kind: 'created', run: toRun(created), outboxId: planned.outbox.id } as const;
@@ -97,10 +97,8 @@ const toRun = (row: typeof run.$inferSelect): Run => ({
   correlationId: row.correlationId,
   engine: row.engine,
   status: row.status,
-  priority: row.priority,
   pendingCommand: row.pendingCommand,
   commandSequence: row.commandSequence,
-  issuedBy: row.issuedBy,
   idempotencyKey: row.idempotencyKey,
   requestHash: row.requestHash,
   createdAt: row.createdAt,

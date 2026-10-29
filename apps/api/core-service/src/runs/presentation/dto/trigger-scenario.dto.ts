@@ -1,6 +1,6 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
-import { RUN_ENGINES, RUN_PRIORITIES, type Run } from '../../domain/run.js';
+import { RUN_ENGINES, type Run } from '../../domain/run.js';
 import { TriggerRequestSchema } from '../../domain/trigger-request.js';
 
 export class TriggerScenarioDto extends createZodDto(TriggerRequestSchema) {}
@@ -21,8 +21,7 @@ const TriggerRunResponseSchema = z.object({
   engine: z.enum(RUN_ENGINES),
   status: z.string().meta({ description: 'Confirmed state; trigger_requested until the engine accepts' }),
   pendingCommand: z.string().nullable(),
-  commandSequence: z.number().int(),
-  priority: z.enum(RUN_PRIORITIES),
+  commandSequence: z.number().int().nullable(),
   createdAt: z.string().meta({ format: 'date-time' }),
   replayed: z.boolean().meta({ description: 'true when returned for a repeated Idempotency-Key' }),
 });
@@ -37,7 +36,6 @@ export const toTriggerRunResponse = (run: Run, replayed: boolean): TriggerRunRes
   status: run.status,
   pendingCommand: run.pendingCommand,
   commandSequence: run.commandSequence,
-  priority: run.priority,
   createdAt: run.createdAt.toISOString(),
   replayed,
 });

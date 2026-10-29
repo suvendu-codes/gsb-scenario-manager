@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/dist-tools
+**/.next
+**/.turbo
+.git
+.pnpm-store
+**/.env
+**/.env.*
+**/coverage
+tmp
+output
+*.log
+test-results

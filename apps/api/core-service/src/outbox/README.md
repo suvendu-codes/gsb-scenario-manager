@@ -14,7 +14,7 @@ POST /api/v1/scenarios/:id/trigger
   └─ tx: lock scenario ─ check idempotency/active run ─ build run.trigger
          insert run (trigger_requested, pending_command=run, command_sequence=1)
          insert run_outbox (payload, topic, key=correlation_id)
-         scenario.status = running
+         scenario.status = running, scenario.current_run_id = run.id
   ← 202 (durably queued — NOT engine-accepted)
 
 outbox worker (separate process, N replicas)
@@ -90,21 +90,21 @@ Kafka record: topic = engine trigger topic, key = `correlation_id`, value = the 
 | engine, event_type, command_id | `emulator`/`simulator`, `run.trigger`…, `run`/`pause`/`resume`/`cancel` |
 | topic, message_key | Routing fixed at enqueue time; key = correlation_id |
 | payload, headers | Exact record value and headers |
-| status | `pending` → `published`, or `dead` (needs an operator) |
+| status | `pending` → `published`, or `dead` (needs an operator); text + CHECK, like `run.pending_command` |
 | attempts | Claims so far (incremented on claim, given back on release) |
 | available_at | Earliest next attempt (backoff) |
 | locked_by, locked_until | Worker lease; an expired lease is reclaimable |
 | last_error | Bounded one-line error from the last failure |
 | created_at, published_at | Queue age; Kafka acknowledgement time |
 
-Also added to `run`: `priority`, `pending_command`, `command_sequence`, `issued_by`,
-`idempotency_key` (unique per scenario), `request_hash`, and the partial unique index
-`run_one_active_per_scenario` (one nonterminal run per scenario). `run_status` gains
-`trigger_requested` and `resuming`; `scenario_status` is aligned to `draft, running, paused, finished`.
+Also added to `run`: `idempotency_key` (unique per scenario) and `request_hash`. The trigger writes
+the existing `pending_command = 'run'`, `command_sequence = 1` and `status = 'trigger_requested'`, and
+sets `scenario.current_run_id` so the status worker moves the scenario with this run. Priority and
+`issued_by` live only in the event payload.
 
-Apply with `pnpm --filter core-service db:migrate` (`drizzle/0001_run_outbox.sql`), or
-`db/schema.sql` for a fresh database. The migration fails if a scenario already has two nonterminal
-runs; resolve those rows first.
+Everything is in the single `db/schema.sql` baseline. Like the rest of the baseline it has no
+migration: an existing development database without `run_outbox` is refused as a partial schema,
+so recreate it.
 
 ## Worker
 
@@ -125,7 +125,8 @@ runs; resolve those rows first.
 - **Shutdown:** SIGTERM finishes the in-flight batch, then disconnects the producer.
 - **Producer:** `acks=-1`, `maxInFlightRequests=1`, `allowAutoTopicCreation=false` — create topics up front.
 
-Settings (`.env.example`): `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_SSL`, `KAFKA_SASL_*`,
+Settings (`.env.example`): `KAFKA_BROKERS`, `KAFKA_SSL`, `KAFKA_USERNAME`, `KAFKA_PASSWORD` (shared with
+the status worker), `KAFKA_CLIENT_ID`, `KAFKA_SASL_MECHANISM`,
 `KAFKA_TOPIC_EMULATOR_COMMANDS`, `KAFKA_TOPIC_SIMULATOR_COMMANDS`, `EVENT_SCHEMA_VERSION`,
 `OUTBOX_POLL_INTERVAL_MS` (500), `OUTBOX_BATCH_SIZE` (50), `OUTBOX_LEASE_MS` (60000, must exceed one
 send), `OUTBOX_BACKOFF_BASE_MS` (1000), `OUTBOX_BACKOFF_MAX_MS` (60000), `OUTBOX_MAX_ATTEMPTS` (0 = unlimited).

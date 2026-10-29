@@ -19,6 +19,7 @@
     "vitest.config.ts",
     "vitest.module.config.ts",
     "src/**/*.ts",
+    "tools/**/*.ts",
     "test/**/*.ts"
   ]
 }

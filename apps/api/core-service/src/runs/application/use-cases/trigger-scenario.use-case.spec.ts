@@ -44,13 +44,12 @@ describe('TriggerScenarioUseCase', () => {
       status: 'trigger_requested',
       pendingCommand: 'run',
       commandSequence: 1,
-      priority: 'normal',
-      issuedBy: 'puneet.a@greyorange.com',
       idempotencyKey: null,
     });
     expect(run.requestHash).toMatch(/^[0-9a-f]{64}$/);
     expect(repo.runs).toHaveLength(1);
     expect(repo.scenarios.get(SCENARIO_ID)?.status).toBe('running');
+    expect(repo.currentRunIds.get(SCENARIO_ID)).toBe(run.id);
 
     expect(outbox.rows).toHaveLength(1);
     const row = outbox.rows[0];

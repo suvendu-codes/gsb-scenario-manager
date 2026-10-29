@@ -19,6 +19,8 @@ import type { TriggerScenarioSnapshot } from '../domain/run-trigger-event.js';
 export class InMemoryRunTriggerRepository implements RunTriggerRepository {
   readonly scenarios = new Map<string, TriggerScenarioSnapshot>();
   readonly runs: Run[] = [];
+  /** scenario id → current_run_id, as the Drizzle repository sets it. */
+  readonly currentRunIds = new Map<string, string>();
   private readonly locks = new Map<string, Promise<unknown>>();
   /** Test hook: throw after the run is staged to prove nothing is persisted. */
   failOutboxInsert = false;
@@ -72,6 +74,7 @@ export class InMemoryRunTriggerRepository implements RunTriggerRepository {
     this.outbox.insert(planned.outbox); // throws on duplicate key before anything is committed
     this.runs.push(run);
     scenario.status = planned.scenarioStatus;
+    this.currentRunIds.set(scenarioId, run.id);
     return { kind: 'created', run: structuredClone(run), outboxId: planned.outbox.id };
   }
 }

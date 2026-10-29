@@ -10,6 +10,6 @@ export class CreateScenarioUseCase {
 
   async execute(input: NewScenario) {
     const scenario = await this.scenarios.create(input);
-    return { scenario, configUri: input.configUri };
+    return { scenario };
   }
 }

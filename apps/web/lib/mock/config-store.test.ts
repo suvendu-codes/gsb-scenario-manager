@@ -56,7 +56,7 @@ describe("getScenarioConfig", () => {
     expect(result.overrides).toEqual({});
     expect(result.runDurationHours).toBe(8);
     expect(result.defaults.wms.volumeMultiplier).toBe(1);
-    expect(Object.keys(result.defaults.station.stations)).toHaveLength(6);
+    expect(Object.keys(result.defaults.station.stations)).toHaveLength(49);
   });
 
   it("reports the missing datasets as an issue", () => {
@@ -112,31 +112,27 @@ describe("patchScenarioConfig: set", () => {
   });
 
   it("replaces an array whole and compares it in order", () => {
+    // Station 2 of ecom-rtp may only put.
     const schedule = [
-      { hours: 2, mode: "put", teaBreaks: [] },
-      { hours: 6, mode: "pick", teaBreaks: [] },
+      {
+        hours: 8,
+        mode: "put",
+        breaks: [{ id: "t1", type: "tea", pattern: "random", durationMinutes: 15, count: 2 }],
+      },
     ];
-    const path = "station.stations.PPS-102.schedule";
+    const path = "station.stations.2.schedule";
 
     const result = config.patchScenarioConfig(DRAFT_ID, { set: { [path]: schedule } });
 
     expect(result.overrides).toEqual({ [path]: schedule });
   });
 
-  it("puts order types in their usual order", () => {
+  it("puts order types in their usual order, so a reordered default is no change", () => {
     const result = config.patchScenarioConfig(DRAFT_ID, {
-      set: { "wms.orderTypes": ["audit", "inbound"] },
+      set: { "wms.orderTypes": ["outbound", "inbound"] },
     });
 
-    expect(result.overrides["wms.orderTypes"]).toEqual(["inbound", "audit"]);
-  });
-
-  it("stores the All-stations lists", () => {
-    const result = config.patchScenarioConfig(DRAFT_ID, {
-      set: { "station.override.schedule": ["PPS-103", "PPS-101"] },
-    });
-
-    expect(result.overrides["station.override.schedule"]).toEqual(["PPS-101", "PPS-103"]);
+    expect(result.overrides).not.toHaveProperty("wms.orderTypes");
   });
 
   it("updates the issues from the new config", () => {
@@ -152,7 +148,7 @@ describe("patchScenarioConfig: set", () => {
 
   it("changes updatedAt", () => {
     const before = config.getScenarioConfig(DRAFT_ID).updatedAt;
-    const after = config.patchScenarioConfig(DRAFT_ID, { set: { "agent.botCharging": false } });
+    const after = config.patchScenarioConfig(DRAFT_ID, { set: { "agent.charging.htm": 20 } });
 
     expect(after.updatedAt).not.toBe(before);
   });
@@ -249,34 +245,28 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("rejects a value of the wrong kind", () => {
-    expect(problemCodes(failure(DRAFT_ID, { set: { "agent.botCharging": "yes" } }))).toEqual([
-      ["INVALID_VALUE", "agent.botCharging"],
+    expect(problemCodes(failure(DRAFT_ID, { set: { "agent.charging.htm": "yes" } }))).toEqual([
+      ["INVALID_VALUE", "agent.charging.htm"],
     ]);
   });
 
   it("rejects a schedule that does not fill the run, with the numbers", () => {
-    const path = "station.stations.PPS-102.schedule";
+    const path = "station.stations.2.schedule";
     const error = failure(DRAFT_ID, {
-      set: { [path]: [{ hours: 6, mode: "pick", teaBreaks: [] }] },
+      set: { [path]: [{ hours: 6, mode: "put", breaks: [] }] },
     });
     expect(error).toMatchObject({
       status: 400,
-      message: "PPS-102: the schedule adds up to 6h, but the run is 8h.",
+      message: "2: the schedule adds up to 6h, but the run is 8h.",
     });
     expect(error.details.problems).toEqual([
       {
         code: "SCHEDULE_TOTAL_MISMATCH",
-        message: "PPS-102: the schedule adds up to 6h, but the run is 8h.",
-        params: { stationId: "PPS-102", actualHours: 6, expectedHours: 8 },
+        message: "2: the schedule adds up to 6h, but the run is 8h.",
+        params: { stationId: "2", actualHours: 6, expectedHours: 8 },
         path,
       },
     ]);
-  });
-
-  it("rejects an unknown station in an All-stations list", () => {
-    expect(
-      problemCodes(failure(DRAFT_ID, { set: { "station.apply.schedule": ["PPS-999"] } })),
-    ).toEqual([["UNKNOWN_STATION", "station.apply.schedule"]]);
   });
 
   it("lists every problem of a change, not just the first", () => {
@@ -284,7 +274,7 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.nope": 1,
         wms: {},
-        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "put", breaks: [] }],
       },
     });
     // Path problems come first and stop the check; the value problems follow once they are fixed.
@@ -298,7 +288,7 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.volumeMultiplier": 6,
         "agent.fleet.htm": -1,
-        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "put", breaks: [] }],
       },
     });
     expect(problemCodes(values)).toEqual(
@@ -310,19 +300,28 @@ describe("patchScenarioConfig: rejected changes", () => {
     expect(values.details.problems).toHaveLength(2);
   });
 
+  it("rejects a mode the station's registry entry does not allow", () => {
+    const path = "station.stations.2.schedule";
+    expect(
+      problemCodes(
+        failure(DRAFT_ID, { set: { [path]: [{ hours: 8, mode: "pick", breaks: [] }] } }),
+      ),
+    ).toEqual([["MODE_NOT_ALLOWED", path]]);
+  });
+
   it("lists every cross-field problem of a change at once", () => {
     const error = failure(DRAFT_ID, {
       set: {
         "wms.dataWindow.startHour": 12,
         "wms.dataWindow.endHour": 12,
-        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
-        "station.stations.PPS-102.schedule": [{ hours: 4, mode: "put", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "put", breaks: [] }],
+        "station.stations.2.schedule": [{ hours: 4, mode: "put", breaks: [] }],
       },
     });
     expect(problemCodes(error)).toEqual([
       ["DATA_WINDOW_EMPTY", "wms.dataWindow"],
-      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.PPS-101.schedule"],
-      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.PPS-102.schedule"],
+      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.1.schedule"],
+      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.2.schedule"],
     ]);
   });
 
@@ -335,7 +334,7 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("rejects an edit of a scenario that is not a draft, with its own code", () => {
-    expect(failure(COMPLETED_ID, { set: { "agent.botCharging": false } })).toMatchObject({
+    expect(failure(COMPLETED_ID, { set: { "agent.charging.htm": 20 } })).toMatchObject({
       status: 409,
       message: "Only draft scenarios can be edited.",
       details: { code: "SCENARIO_NOT_EDITABLE", params: { status: "completed" } },
@@ -343,6 +342,6 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("throws 404 for an unknown scenario", () => {
-    expect(failure("nope", { set: { "agent.botCharging": false } })).toMatchObject({ status: 404 });
+    expect(failure("nope", { set: { "agent.charging.htm": 20 } })).toMatchObject({ status: 404 });
   });
 });

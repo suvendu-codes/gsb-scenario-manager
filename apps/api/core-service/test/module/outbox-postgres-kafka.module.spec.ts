@@ -1,9 +1,9 @@
 /**
  * Module tests against real PostgreSQL and Kafka (docker compose up postgres kafka).
- * Each run creates its own database (via the drizzle migrations) and its own topics.
+ * Each run creates its own database (initialised by db/schema.sql) and its own topics.
  *
  *   MODULE_TEST_DATABASE_URL=postgresql://scene:scene@localhost:5432/scene \
- *   MODULE_TEST_KAFKA_BROKERS=localhost:9092 pnpm --filter core-service test:module
+ *   MODULE_TEST_KAFKA_BROKERS=localhost:9092 pnpm --filter core-service test:outbox-module
  */
 import { randomUUID } from 'node:crypto';
 import { Module } from '@nestjs/common';
@@ -26,7 +26,7 @@ import { TriggerScenarioUseCase } from '../../src/runs/application/use-cases/tri
 import { RunTriggerEventSchema } from '../../src/runs/domain/run-trigger-event.js';
 import { DrizzleRunTriggerRepository } from '../../src/runs/infrastructure/drizzle-run-trigger.repository.js';
 import { RunsController } from '../../src/runs/presentation/runs.controller.js';
-import { eventually, sleep } from './support/eventually.js';
+import { sleep, waitFor } from './support/wait.js';
 import { startHttpApp, type HttpApp } from './support/http-app.js';
 import {
   collect,
@@ -36,6 +36,7 @@ import {
   infraEnv,
   seedScenario,
   type Received,
+  readSchemaSql,
   type TestDatabase,
 } from './support/infra.js';
 
@@ -89,7 +90,7 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
   const delivered = (correlationId: string) => consumer.messages.filter((m) => m.key === correlationId);
 
   beforeAll(async () => {
-    database = await createTestDatabase('migrations');
+    database = await createTestDatabase();
     await createTopics([topics.emulator, topics.simulator]);
     consumer = await collect([topics.emulator, topics.simulator]);
   });
@@ -109,44 +110,39 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     await Promise.all(publishers.splice(0).map((p) => p.disconnect()));
   });
 
-  it('PK-01 migrations create the outbox schema', async () => {
-    const enumValues = async (type: string) =>
+  it('PK-01 db/schema.sql creates the outbox table and trigger columns', async () => {
+    const columns = async (table: string) =>
       (await rows(
-        `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = $1 ORDER BY e.enumsortorder`,
-        [type],
-      )).map((r) => r.enumlabel);
-
-    expect(await enumValues('scenario_status')).toEqual(['draft', 'running', 'paused', 'finished']);
-    expect(await enumValues('run_status')).toContain('trigger_requested');
-    expect(await enumValues('outbox_status')).toEqual(['pending', 'published', 'dead']);
-    const columns = (await rows(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'run_outbox' ORDER BY ordinal_position`,
-    )).map((r) => r.column_name);
-    expect(columns).toEqual([
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
+        [table],
+      )).map((r) => r.column_name);
+    expect(await columns('run_outbox')).toEqual([
       'id', 'scenario_id', 'run_id', 'correlation_id', 'engine', 'event_type', 'command_id', 'sequence',
       'topic', 'message_key', 'payload', 'headers', 'status', 'attempts', 'available_at', 'locked_by',
       'locked_until', 'last_error', 'created_at', 'published_at',
     ]);
+    expect(await columns('run')).toEqual(expect.arrayContaining(['idempotency_key', 'request_hash', 'pending_command', 'command_sequence']));
+    const constraints = (await rows(
+      `SELECT conname FROM pg_constraint WHERE conrelid IN ('public.run'::regclass, 'public.run_outbox'::regclass)`,
+    )).map((r) => r.conname);
+    expect(constraints).toEqual(expect.arrayContaining([
+      'run_scenario_idempotency_key', 'run_outbox_correlation_sequence_key', 'run_outbox_command_enum',
+      'run_outbox_status_enum', 'run_outbox_published_consistent', 'run_outbox_run_id_run_id_fk',
+    ]));
   });
 
-  it('PK-02 db/schema.sql (fresh init) produces the same tables as the migrations', async () => {
-    const fresh = await createTestDatabase('schema.sql');
+  it('PK-02 re-running db/schema.sql is a validated no-op; a baseline without run_outbox is refused', async () => {
+    const scenarioId = await seedScenario(database.pool);
+    await database.pool.query(await readSchemaSql());
+    expect(await rows('SELECT id FROM scenario WHERE id = $1', [scenarioId])).toHaveLength(1);
+
+    const partial = await createTestDatabase('empty');
     try {
-      const shape = async (pool: TestDatabase['pool']) =>
-        (await pool.query(
-          `SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default
-           FROM information_schema.columns
-           WHERE table_schema = 'public' AND table_name IN ('scenario', 'run', 'run_outbox')
-           ORDER BY table_name, column_name`,
-        )).rows;
-      const indexes = async (pool: TestDatabase['pool']) =>
-        (await pool.query(
-          `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename IN ('scenario','run','run_outbox') ORDER BY indexname`,
-        )).rows.map((r) => r.indexname);
-      expect(await shape(fresh.pool)).toEqual(await shape(database.pool));
-      expect(await indexes(fresh.pool)).toEqual(await indexes(database.pool));
+      await partial.pool.query(await readSchemaSql());
+      await partial.pool.query('DROP TABLE run_outbox');
+      await expect(partial.pool.query(await readSchemaSql())).rejects.toThrow(/Partial Scenario Manager schema/);
     } finally {
-      await fresh.drop();
+      await partial.drop();
     }
   });
 
@@ -166,10 +162,10 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
       command_sequence: 1,
       engine: 'emulator',
     });
-    const [scenario] = await rows('SELECT status FROM scenario WHERE id = $1', [scenarioId]);
-    expect(scenario.status).toBe('running');
+    const [scenario] = await rows('SELECT status, current_run_id FROM scenario WHERE id = $1', [scenarioId]);
+    expect(scenario).toMatchObject({ status: 'running', current_run_id: runId });
 
-    const [message] = await eventually(() => {
+    const [message] = await waitFor(() => {
       const found = delivered(correlationId);
       expect(found).toHaveLength(1);
       return found;
@@ -179,7 +175,7 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     expect(event.references.scenario_id).toBe(scenarioId);
     expect(event.correlation_id).toBe(correlationId);
 
-    const [row] = await eventually(async () => {
+    const [row] = await waitFor(async () => {
       const r = await outboxRows();
       expect(r[0].status).toBe('published');
       return r;
@@ -379,11 +375,11 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     await createTopics([lateTopic]);
     const late = await collect([lateTopic]);
     try {
-      await eventually(async () => {
+      await waitFor(async () => {
         await relay.runOnce();
         expect((await outboxRows())[0].status).toBe('published');
       }, { timeoutMs: 30_000, intervalMs: 200 });
-      await eventually(() => expect(late.messages.filter((m) => m.key === 'cid_late_topic')).toHaveLength(1), {
+      await waitFor(() => expect(late.messages.filter((m) => m.key === 'cid_late_topic')).toHaveLength(1), {
         timeoutMs: 20_000,
       });
     } finally {
@@ -400,14 +396,14 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
     const store = new DrizzleOutboxStore(database.db);
     const relays = ['w1', 'w2'].map((w) => new OutboxRelay(store, newPublisher(), { ...POLICY, batchSize: 4 }, w));
     await Promise.all(publishers.map((p) => p.connect()));
-    await eventually(async () => {
+    await waitFor(async () => {
       await Promise.all(relays.map((r) => r.runOnce()));
       const pending = await rows(`SELECT 1 FROM run_outbox WHERE status <> 'published'`);
       expect(pending).toHaveLength(0);
     }, { timeoutMs: 30_000, intervalMs: 10 });
 
     const correlations = responses.map((r) => r.body.correlationId as string);
-    await eventually(() => {
+    await waitFor(() => {
       for (const c of correlations) expect(delivered(c)).toHaveLength(1);
     }, { timeoutMs: 20_000 });
   });

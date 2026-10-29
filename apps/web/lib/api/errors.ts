@@ -15,6 +15,8 @@ export type ApiErrorDetails = {
   params?: ProblemParams;
   path?: string;
   problems?: Problem[];
+  /** The server's id for the request, for tracing. */
+  requestId?: string;
 };
 
 /** Error thrown by `request` for every failure, so callers only handle one error type. */
@@ -30,6 +32,8 @@ export class ApiError extends Error {
   readonly path?: string;
   /** Every problem the server found, when it listed them; empty otherwise. */
   readonly problems: Problem[];
+  /** The server's id for the request (`request_id` or the `X-Request-Id` header), if sent. */
+  readonly requestId?: string;
 
   constructor(kind: ApiErrorKind, status: number, message: string, details: ApiErrorDetails = {}) {
     super(message);
@@ -40,6 +44,7 @@ export class ApiError extends Error {
     this.params = details.params;
     this.path = details.path;
     this.problems = details.problems ?? [];
+    this.requestId = details.requestId;
   }
 }
 
