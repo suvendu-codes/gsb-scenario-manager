@@ -6,6 +6,8 @@ export type SearchHit = {
   moduleLabel: string;
   /** Label of the section the setting is in. */
   section: string;
+  /** Id of the section the setting is in. */
+  sectionId: string;
   /** Where the section is shown: site-wide, or per station (a type's or a station's panel). */
   scope: CatalogSection["scope"];
   label: string;
@@ -23,6 +25,7 @@ function indexCatalog(catalog: ConfigCatalog): SearchHit[] {
           module: catalogModule.id,
           moduleLabel: catalogModule.label,
           section: section.label,
+          sectionId: section.id,
           scope: section.scope,
           label,
           hint,

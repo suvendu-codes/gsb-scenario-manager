@@ -17,15 +17,23 @@ import { isCustomized } from "../state/customized";
 import type { ModuleId } from "../types";
 import { overviewPanelStyles as styles } from "./OverviewPanel.styles";
 import { typeSelection } from "./station/station-view";
+import { tabOf } from "./station/station-tabs";
 import { isTypeCustomized } from "./station/StationTypeList";
 
 /**
- * Where a search hit opens: its module, and for a per-station setting the first station type
- * (site-wide settings open on all stations, where they are shown).
+ * Where a search hit opens: its module, and for a per-station setting the first station type on
+ * the tab that shows it (site-wide settings open on all stations, where they are shown).
  */
-function hitSelection(hit: SearchHit, types: StationType[]): PanelSelection {
+function hitSelection(
+  hit: SearchHit,
+  types: StationType[],
+  catalog: ReadyConfigEditor["catalog"],
+): PanelSelection {
   if (hit.module === "station" && hit.scope !== "allStations" && types[0]) {
-    return typeSelection(types[0].id);
+    const section = catalog.modules
+      .find((module) => module.id === "station")
+      ?.sections.find((candidate) => candidate.id === hit.sectionId);
+    return typeSelection(types[0].id, section ? tabOf(section) : undefined);
   }
   return selectionFor(hit.module);
 }
@@ -98,7 +106,7 @@ export function OverviewPanel({
                   className={styles.result}
                   onClick={() => {
                     setQuery("");
-                    onSelect(hitSelection(hit, types));
+                    onSelect(hitSelection(hit, types, editor.catalog));
                   }}
                 >
                   <span className={styles.resultLabel}>{hit.label}</span>

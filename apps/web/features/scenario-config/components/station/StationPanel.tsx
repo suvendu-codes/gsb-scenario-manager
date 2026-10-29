@@ -54,7 +54,14 @@ export function StationPanel({
   sectionRenderers,
 }: StationPanelProps): React.JSX.Element {
   const view = buildStationView(editor, selection, onSelect);
-  const [tab, setTab] = useState<StationTabId>("modes");
+  // The tab follows a selection that names one (a search hit), and is the user's choice otherwise.
+  const askedTab = "stationType" in selection ? selection.tab : undefined;
+  const [tab, setTab] = useState<StationTabId>(askedTab ?? "modes");
+  const [lastSelection, setLastSelection] = useState(selection);
+  if (selection !== lastSelection) {
+    setLastSelection(selection);
+    if (askedTab) setTab(askedTab);
+  }
   const panelId = useId();
   const types = stationTypes(editor.stations);
   const info = editor.stations.find((station) => station.id === view.station);

@@ -2,6 +2,7 @@ import { ALL_STATIONS, type PanelSelection, type ReadyConfigEditor } from "../..
 import { stationTypes, typeOfStation, type StationType } from "../../station-types";
 import { followers, sharedStructureId, stationIds } from "../../state/station-edits";
 import type { CatalogSection } from "../../types";
+import type { StationTabId } from "./station-tabs";
 
 /** What the station panel is showing and who it can talk to. */
 export type StationView = {
@@ -31,9 +32,10 @@ export type StationSectionRenderer = (
 ) => React.ReactNode;
 
 /** The panel selection for a station type. */
-export const typeSelection = (type: string): PanelSelection => ({
+export const typeSelection = (type: string, tab?: StationTabId): PanelSelection => ({
   area: "station",
   stationType: type,
+  ...(tab && { tab }),
 });
 
 /** The panel selection for one station. */
