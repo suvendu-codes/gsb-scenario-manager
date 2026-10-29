@@ -9,8 +9,16 @@
     "useDefineForClassFields": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "noEmit": true
   },
-  "include": ["drizzle.config.ts", "src/**/*.ts"]
+  "include": [
+    "drizzle.config.ts",
+    "vitest.config.ts",
+    "vitest.module.config.ts",
+    "src/**/*.ts",
+    "test/**/*.ts"
+  ]
 }

@@ -21,6 +21,44 @@ const schema = z
       host: z.string().default('localhost'),
       port: z.coerce.number().int().positive().default(6379),
     }),
+    kafka: z.object({
+      brokers: z
+        .preprocess(
+          (v) => (typeof v === 'string' ? v.split(',').map((b) => b.trim()).filter(Boolean) : v),
+          z.array(z.string().min(1)).min(1),
+        )
+        .default(['localhost:9092']),
+      clientId: z.string().min(1).default('scenario-manager'),
+      ssl: z
+        .preprocess((v) => (typeof v === 'string' ? v === 'true' : v), z.boolean())
+        .default(false),
+      sasl: z
+        .object({
+          mechanism: z.enum(['plain', 'scram-sha-256', 'scram-sha-512']).default('plain'),
+          username: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+          password: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+        })
+        .default({ mechanism: 'plain' }),
+      /** Trigger topic per engine (Event Schema §4). */
+      topics: z
+        .object({
+          emulator: z.string().min(1).default('sm.emulator.commands'),
+          simulator: z.string().min(1).default('sm.simulator.commands'),
+        })
+        .default({ emulator: 'sm.emulator.commands', simulator: 'sm.simulator.commands' }),
+    }),
+    outbox: z.object({
+      /** Idle poll interval when the previous batch was not full. */
+      pollIntervalMs: z.coerce.number().int().positive().default(500),
+      batchSize: z.coerce.number().int().positive().max(500).default(50),
+      /** How long a claimed row stays invisible to other workers. Must exceed one Kafka send. */
+      leaseMs: z.coerce.number().int().positive().default(60_000),
+      backoffBaseMs: z.coerce.number().int().positive().default(1_000),
+      backoffMaxMs: z.coerce.number().int().positive().default(60_000),
+      /** 0 = retry retriable failures forever; non-retriable failures always go to `dead`. */
+      maxAttempts: z.coerce.number().int().min(0).default(0),
+    }),
+    eventSchemaVersion: z.string().min(1).default('1.1'),
     databaseUrl: z.string().url().optional(),
     db: z.object({
       user: z.string().optional(),
@@ -112,6 +150,29 @@ export class ConfigBuilder<S extends z.ZodType> {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,
       },
+      kafka: {
+        brokers: env.KAFKA_BROKERS || undefined,
+        clientId: env.KAFKA_CLIENT_ID || undefined,
+        ssl: env.KAFKA_SSL || undefined,
+        sasl: {
+          mechanism: env.KAFKA_SASL_MECHANISM || undefined,
+          username: env.KAFKA_SASL_USERNAME,
+          password: env.KAFKA_SASL_PASSWORD,
+        },
+        topics: {
+          emulator: env.KAFKA_TOPIC_EMULATOR_COMMANDS || undefined,
+          simulator: env.KAFKA_TOPIC_SIMULATOR_COMMANDS || undefined,
+        },
+      },
+      outbox: {
+        pollIntervalMs: env.OUTBOX_POLL_INTERVAL_MS || undefined,
+        batchSize: env.OUTBOX_BATCH_SIZE || undefined,
+        leaseMs: env.OUTBOX_LEASE_MS || undefined,
+        backoffBaseMs: env.OUTBOX_BACKOFF_BASE_MS || undefined,
+        backoffMaxMs: env.OUTBOX_BACKOFF_MAX_MS || undefined,
+        maxAttempts: env.OUTBOX_MAX_ATTEMPTS || undefined,
+      },
+      eventSchemaVersion: env.EVENT_SCHEMA_VERSION || undefined,
       databaseUrl: env.DATABASE_URL,
       db: {
         user: env.DB_USER,
@@ -139,6 +200,7 @@ export class ConfigBuilder<S extends z.ZodType> {
 }
 
 // ---------- 3. Usage ----------
+export { schema as configSchema };
 export const appConfig = new ConfigBuilder(schema).fromEnv().build();
 
 export type AppConfig = typeof appConfig;

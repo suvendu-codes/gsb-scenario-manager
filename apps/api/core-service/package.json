@@ -12,6 +12,7 @@
     "@nestjs/throttler": "^6.7.1",
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.3",
+    "kafkajs": "^2.2.4",
     "nestjs-zod": "^5.5.0",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
@@ -33,6 +34,9 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:module": "vitest run --config vitest.module.config.ts",
+    "worker:outbox": "node dist/outbox/worker-main.js",
+    "db:migrate": "drizzle-kit migrate"
   }
 }
