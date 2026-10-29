@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { configCatalog } from "../../catalog";
-import { buildDefaults } from "../../defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { configValuesSchema, putConfigSchema } from "../../schema";
 import { validateConfig } from "../../validation";
 import {

@@ -1,6 +1,5 @@
 import type { Problem } from "@/lib/api/error";
 
-import { STATION_IDS } from "./catalog";
 import { configProblem } from "./problems";
 import { operationsCatalog, SCHEDULER_WEIGHTS } from "./schema";
 import type { ConfigIssue, ConfigValues, StationConfig } from "./types";
@@ -31,7 +30,7 @@ function stationProblems(id: string, station: StationConfig, runDurationHours: n
   const problems: Problem[] = [];
   const at = `station.stations.${id}`;
 
-  // The run length is fixed at 8h for now; see DEFAULT_RUN_DURATION_HOURS for how a change of
+  // The run length is fixed at 8h for now; see DEFAULT_RUN_DURATION_HOURS (lib/mock/defaults.ts) for how a change of
   // length is meant to be migrated.
   const total = station.schedule.reduce((sum, block) => sum + block.hours, 0);
   if (Math.abs(total - runDurationHours) > EPSILON) {
@@ -117,14 +116,15 @@ export function validateConfig(values: ConfigValues, runDurationHours: number): 
     );
   }
 
-  for (const id of STATION_IDS) {
+  const stationIds = Object.keys(station.stations);
+  for (const id of stationIds) {
     problems.push(...stationProblems(id, station.stations[id], runDurationHours));
   }
   for (const section of ["schedule", "structure"] as const) {
     for (const kind of ["apply", "override"] as const) {
       const list = station[kind][section];
       const path = `station.${kind}.${section}`;
-      const unknown = list.filter((id) => !STATION_IDS.includes(id));
+      const unknown = list.filter((id) => !stationIds.includes(id));
       if (unknown.length > 0) {
         problems.push(
           configProblem(

@@ -1,4 +1,3 @@
-import { STATION_IDS } from "../catalog";
 import { deepEqual, getAtPath, isPlainObject } from "../paths";
 import { ORDER_TYPES } from "../schema";
 import type { ConfigValues, Overrides, PatchConfigBody } from "../types";
@@ -32,15 +31,18 @@ export function diffToPatch(current: ConfigValues, next: ConfigValues): PatchCon
   return Object.keys(set).length > 0 ? { set } : null;
 }
 
-/** Puts list values in the order the server keeps them, so equal lists compare equal. */
-function normalise(path: string, value: unknown): unknown {
+/**
+ * Puts list values in the order the server keeps them (stations in the map's order), so equal
+ * lists compare equal.
+ */
+function normalise(path: string, value: unknown, stationIds: string[]): unknown {
   if (!Array.isArray(value)) return value;
   if (path === "wms.orderTypes") {
     const rank = (type: unknown) => ORDER_TYPES.indexOf(type as (typeof ORDER_TYPES)[number]);
     return [...value].sort((a, b) => rank(a) - rank(b));
   }
   if (path.startsWith("station.apply.") || path.startsWith("station.override.")) {
-    const rank = (id: unknown) => STATION_IDS.indexOf(String(id));
+    const rank = (id: unknown) => stationIds.indexOf(String(id));
     return [...value].sort((a, b) => rank(a) - rank(b));
   }
   return value;
@@ -71,7 +73,7 @@ export function applyPatchToOverrides(
     }
   }
   for (const [path, raw] of Object.entries(patch.set ?? {})) {
-    const value = normalise(path, raw);
+    const value = normalise(path, raw, Object.keys(defaults.station.stations));
     if (deepEqual(value, getAtPath(defaults, path))) delete next[path];
     else next[path] = value;
   }

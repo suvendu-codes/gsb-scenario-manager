@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDefaults } from "../defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { resolveConfig } from "../paths";
 import { applyPatchToOverrides, diffToPatch, inversePatch, leafEntries } from "./changes";
 

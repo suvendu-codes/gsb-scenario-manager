@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDefaults } from "../defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { applyEdit, applyRedo, applyUndo, initialEditorState } from "./editor-history";
 
 const defaults = buildDefaults();

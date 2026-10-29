@@ -19,7 +19,10 @@ import { scenarioConfigScreenStyles as styles } from "./ScenarioConfigScreen.sty
 
 /** The screen once the scenario has loaded: header, the timeline's place, and the config panel. */
 function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.Element {
-  const editor = useConfigEditor(scenario.id);
+  const editor = useConfigEditor(scenario.id, {
+    projectId: scenario.projectId,
+    mapId: scenario.mapId,
+  });
   const [selection, setSelection] = useState<PanelSelection>({ area: "overview" });
 
   const projects = useProjects();

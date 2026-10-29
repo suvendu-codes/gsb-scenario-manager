@@ -36,7 +36,7 @@ import { newTeaId, scheduleSummary, scheduleTotal } from "./schedule-text";
 function NoSharedSchedule({ view }: { view: StationView }): React.JSX.Element {
   const { editor } = view;
   const [source, setSource] = useState(view.referenceId);
-  const stations = editor.catalog.stations;
+  const stations = editor.stations;
   const targets = applyTargets(editor.config, "schedule");
   const reachesAll = targets.length === stations.length;
 

@@ -19,7 +19,7 @@ export function ApplyTo({
   view: StationView;
 }): React.JSX.Element {
   const { editor } = view;
-  const stations = editor.catalog.stations;
+  const stations = editor.stations;
   const targets = applyTargets(editor.config, section);
   const summary = targets.length === stations.length ? "All stations" : listStations(targets);
 

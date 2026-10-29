@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDefaults } from "./defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { computeIssues, maxTeaCount, validateConfig } from "./validation";
 import type { ConfigValues } from "./types";
 import type { DatasetRecord, ScenarioDatasets } from "@/features/scenario-setup/types";

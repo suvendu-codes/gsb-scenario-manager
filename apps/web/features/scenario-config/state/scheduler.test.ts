@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { configCatalog } from "../catalog";
-import { buildDefaults } from "../defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { presetFor, weightShares } from "./scheduler";
 
 const defaultWeights = buildDefaults().station.global.pickScheduler.weights;

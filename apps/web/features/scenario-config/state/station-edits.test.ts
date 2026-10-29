@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDefaults } from "../defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { configValuesSchema } from "../schema";
 import type { ConfigValues, ScheduleBlock } from "../types";
 import { validateConfig } from "../validation";

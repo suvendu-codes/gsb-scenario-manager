@@ -56,7 +56,7 @@ describe("getScenarioConfig", () => {
     expect(result.overrides).toEqual({});
     expect(result.runDurationHours).toBe(8);
     expect(result.defaults.wms.volumeMultiplier).toBe(1);
-    expect(Object.keys(result.defaults.station.stations)).toHaveLength(6);
+    expect(Object.keys(result.defaults.station.stations)).toHaveLength(49);
   });
 
   it("reports the missing datasets as an issue", () => {
@@ -116,7 +116,7 @@ describe("patchScenarioConfig: set", () => {
       { hours: 2, mode: "put", teaBreaks: [] },
       { hours: 6, mode: "pick", teaBreaks: [] },
     ];
-    const path = "station.stations.PPS-102.schedule";
+    const path = "station.stations.2.schedule";
 
     const result = config.patchScenarioConfig(DRAFT_ID, { set: { [path]: schedule } });
 
@@ -133,10 +133,10 @@ describe("patchScenarioConfig: set", () => {
 
   it("stores the All-stations lists", () => {
     const result = config.patchScenarioConfig(DRAFT_ID, {
-      set: { "station.override.schedule": ["PPS-103", "PPS-101"] },
+      set: { "station.override.schedule": ["3", "1"] },
     });
 
-    expect(result.overrides["station.override.schedule"]).toEqual(["PPS-101", "PPS-103"]);
+    expect(result.overrides["station.override.schedule"]).toEqual(["1", "3"]);
   });
 
   it("updates the issues from the new config", () => {
@@ -255,19 +255,19 @@ describe("patchScenarioConfig: rejected changes", () => {
   });
 
   it("rejects a schedule that does not fill the run, with the numbers", () => {
-    const path = "station.stations.PPS-102.schedule";
+    const path = "station.stations.2.schedule";
     const error = failure(DRAFT_ID, {
       set: { [path]: [{ hours: 6, mode: "pick", teaBreaks: [] }] },
     });
     expect(error).toMatchObject({
       status: 400,
-      message: "PPS-102: the schedule adds up to 6h, but the run is 8h.",
+      message: "2: the schedule adds up to 6h, but the run is 8h.",
     });
     expect(error.details.problems).toEqual([
       {
         code: "SCHEDULE_TOTAL_MISMATCH",
-        message: "PPS-102: the schedule adds up to 6h, but the run is 8h.",
-        params: { stationId: "PPS-102", actualHours: 6, expectedHours: 8 },
+        message: "2: the schedule adds up to 6h, but the run is 8h.",
+        params: { stationId: "2", actualHours: 6, expectedHours: 8 },
         path,
       },
     ]);
@@ -284,7 +284,7 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.nope": 1,
         wms: {},
-        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
       },
     });
     // Path problems come first and stop the check; the value problems follow once they are fixed.
@@ -298,7 +298,7 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.volumeMultiplier": 6,
         "agent.fleet.htm": -1,
-        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
       },
     });
     expect(problemCodes(values)).toEqual(
@@ -315,14 +315,14 @@ describe("patchScenarioConfig: rejected changes", () => {
       set: {
         "wms.dataWindow.startHour": 12,
         "wms.dataWindow.endHour": 12,
-        "station.stations.PPS-101.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
-        "station.stations.PPS-102.schedule": [{ hours: 4, mode: "put", teaBreaks: [] }],
+        "station.stations.1.schedule": [{ hours: 3, mode: "pick", teaBreaks: [] }],
+        "station.stations.2.schedule": [{ hours: 4, mode: "put", teaBreaks: [] }],
       },
     });
     expect(problemCodes(error)).toEqual([
       ["DATA_WINDOW_EMPTY", "wms.dataWindow"],
-      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.PPS-101.schedule"],
-      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.PPS-102.schedule"],
+      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.1.schedule"],
+      ["SCHEDULE_TOTAL_MISMATCH", "station.stations.2.schedule"],
     ]);
   });
 

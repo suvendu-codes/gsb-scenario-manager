@@ -1,4 +1,3 @@
-import { STATION_IDS } from "../catalog";
 import { deepEqual } from "../paths";
 import type { ConfigValues, ScheduleBlock, StationConfig } from "../types";
 
@@ -29,8 +28,13 @@ export const STRUCTURE_KEYS = [
 /** Back seats a station has. */
 export const BACK_SEATS = 2;
 
-function ordered(ids: readonly string[]): string[] {
-  return STATION_IDS.filter((id) => ids.includes(id));
+/** The ids of the config's stations, in the map's order. */
+export function stationIds(config: ConfigValues): string[] {
+  return Object.keys(config.station.stations);
+}
+
+function ordered(config: ConfigValues, ids: readonly string[]): string[] {
+  return stationIds(config).filter((id) => ids.includes(id));
 }
 
 function withList(
@@ -40,7 +44,7 @@ function withList(
   ids: readonly string[],
 ): ConfigValues {
   const next = structuredClone(config);
-  next.station[kind][section] = ordered(ids);
+  next.station[kind][section] = ordered(config, ids);
   return next;
 }
 
@@ -57,13 +61,13 @@ export function updateStations(
 
 /** The stations an All-stations edit of this section targets (all of them when none is picked). */
 export function applyTargets(config: ConfigValues, section: StationSection): string[] {
-  const picked = ordered(config.station.apply[section]);
-  return picked.length > 0 ? picked : [...STATION_IDS];
+  const picked = ordered(config, config.station.apply[section]);
+  return picked.length > 0 ? picked : stationIds(config);
 }
 
 /** The stations that keep their own value for this section. */
 export function overriddenStations(config: ConfigValues, section: StationSection): string[] {
-  return ordered(config.station.override[section]);
+  return ordered(config, config.station.override[section]);
 }
 
 /** The stations an All-stations edit actually changes: its targets, minus those with their own value. */
@@ -185,7 +189,7 @@ export function applyStationSchedule(
   sourceId: string,
   ids: readonly string[],
 ): ConfigValues {
-  const targets = ids.length > 0 ? ids : STATION_IDS;
+  const targets = ids.length > 0 ? ids : stationIds(config);
   const blocks = config.station.stations[sourceId].schedule;
   return clearStationOverride(withStationBlocks(config, targets, blocks), "schedule", targets);
 }
@@ -193,12 +197,9 @@ export function applyStationSchedule(
 /** Gives every station one station's schedule and targets all stations again. */
 export function copyScheduleToAll(config: ConfigValues, sourceId: string): ConfigValues {
   const blocks = config.station.stations[sourceId].schedule;
-  const next = clearStationOverride(
-    withStationBlocks(config, STATION_IDS, blocks),
-    "schedule",
-    STATION_IDS,
-  );
-  return setSharedTargets(next, "schedule", STATION_IDS);
+  const all = stationIds(config);
+  const next = clearStationOverride(withStationBlocks(config, all, blocks), "schedule", all);
+  return setSharedTargets(next, "schedule", all);
 }
 
 /**
@@ -271,10 +272,11 @@ export function setSharedTargets(
   section: StationSection,
   ids: readonly string[],
 ): ConfigValues {
-  const chosen = ordered(ids);
-  const nextIds = chosen.length === 0 || chosen.length === STATION_IDS.length ? [] : chosen;
+  const all = stationIds(config);
+  const chosen = ordered(config, ids);
+  const nextIds = chosen.length === 0 || chosen.length === all.length ? [] : chosen;
   const previous = applyTargets(config, section);
-  const resolved = nextIds.length > 0 ? nextIds : [...STATION_IDS];
+  const resolved = nextIds.length > 0 ? nextIds : all;
 
   const out = withList(config, "apply", section, nextIds);
   const added = resolved.filter((id) => !previous.includes(id));

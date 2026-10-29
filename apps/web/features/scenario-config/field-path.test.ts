@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { configCatalog } from "./catalog";
-import { buildDefaults } from "./defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import { isFieldVisible, resolveField, setValueAtPath, withStationId } from "./field-path";
 import type { CatalogField } from "./types";
 
@@ -97,16 +97,12 @@ describe("isFieldVisible", () => {
     expect(isFieldVisible(seats, front)).toBe(false);
   });
 
-  it("shows hardware fields only for stations with that hardware", () => {
+  it("does not show hardware fields, which the site registry does not describe", () => {
     const gi = field("station.stations.{stationId}.hardware.inductionSpeed") as CatalogField;
     const loop = field("station.stations.{stationId}.hardware.loopSpeed") as CatalogField;
-    const [standard, easyloop, rollCage] = configCatalog.stations;
 
-    expect(isFieldVisible(gi, config, rollCage)).toBe(true);
-    expect(isFieldVisible(gi, config, standard)).toBe(false);
     expect(isFieldVisible(gi, config)).toBe(false);
-    expect(isFieldVisible(loop, config, easyloop)).toBe(true);
-    expect(isFieldVisible(loop, config, rollCage)).toBe(false);
+    expect(isFieldVisible(loop, config)).toBe(false);
   });
 
   it("shows fields with no condition", () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildDefaults } from "../defaults";
+import { buildDefaults } from "@/lib/mock/defaults";
 import type { Overrides, PatchConfigBody, ScenarioConfig } from "../types";
 import { applyPatchToOverrides } from "./changes";
 import { createEditSession, sessionForScenario, type EditSession } from "./edit-session";
