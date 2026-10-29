@@ -40,6 +40,20 @@ describe("outboundProfile", () => {
 });
 
 describe("linesBetween", () => {
+  it("counts spans that don't start on the hour exactly (review of #46)", () => {
+    expect(linesBetween(ramp, 8.5, 9.25)).toBe(Math.round(80 * 0.5 + 90 * 0.25));
+    // Three waves over 8 hours add up to what streaming releases.
+    const waves = releaseBlocks({ ...wms, release: { pattern: "waves", waves: 3 } }, 8, 8, ramp);
+    const streaming = releaseBlocks(
+      { ...wms, release: { pattern: "streaming", waves: 3 } },
+      8,
+      8,
+      ramp,
+    );
+    const total = waves.reduce((sum, wave) => sum + (wave.lines ?? 0), 0);
+    expect(Math.abs(total - streaming[0].lines!)).toBeLessThanOrEqual(1);
+  });
+
   it("sums the lines released between two clock hours", () => {
     expect(linesBetween(flat, 8, 10)).toBe(200);
     expect(linesBetween(ramp, 23, 25)).toBe(230);

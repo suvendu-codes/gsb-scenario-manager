@@ -15,7 +15,7 @@ export type PanelSelection =
   | { area: "wms" }
   | { area: "agent" }
   | { area: "station"; station: string }
-  | { area: "station"; stationType: string };
+  | { area: "station"; stationType: string; tab?: "modes" | "setup" | "ops" };
 
 /** A config editor whose data has loaded, so nothing in it is null. */
 export type ReadyConfigEditor = ConfigEditor & {
