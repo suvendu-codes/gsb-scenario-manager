@@ -407,4 +407,41 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
       for (const c of correlations) expect(delivered(c)).toHaveLength(1);
     }, { timeoutMs: 20_000 });
   });
+
+  it('PK-14 crash after Kafka ack but before mark-sent: re-sent after lease expiry, never lost', async () => {
+    const scenarioId = await seedScenario(database.pool);
+    const app = await startApp(false); // API only; relays below play the workers
+    const res = await app.post(`/api/v1/scenarios/${scenarioId}/trigger`, triggerBody());
+    expect(res.status).toBe(202);
+    const { correlationId } = res.body;
+
+    const leaseMs = 500;
+    const store = new DrizzleOutboxStore(database.db);
+    const publisher = newPublisher();
+    await publisher.connect();
+
+    // Worker 1: claims and publishes, then dies before markPublished commits.
+    const [claimed] = await store.claimDue({ workerId: 'w-crash', limit: 1, leaseMs });
+    await publisher.publish(claimed);
+    await waitFor(() => expect(delivered(correlationId)).toHaveLength(1), { timeoutMs: 20_000 });
+    expect((await outboxRows())[0]).toMatchObject({ status: 'pending', locked_by: 'w-crash', attempts: 1 });
+
+    // Worker 2 cannot take the row while the lease holds, then re-sends it once it expires.
+    const survivor = new OutboxRelay(store, publisher, { ...POLICY, leaseMs }, 'w-next');
+    expect(await survivor.runOnce()).toMatchObject({ claimed: 0 });
+    await sleep(leaseMs + 200);
+    expect(await survivor.runOnce()).toMatchObject({ claimed: 1, published: 1 });
+
+    const copies = await waitFor(() => {
+      const found = delivered(correlationId);
+      expect(found).toHaveLength(2);
+      return found;
+    }, { timeoutMs: 20_000 });
+    // Byte-identical duplicate: same key, partition, sequence and payload, so engines can dedupe.
+    expect(copies[1].key).toBe(copies[0].key);
+    expect(copies[1].partition).toBe(copies[0].partition);
+    expect(copies[1].value).toEqual(copies[0].value);
+    expect(copies[1].headers.event_id).toBe(copies[0].headers.event_id);
+    expect((await outboxRows())[0]).toMatchObject({ status: 'published', attempts: 2 });
+  });
 });

@@ -151,6 +151,34 @@ describe('OutboxRelay', () => {
     expect(publisher.sent.map((m) => m.sequence)).toEqual([1, 2]);
   });
 
+  it('crash between publish and mark-sent: the row is re-sent after the lease expires (repeat, not loss)', async () => {
+    store.insert(draft('a'));
+    // Worker 1 publishes, then "crashes" before recording the outcome.
+    const crashing = new OutboxRelay(store, publisher, policy, 'w-crash', () => 1);
+    const realMark = store.markPublished.bind(store);
+    store.markPublished = async () => {
+      throw new Error('process killed');
+    };
+    await expect(crashing.runOnce()).rejects.toThrow('process killed');
+    store.markPublished = realMark;
+
+    expect(publisher.sent).toHaveLength(1);
+    expect(store.rows[0]).toMatchObject({ status: 'pending', lockedBy: 'w-crash' });
+
+    // Before the lease expires nobody else may take the row.
+    const survivor = new OutboxRelay(store, publisher, policy, 'w-next', () => 1);
+    expect(await survivor.runOnce()).toMatchObject({ claimed: 0 });
+
+    now += policy.leaseMs + 1;
+    expect(await survivor.runOnce()).toMatchObject({ claimed: 1, published: 1 });
+
+    expect(publisher.sent).toHaveLength(2);
+    expect(publisher.sent[1].payload).toEqual(publisher.sent[0].payload);
+    expect(publisher.sent[1].messageKey).toBe(publisher.sent[0].messageKey);
+    expect(publisher.sent[1].sequence).toBe(publisher.sent[0].sequence);
+    expect(store.rows[0]).toMatchObject({ status: 'published', attempts: 2 });
+  });
+
   it('propagates store failures to the caller', async () => {
     store.claimDue = async () => {
       throw new Error('db down');

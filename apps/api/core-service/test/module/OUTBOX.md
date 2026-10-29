@@ -52,6 +52,7 @@ in-memory store/repository with the same semantics and a fake broker.
 | PK-11 | retry / dead / release | Backoff, error text, attempt accounting as designed |
 | PK-12 | Topic missing, then created | Retriable failure kept `pending`; delivered after the topic exists |
 | PK-13 | 25 triggers drained by two relays | Every record delivered exactly once to Kafka |
+| PK-14 | Worker publishes, then crashes before marking the row sent | Row stays leased; after expiry another worker re-sends an identical record (same key, partition, payload, `event_id`); row ends `published` — a repeat, never a loss |
 
 Unit tests (`pnpm --filter core-service test`) cover request validation, the event builder, the use
 case (idempotency, concurrency, rollback), retry policy, the relay, the in-memory store, the Kafka

@@ -535,8 +535,8 @@ test('SW-47: a partial existing schema is rejected without altering its data', a
       await assert.rejects(client.query(await readFile('db/schema.sql', 'utf8')), /Partial Scenario Manager schema/);
     } finally { await client.query('ROLLBACK'); client.release(); }
     assert.deepEqual((await pool.query('SELECT * FROM scenario')).rows, [{ marker: 'preserve' }]);
-    const missing = await pool.query("SELECT to_regclass('public.run') AS run, to_regclass('public.run_event_inbox') AS inbox");
-    assert.deepEqual(missing.rows[0], { run: null, inbox: null });
+    const missing = await pool.query("SELECT to_regclass('public.run') AS run, to_regclass('public.run_event_inbox') AS inbox, to_regclass('public.run_outbox') AS outbox");
+    assert.deepEqual(missing.rows[0], { run: null, inbox: null, outbox: null });
   });
 });
 test('SW-48: a failed fresh initialization rolls back newly created schema objects', async () => {
@@ -555,7 +555,7 @@ test('SW-49: concurrent initializers create one complete schema without a migrat
     const sql = await readFile('db/schema.sql', 'utf8');
     await Promise.all([pool.query(sql), pool.query(sql)]);
     const tables = await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");
-    assert.deepEqual(tables.rows.map(r => r.tablename), ['run', 'run_event_inbox', 'scenario']);
+    assert.deepEqual(tables.rows.map(r => r.tablename), ['run', 'run_event_inbox', 'run_outbox', 'scenario']);
     const defaults = await pool.query("SELECT column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='run' AND column_name='status'");
     assert.match(defaults.rows[0].column_default, /trigger_requested/);
   });
