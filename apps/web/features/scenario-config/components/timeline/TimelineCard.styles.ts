@@ -1,6 +1,6 @@
 /** Class groups for the TimelineCard component. */
 export const timelineCardStyles = {
-  root: "overflow-hidden rounded-xl border border-line bg-panel pb-2 transition-shadow",
+  root: "shrink-0 overflow-hidden rounded-xl border border-line bg-panel pb-2 transition-shadow",
   selected: "border-accent-line shadow-[0_0_0_2px_var(--color-accent-soft)]",
   head: "flex items-start justify-between gap-3 px-4 pt-3",
   titleButton:
