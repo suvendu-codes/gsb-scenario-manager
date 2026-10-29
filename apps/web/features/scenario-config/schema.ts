@@ -9,7 +9,7 @@ export const MODULE_IDS = ["wms", "station", "agent"] as const;
 export const moduleIdSchema = z.enum(MODULE_IDS);
 
 /** Order types a scenario can generate, in the order the panel lists them. */
-export const ORDER_TYPES = ["inbound", "outbound", "replenishment", "audit"] as const;
+export const ORDER_TYPES = ["inbound", "outbound"] as const;
 
 /** What a station does during one period of its schedule. */
 export const STATION_MODES = ["pick", "put", "audit", "off"] as const;
@@ -214,7 +214,7 @@ export const auditConfigSchema = z
 export const wmsConfigSchema = z
   .object({
     /** Scales the outbound profile; above 1 the extra volume is synthetic. */
-    volumeMultiplier: z.number().min(0.25).max(5).multipleOf(0.25),
+    volumeMultiplier: z.number().min(0.5).max(2.5).multipleOf(0.25),
     outboundDistribution: z.enum(["as_in_dataset", "flatline", "pareto", "staggered"]),
     /** Only this part of the day (hours 0-24) feeds the run. */
     dataWindow: z
@@ -224,6 +224,8 @@ export const wmsConfigSchema = z
       })
       .strict(),
     orderTypes: z.array(z.enum(ORDER_TYPES)),
+    /** The order in which released orders are picked. */
+    orderSequencing: z.enum(["fifo", "priority_weighted", "shortest_path"]),
     /** Share of incoming orders flagged critical, in percent. */
     criticalPct: z.number().min(0).max(100).multipleOf(5),
     release: z
@@ -246,7 +248,6 @@ export const stationGlobalSchema = z
     orderHandling: z
       .object({
         crossStationRebalance: z.boolean(),
-        orderSequencing: z.enum(["fifo", "priority_weighted", "shortest_path"]),
       })
       .strict(),
     pickScheduler: z

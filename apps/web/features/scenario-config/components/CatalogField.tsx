@@ -104,6 +104,7 @@ export function CatalogFieldControl({
             label={field.label}
             options={field.options}
             value={Array.isArray(value) ? (value as string[]) : []}
+            minSelected={field.minSelected}
             onChange={write}
           />
         </FieldShell>

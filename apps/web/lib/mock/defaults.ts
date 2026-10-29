@@ -125,6 +125,7 @@ export function buildDefaults(
       outboundDistribution: "as_in_dataset",
       dataWindow: { startHour: 0, endHour: 24 },
       orderTypes: ["inbound", "outbound"],
+      orderSequencing: "fifo",
       criticalPct: 10,
       release: { pattern: "waves", waves: 4 },
       pbtWindowHours: 2,
@@ -133,7 +134,7 @@ export function buildDefaults(
     station: {
       global: {
         errorInjection: false,
-        orderHandling: { crossStationRebalance: true, orderSequencing: "fifo" },
+        orderHandling: { crossStationRebalance: true },
         pickScheduler: {
           weights: {
             ppf: 5,
