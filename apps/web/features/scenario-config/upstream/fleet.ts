@@ -42,8 +42,9 @@ function fleetKey(type: string): string {
 /**
  * Reads the answer of the map's sizer lookup (`GET .../maps/{map}/sizer`):
  * `{ map_id, map_version?, bot_types: [{ type, name, image_url, count }] }`, or the bare list.
- * Fields it does not know are ignored; an entry without a type or with a count that is not a
- * whole number of 0 or more is skipped and listed in `skipped`.
+ * Fields it does not know are ignored; an entry without a type, with a count that is not a
+ * whole number of 0 or more, or whose fleet key another entry already has (the config holds one
+ * count per key) is skipped and listed in `skipped`.
  *
  * @param body - The parsed JSON of the response.
  * @returns The bot types, or null when the body has no bot type list at all.
@@ -67,9 +68,18 @@ export function fromSizer(body: unknown): MapFleet | null {
     if (botTypes.some((bot) => bot.type === type)) {
       return skipped.push({ index, reason: `type "${type}" repeated` });
     }
+    // The config holds one count per fleet key, so a second type with the same key is left out.
+    const key = fleetKey(type);
+    const taken = botTypes.find((bot) => bot.fleetKey === key);
+    if (taken) {
+      return skipped.push({
+        index,
+        reason: `type "${type}" has the same fleet key ("${key}") as "${taken.type}"`,
+      });
+    }
     botTypes.push({
       type,
-      fleetKey: fleetKey(type),
+      fleetKey: key,
       label: asString(entry.name) ?? type,
       imageUrl: asString(entry.image_url),
       count,

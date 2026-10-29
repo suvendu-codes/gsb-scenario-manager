@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildDefaults } from "@/lib/mock/defaults";
 import { computeIssues, maxTeaCount, validateConfig } from "./validation";
-import type { ConfigValues } from "./types";
+import type { ConfigValues, ScheduleBlock } from "./types";
 import type { DatasetRecord, ScenarioDatasets } from "@/features/scenario-setup/types";
 
 const RUN = 8;
@@ -83,6 +83,8 @@ describe("validateConfig", () => {
         message: "PPS-102: a tea break is longer than its 0.5h block.",
         params: { stationId: "PPS-102", periodHours: 0.5, durationMinutes: 45 },
       }),
+      // 45 minutes of tea in a half-hour block also leaves no time to work.
+      expect.objectContaining({ code: "BREAKS_EXCEED_BLOCK" }),
     ]);
 
     const tooMany = withConfig((c) => {
@@ -101,6 +103,7 @@ describe("validateConfig", () => {
         message: "PPS-102: too many tea breaks of 30 min in 1h.",
         params: { stationId: "PPS-102", periodHours: 1, durationMinutes: 30, count: 3 },
       }),
+      expect.objectContaining({ code: "BREAKS_EXCEED_BLOCK" }),
     ]);
   });
 
@@ -118,6 +121,35 @@ describe("validateConfig", () => {
     expect(validateConfig(config, RUN, { "PPS-102": ["put", "audit"] }).map((p) => p.code)).toEqual(
       ["MODE_NOT_ALLOWED", "BREAK_EVERY_TOO_LONG", "SCHEDULE_MODE_REPEATED", "MODE_NOT_ALLOWED"],
     );
+  });
+
+  it("rejects a regular break as long as its interval, and breaks that fill their block", () => {
+    const schedule = (breaks: ScheduleBlock["breaks"]) =>
+      withConfig((c) => {
+        c.station.stations["PPS-102"].schedule = [
+          { hours: 4, mode: "pick", breaks },
+          { hours: 4, mode: "put", breaks: [] },
+        ];
+      });
+    const codes = (config: ReturnType<typeof schedule>) =>
+      validateConfig(config, RUN).map((problem) => problem.code);
+
+    // Every half hour for two hours: no time left to work.
+    expect(
+      codes(schedule([{ id: "b", type: "break", everyHours: 0.5, durationHours: 2 }])),
+    ).toEqual(["BREAK_LONGER_THAN_INTERVAL", "BREAKS_EXCEED_BLOCK"]);
+    // Each tea break fits on its own, but together they take the whole 4h block.
+    const tea = (id: string) =>
+      ({ id, type: "tea", pattern: "staggered", durationMinutes: 60, count: 2 }) as const;
+    expect(codes(schedule([tea("a"), tea("b")]))).toEqual(["BREAKS_EXCEED_BLOCK"]);
+    // A break every 4h in a 4h block never happens.
+    expect(
+      codes(schedule([{ id: "b", type: "break", everyHours: 4, durationHours: 0.5 }])),
+    ).toEqual(["BREAK_EVERY_TOO_LONG"]);
+    // Within all limits.
+    expect(
+      codes(schedule([{ id: "b", type: "break", everyHours: 2, durationHours: 0.5 }])),
+    ).toEqual([]);
   });
 
   it("accepts a station with no blocks: it is not assigned", () => {

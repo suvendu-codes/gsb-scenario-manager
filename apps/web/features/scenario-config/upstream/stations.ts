@@ -30,6 +30,20 @@ export type MapStation = {
   registryVersion: string | null;
 };
 
+const ALL_MODES: readonly StationMode[] = ["pick", "put", "audit"];
+
+/**
+ * The modes a station may work in, for the editor and the server alike: what the registry
+ * allows, or every mode for a station the registry doesn't describe (no record, or an unknown
+ * type).
+ *
+ * @param station - The station's registry record, if the lookup has one.
+ */
+export function effectiveAllowedModes(station: MapStation | undefined): StationMode[] {
+  if (!station || station.registryType === "unknown") return [...ALL_MODES];
+  return [...station.allowedModes];
+}
+
 /** A station the lookup returned that could not be used, and why. */
 export type SkippedStation = { index: number; reason: string };
 

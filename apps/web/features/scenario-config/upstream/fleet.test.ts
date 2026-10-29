@@ -63,6 +63,21 @@ describe("fromSizer", () => {
     expect(result.skipped.map((entry) => entry.index)).toEqual([0, 1, 2, 3, 5]);
   });
 
+  it("skips a second type with the same fleet key, so each key appears once", () => {
+    const result = read([
+      { type: "quicktron_htm", count: 10 },
+      { type: "geek_htm", count: 4 },
+      { type: "quicktron_vtm", count: 2 },
+    ]);
+    expect(result.botTypes.map((bot) => [bot.type, bot.fleetKey, bot.count])).toEqual([
+      ["quicktron_htm", "htm", 10],
+      ["quicktron_vtm", "vtm", 2],
+    ]);
+    expect(result.skipped).toEqual([
+      { index: 1, reason: 'type "geek_htm" has the same fleet key ("htm") as "quicktron_htm"' },
+    ]);
+  });
+
   it("returns null when there is no bot type list", () => {
     expect(fromSizer({ map_id: "m" })).toBeNull();
     expect(fromSizer(undefined)).toBeNull();

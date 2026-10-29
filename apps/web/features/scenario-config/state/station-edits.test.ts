@@ -73,7 +73,23 @@ describe("followers and keepingOwn", () => {
     ]);
   });
 
-  it("breaks a tie in favour of the earliest station", () => {
+  it("in a two-station type, editing one station leaves the other following (review of #44)", () => {
+    const defaults = sharedConfig();
+    const pair = ["PPS-101", "PPS-102"];
+    const config = writeStationSchedule(defaults, "PPS-101", blocks([8, "audit"]));
+
+    expect(followers(config, pair, "schedule", defaults)).toEqual(["PPS-102"]);
+    expect(keepingOwn(config, pair, "schedule", defaults)).toEqual(["PPS-101"]);
+    // A type edit reaches the untouched station, and Reset gives the edited one the default back.
+    expect(
+      schedule(writeGroupSchedule(config, pair, blocks([8, "put"]), defaults), "PPS-102"),
+    ).toEqual(blocks([8, "put"]));
+    expect(
+      schedule(revertToShared(config, pair, "PPS-101", "schedule", defaults), "PPS-101"),
+    ).toEqual(pickAll());
+  });
+
+  it("breaks a tie in favour of the earliest station when neither is on its defaults", () => {
     const config = writeStationSchedule(sharedConfig(), "PPS-102", blocks([8, "audit"]));
     expect(followers(config, ["PPS-102", "PPS-101"], "schedule")).toEqual(["PPS-102"]);
   });
