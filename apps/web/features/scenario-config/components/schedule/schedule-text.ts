@@ -23,14 +23,6 @@ export function scheduleTotal(blocks: ScheduleBlock[]): string {
   return `${blocks.length} ${blocks.length === 1 ? "block" : "blocks"} · ${formatHours(hours)}`;
 }
 
-/** A schedule in a line, such as `Pick 4h · Put 4h`, or `Not assigned` when it is empty. */
-export function scheduleSummary(blocks: ScheduleBlock[]): string {
-  if (blocks.length === 0) return "Not assigned";
-  return blocks
-    .map((block) => `${MODE_LABELS[block.mode]} ${formatHours(block.hours)}`)
-    .join(" · ");
-}
-
 /** An id for a new break. */
 export function newBreakId(): string {
   const random =

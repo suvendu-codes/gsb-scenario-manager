@@ -13,8 +13,6 @@ describe("tabOf", () => {
       ["structure", "setup"],
       ["variance", "setup"],
       ["limits", "setup"],
-      ["gravityInduction", "setup"],
-      ["easyLoop", "setup"],
       ["operations", "ops"],
     ]);
   });

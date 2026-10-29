@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { configCatalog } from "./catalog";
 import { buildDefaults } from "@/lib/mock/defaults";
 import { isFieldVisible, resolveField, setValueAtPath, withStationId } from "./field-path";
-import type { CatalogField } from "./types";
 
 const config = buildDefaults();
 const field = (path: string) => {
@@ -95,14 +94,6 @@ describe("isFieldVisible", () => {
       "front",
     );
     expect(isFieldVisible(seats, front)).toBe(false);
-  });
-
-  it("does not show hardware fields, which the site registry does not describe", () => {
-    const gi = field("station.stations.{stationId}.hardware.inductionSpeed") as CatalogField;
-    const loop = field("station.stations.{stationId}.hardware.loopSpeed") as CatalogField;
-
-    expect(isFieldVisible(gi, config)).toBe(false);
-    expect(isFieldVisible(loop, config)).toBe(false);
   });
 
   it("shows fields with no condition", () => {

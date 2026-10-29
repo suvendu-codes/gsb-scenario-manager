@@ -30,7 +30,7 @@ export type ConfigValues = z.infer<typeof configValuesSchema>;
 export type WmsConfig = z.infer<typeof wmsConfigSchema>;
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 
-/** The full settings of one station: schedule, structure, hardware and operations. */
+/** The full settings of one station: schedule, structure, setup and operations. */
 export type StationConfig = z.infer<typeof stationConfigSchema>;
 
 /** One period of a station's schedule. */

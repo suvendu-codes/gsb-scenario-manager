@@ -21,7 +21,7 @@ describe("structureKeyOf", () => {
 
   it("returns null for any other path", () => {
     expect(structureKeyOf("station.stations.PPS-101.schedule")).toBeNull();
-    expect(structureKeyOf("station.stations.PPS-101.hardware.loopSpeed")).toBeNull();
+    expect(structureKeyOf("station.stations.PPS-101.setup.queueLimit")).toBeNull();
     expect(structureKeyOf("station.global.timeInErrorPct")).toBeNull();
     expect(structureKeyOf("station.stations.PPS-101.structure")).toBeNull();
     expect(structureKeyOf("station.stations.PPS-101.structure.a.b")).toBeNull();

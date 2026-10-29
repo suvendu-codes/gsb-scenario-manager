@@ -1,5 +1,4 @@
-import { MODULE_IDS } from "../schema";
-import type { ModuleId, Overrides } from "../types";
+import type { Overrides } from "../types";
 
 /**
  * True when anything at or under `path` differs from the default.
@@ -9,9 +8,4 @@ import type { ModuleId, Overrides } from "../types";
  */
 export function isCustomized(overrides: Overrides, path: string): boolean {
   return Object.keys(overrides).some((key) => key === path || key.startsWith(`${path}.`));
-}
-
-/** The modules with at least one change from the default, in panel order. */
-export function customizedModules(overrides: Overrides): ModuleId[] {
-  return MODULE_IDS.filter((id) => isCustomized(overrides, id));
 }

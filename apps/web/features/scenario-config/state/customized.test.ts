@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { customizedModules, isCustomized } from "./customized";
+import { isCustomized } from "./customized";
 
 const overrides = {
   "wms.volumeMultiplier": 2,
@@ -20,13 +20,5 @@ describe("isCustomized", () => {
     expect(isCustomized(overrides, "station.stations.PPS-10")).toBe(false);
     expect(isCustomized(overrides, "wm")).toBe(false);
     expect(isCustomized({}, "wms")).toBe(false);
-  });
-});
-
-describe("customizedModules", () => {
-  it("lists the changed modules in panel order", () => {
-    expect(customizedModules(overrides)).toEqual(["wms", "station", "agent"]);
-    expect(customizedModules({ "agent.botCharging": false })).toEqual(["agent"]);
-    expect(customizedModules({})).toEqual([]);
   });
 });
