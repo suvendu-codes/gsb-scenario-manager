@@ -112,7 +112,8 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
   });
 
   beforeEach(async () => {
-    await database.pool.query('TRUNCATE run_outbox, run, scenario');
+    // Every table that references run must be truncated with it (run_event_inbox → run).
+    await database.pool.query('TRUNCATE run_outbox, run_event_inbox, run, scenario');
   });
 
   afterEach(async () => {
@@ -170,10 +171,11 @@ describe.skipIf(!hasInfra)('Outbox with PostgreSQL + Kafka (module)', () => {
 
     const [run] = await rows('SELECT * FROM run WHERE correlation_id = $1', [correlationId]);
     const runId = run.id;
+    // command_sequence is BIGINT, which node-postgres returns as a string.
+    expect(Number(run.command_sequence)).toBe(1);
     expect(run).toMatchObject({
       status: 'trigger_requested',
       pending_command: 'run',
-      command_sequence: 1,
       engine: 'emulator',
       priority: 'normal',
       triggered_by: 'pk@test',
