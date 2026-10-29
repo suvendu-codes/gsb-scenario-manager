@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/features/scenarios/components/StatusPill";
 import type { ScenarioStatus } from "@/features/scenarios/types";
+import type { RunStatus } from "@/features/scenario-run/schema";
 
 import type { SaveState, SaveStatus } from "../use-config-editor";
 import { configHeaderStyles as styles } from "./ConfigHeader.styles";
@@ -22,6 +23,27 @@ type ConfigHeaderProps = {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  /** The run: its state once triggered, or how to trigger it. */
+  run: RunControl;
+};
+
+/** What the header needs to show and start the run. */
+export type RunControl = {
+  /** The run's state, once there is a run. */
+  status: RunStatus | null;
+  /** True while the trigger request is on its way. */
+  starting: boolean;
+  /** Whether the run can be started now (a draft with its changes saved). */
+  canStart: boolean;
+  onStart: () => void;
+};
+
+const RUN_TEXT: Record<RunStatus, string> = {
+  queued: "Run queued",
+  accepted: "Run accepted",
+  running: "Running…",
+  completed: "Run completed",
+  failed: "Run failed",
 };
 
 const SAVE_TEXT: Record<SaveState, string> = {
@@ -46,6 +68,7 @@ const SAVE_TEXT: Record<SaveState, string> = {
  * @param canRedo - Whether there is an edit to redo.
  * @param onUndo - Called when Undo is clicked.
  * @param onRedo - Called when Redo is clicked.
+ * @param run - The run's state, or how to start it.
  */
 export function ConfigHeader({
   scenarioId,
@@ -58,6 +81,7 @@ export function ConfigHeader({
   canRedo,
   onUndo,
   onRedo,
+  run,
 }: ConfigHeaderProps): React.JSX.Element {
   return (
     <header className={styles.root}>
@@ -106,9 +130,22 @@ export function ConfigHeader({
             <Redo2 className={styles.historyIcon} aria-hidden="true" />
           </button>
         </div>
-        <Button className={styles.run} disabled title="Running a scenario is not available yet">
-          Run emulation
-        </Button>
+        {run.status ? (
+          <span
+            className={cn(styles.runState, run.status === "failed" && styles.runFailed)}
+            role="status"
+          >
+            {RUN_TEXT[run.status]}
+          </span>
+        ) : (
+          <Button
+            className={styles.run}
+            disabled={!run.canStart || run.starting}
+            onClick={run.onStart}
+          >
+            {run.starting ? "Starting…" : "Run emulation →"}
+          </Button>
+        )}
       </div>
     </header>
   );

@@ -39,7 +39,7 @@ export type ConfigEditor = {
   issues: ConfigIssue[];
   runDurationHours: number | null;
   save: SaveStatus;
-  /** False while a failed save is being recovered from; edits are ignored then. */
+  /** False while a failed save is being recovered from, or once the scenario runs; edits are ignored then. */
   editable: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -66,8 +66,14 @@ const noSnapshot = () => null;
  *
  * @param scenarioId - The scenario being configured.
  * @param map - The scenario's project and map, for the station details.
+ * @param options - `locked` once the scenario is no longer a draft: edits are then ignored.
  */
-export function useConfigEditor(scenarioId: string, map: MapRef): ConfigEditor {
+export function useConfigEditor(
+  scenarioId: string,
+  map: MapRef,
+  options: { locked?: boolean } = {},
+): ConfigEditor {
+  const locked = options.locked === true;
   const queryClient = useQueryClient();
   const catalogQuery = useConfigCatalog();
   const configQuery = useScenarioConfig(scenarioId);
@@ -122,11 +128,11 @@ export function useConfigEditor(scenarioId: string, map: MapRef): ConfigEditor {
     issues: snapshot?.issues ?? NO_ISSUES,
     runDurationHours: data?.runDurationHours ?? null,
     save,
-    editable: save.state !== "reloading" && save.state !== "out-of-sync",
+    editable: !locked && save.state !== "reloading" && save.state !== "out-of-sync",
     canUndo: (snapshot?.editor.undo.length ?? 0) > 0,
     canRedo: (snapshot?.editor.redo.length ?? 0) > 0,
     edit: (recipe) => {
-      if (!defaults) return;
+      if (!defaults || locked) return;
       live?.apply((editor) => {
         const effective = resolveConfig(defaults, editor.overrides);
         const patch = diffToPatch(effective, recipe(effective));
@@ -134,13 +140,14 @@ export function useConfigEditor(scenarioId: string, map: MapRef): ConfigEditor {
       });
     },
     reset: (paths) => {
-      if (defaults) live?.apply((editor) => applyEdit(editor, defaults, { reset: paths }));
+      if (defaults && !locked)
+        live?.apply((editor) => applyEdit(editor, defaults, { reset: paths }));
     },
     undo: () => {
-      if (defaults) live?.apply((editor) => applyUndo(editor, defaults));
+      if (defaults && !locked) live?.apply((editor) => applyUndo(editor, defaults));
     },
     redo: () => {
-      if (defaults) live?.apply((editor) => applyRedo(editor, defaults));
+      if (defaults && !locked) live?.apply((editor) => applyRedo(editor, defaults));
     },
     reload: () => live?.reload(),
   };

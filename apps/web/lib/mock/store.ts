@@ -273,8 +273,15 @@ export function getScenarioDetail(id: string): ScenarioDetail {
   return { ...scenario, datasets: datasetsByScenario[id] ?? emptyDatasets() };
 }
 
+/** Marks a scenario as running (`active`), as triggering its run does. */
+export function markScenarioActive(id: string): Scenario {
+  const scenario = requireScenario(id);
+  Object.assign(scenario, { status: "active", updatedAt: new Date().toISOString() });
+  return scenario;
+}
+
 /**
- * Edits a draft scenario's project, map and name, with the same rules as creating one.
+ * Updates a draft scenario's name, project and map.
  *
  * @param id - The scenario id.
  * @param input - Validated project, map and name.
