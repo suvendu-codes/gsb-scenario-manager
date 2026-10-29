@@ -1,6 +1,6 @@
 import { MAX_BREAKS_PER_BLOCK, MAX_SCHEDULE_BLOCKS, STATION_MODES } from "../schema";
 import type { ScheduleBlock, ScheduleBreak, StationMode } from "../types";
-import { maxTeaCount, maxTeaMinutes } from "../validation";
+import { breaksInBlock, maxTeaCount, maxTeaMinutes } from "../validation";
 
 /** Schedule blocks are whole half hours. */
 export const HALF_HOUR = 0.5;
@@ -10,21 +10,43 @@ export const TEA_DEFAULT_MINUTES = 10;
 
 const round = (value: number, step: number): number => Math.round(value / step) * step;
 
-/** Makes a block's breaks fit its length: tea breaks shorter or fewer, regular ones more often. */
+/** Shortest block a regular break fits in: it must happen inside, half an hour from the end. */
+export const MIN_HOURS_FOR_BREAK = 2 * HALF_HOUR;
+
+/** Longest a regular break every `everyHours` can last, leaving a quarter hour of work between. */
+export function maxBreakDuration(everyHours: number): number {
+  return Math.max(0.25, Math.min(2, everyHours - 0.25));
+}
+
+/**
+ * Makes a block's breaks fit its length: tea breaks shorter or fewer; regular breaks more often
+ * (at most every block length less half an hour, so they happen) and shorter than their interval.
+ * A block too short for a regular break loses it.
+ */
 function fitBreaks(block: ScheduleBlock): ScheduleBlock {
   return {
     ...block,
-    breaks: block.breaks.map((item): ScheduleBreak => {
-      if (item.type === "break") {
-        return { ...item, everyHours: Math.min(item.everyHours, Math.max(HALF_HOUR, block.hours)) };
-      }
-      const durationMinutes = Math.min(item.durationMinutes, maxTeaMinutes(block.hours));
-      return {
-        ...item,
-        durationMinutes,
-        count: Math.min(item.count, maxTeaCount(block.hours, durationMinutes)),
-      };
-    }),
+    breaks: block.breaks
+      .filter((item) => item.type !== "break" || block.hours >= MIN_HOURS_FOR_BREAK)
+      .map((item): ScheduleBreak => {
+        if (item.type === "break") {
+          const everyHours = Math.min(
+            item.everyHours,
+            Math.max(HALF_HOUR, block.hours - HALF_HOUR),
+          );
+          return {
+            ...item,
+            everyHours,
+            durationHours: Math.min(item.durationHours, maxBreakDuration(everyHours)),
+          };
+        }
+        const durationMinutes = Math.min(item.durationMinutes, maxTeaMinutes(block.hours));
+        return {
+          ...item,
+          durationMinutes,
+          count: Math.min(item.count, maxTeaCount(block.hours, durationMinutes)),
+        };
+      }),
   };
 }
 
@@ -48,13 +70,19 @@ export function newBreak(
   return fitBreaks({ ...block, breaks: [item] }).breaks[0];
 }
 
-/** Adds a break to a block, unless it already has the most a block can have. */
+/** Whether a break of this kind can be added: room for one more, and a regular break fits. */
+export function canAddBreak(block: ScheduleBlock, type: ScheduleBreak["type"]): boolean {
+  if (block.breaks.length >= MAX_BREAKS_PER_BLOCK) return false;
+  return type === "tea" || block.hours >= MIN_HOURS_FOR_BREAK;
+}
+
+/** Adds a break to a block, unless it has the most a block can have or a regular break doesn't fit. */
 export function addBreak(
   block: ScheduleBlock,
   type: ScheduleBreak["type"],
   id: string,
 ): ScheduleBlock {
-  if (block.breaks.length >= MAX_BREAKS_PER_BLOCK) return block;
+  if (!canAddBreak(block, type)) return block;
   return { ...block, breaks: [...block.breaks, newBreak(block, type, id)] };
 }
 
@@ -73,8 +101,7 @@ export function removeBreak(block: ScheduleBlock, id: string): ScheduleBlock {
 
 /** How many times a regular break happens in a block (it never falls on the block's end). */
 export function breakOccurrences(everyHours: number, blockHours: number): number {
-  if (everyHours <= 0) return 0;
-  return Math.max(0, Math.ceil(blockHours / everyHours - 1e-9) - 1);
+  return breaksInBlock(everyHours, blockHours);
 }
 
 /** The modes a station works in over its schedule, in block order. */

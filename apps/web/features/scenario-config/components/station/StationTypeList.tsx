@@ -11,8 +11,8 @@ import { stationTypeListStyles as styles } from "./StationTypeList.styles";
 export function isTypeCustomized(editor: ReadyConfigEditor, type: StationType): boolean {
   return (
     type.stationIds.some((id) => isCustomized(editor.overrides, `station.stations.${id}`)) ||
-    keepingOwn(editor.config, type.stationIds, "schedule").length > 0 ||
-    keepingOwn(editor.config, type.stationIds, "structure").length > 0
+    keepingOwn(editor.config, type.stationIds, "schedule", editor.defaults).length > 0 ||
+    keepingOwn(editor.config, type.stationIds, "structure", editor.defaults).length > 0
   );
 }
 

@@ -22,9 +22,26 @@ import {
 import type { ScheduleBlock, StationMode } from "../../types";
 import type { StationSectionRenderer, StationView } from "../station/station-view";
 import { scheduleEditorStyles as styles } from "./ScheduleEditor.styles";
+import { listStations } from "../station/override-message";
+import type { MapStation } from "../../upstream/stations";
 import { allowedModesFor } from "./allowed-modes";
 import { ScheduleBlockCard } from "./ScheduleBlockCard";
 import { MODE_LABELS, scheduleTotal } from "./schedule-text";
+
+/**
+ * Which stations of the group a schedule can be copied to: those whose allowed modes cover every
+ * block's mode. The others would be refused by the server, so they are skipped and named.
+ */
+export function copyTargets(
+  stations: readonly MapStation[],
+  group: readonly string[],
+  blocks: ScheduleBlock[],
+): { to: string[]; skipped: string[]; modes: StationMode[] } {
+  const modes = [...new Set(blocks.map((block) => block.mode))];
+  const fits = (id: string) =>
+    modes.every((mode) => allowedModesFor(stations, [id]).includes(mode));
+  return { to: group.filter(fits), skipped: group.filter((id) => !fits(id)), modes };
+}
 
 /** Why a block can't be split, for the disabled button's tooltip. */
 function splitNote(blocks: ScheduleBlock[], i: number, allowed: readonly StationMode[]): string {
@@ -76,16 +93,18 @@ function Unassigned({
 export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Element | null {
   const { editor, isGroup, station, group } = view;
   const { config } = editor;
-  const targets = isGroup ? followers(config, group, "schedule") : [station];
+  const targets = isGroup ? followers(config, group, "schedule", editor.defaults) : [station];
   const allowed = allowedModesFor(editor.stations, targets);
 
-  const blocks = isGroup ? sharedBlocks(config, group) : config.station.stations[station].schedule;
+  const blocks = isGroup
+    ? sharedBlocks(config, group, editor.defaults)
+    : config.station.stations[station].schedule;
   if (!blocks) return null;
 
   function write(next: ScheduleBlock[]): void {
     editor.edit((current) =>
       isGroup
-        ? writeGroupSchedule(current, group, next)
+        ? writeGroupSchedule(current, group, next, editor.defaults)
         : writeStationSchedule(current, station, next),
     );
   }
@@ -95,6 +114,8 @@ export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Eleme
   }
 
   const starts = blockStarts(blocks);
+  const copy = copyTargets(editor.stations, group, blocks);
+  const labelOf = (id: string) => editor.stations.find((s) => s.id === id)?.label ?? id;
   return (
     <div className={styles.root}>
       {blocks.map((block, index) => (
@@ -118,17 +139,25 @@ export function ScheduleEditor({ view }: { view: StationView }): React.JSX.Eleme
       ))}
       <div className={styles.footer}>
         <span className={styles.total}>{scheduleTotal(blocks)}</span>
-        {!isGroup && group.length > 1 && (
+        {!isGroup && group.length > 1 && copy.to.length > 1 && (
           <button
             type="button"
             className={styles.copy}
-            onClick={() => editor.edit((current) => copySchedule(current, station, group))}
+            onClick={() => editor.edit((current) => copySchedule(current, station, copy.to))}
           >
             <Copy className={styles.copyIcon} aria-hidden="true" />
-            Copy to all {view.type?.label} stations
+            {copy.skipped.length === 0
+              ? `Copy to all ${view.type?.label} stations`
+              : `Copy to ${copy.to.length} of ${group.length} ${view.type?.label} stations`}
           </button>
         )}
       </div>
+      {!isGroup && copy.skipped.length > 0 && copy.to.length > 1 && (
+        <p className={styles.copyNote}>
+          Skips {listStations(copy.skipped.map(labelOf))}: the site registry doesn’t allow{" "}
+          {listStations(copy.modes.map((mode) => MODE_LABELS[mode]))} there.
+        </p>
+      )}
     </div>
   );
 }
