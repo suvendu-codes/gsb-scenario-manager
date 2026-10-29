@@ -131,11 +131,13 @@ export function ConfigHeader({
           </button>
         </div>
         {run.status ? (
-          <span
-            className={cn(styles.runState, run.status === "failed" && styles.runFailed)}
-            role="status"
-          >
-            {RUN_TEXT[run.status]}
+          <span role="status" aria-live="polite">
+            <Link
+              href={`/scenarios/${encodeURIComponent(scenarioId)}/run`}
+              className={cn(styles.runState, run.status === "failed" && styles.runFailed)}
+            >
+              {RUN_TEXT[run.status]} · Open live run
+            </Link>
           </span>
         ) : (
           <Button

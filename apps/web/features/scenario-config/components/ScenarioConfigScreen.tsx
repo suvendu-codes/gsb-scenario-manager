@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { PageMessage } from "@/components/layout/PageMessage";
@@ -27,6 +28,7 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
     { projectId: scenario.projectId, mapId: scenario.mapId },
     { locked },
   );
+  const router = useRouter();
   const trigger = useTriggerRun(scenario.id);
   const run = useScenarioRun(scenario.id, locked);
   const [selection, setSelection] = useState<PanelSelection>({ area: "overview" });
@@ -54,7 +56,11 @@ function ConfigContent({ scenario }: { scenario: ScenarioDetail }): React.JSX.El
           status: run.data?.status ?? null,
           starting: trigger.isPending,
           canStart: !locked && editor.status === "ready" && editor.save.state === "saved",
-          onStart: () => trigger.mutate(),
+          onStart: () =>
+            trigger.mutate(undefined, {
+              // The run starts: go to the live emulation screen.
+              onSuccess: () => router.push(`/scenarios/${encodeURIComponent(scenario.id)}/run`),
+            }),
         }}
       />
       {trigger.error && (
