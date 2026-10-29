@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { PageMessage } from "@/components/layout/PageMessage";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -41,21 +41,22 @@ function LiveRun({ inputs, context }: { inputs: RunInputs; context: string }): R
   const [logOpen, setLogOpen] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const onLoaded = useCallback(() => start(), [start]);
+  const snapshot = useMemo(
+    () => (session ? runEngine.snapshot(inputs, controlAt(session, inputs.runHours, now)) : null),
+    [inputs, session, now],
+  );
 
-  if (!session) {
+  if (!session || !snapshot) {
     return (
       <RunLoading
         scenarioName={inputs.scenarioName}
         stations={inputs.stations.length}
         bots={inputs.bots}
-        onDone={onLoaded}
+        onDone={start}
       />
     );
   }
 
-  const control = controlAt(session, inputs.runHours, now);
-  const snapshot = runEngine.snapshot(inputs, control);
   const live = snapshot.phase !== "completed" && snapshot.phase !== "stopped";
   const run = inputs.runHours;
   const ended = !live;
@@ -89,7 +90,7 @@ function LiveRun({ inputs, context }: { inputs: RunInputs; context: string }): R
               </button>
             </div>
           ) : (
-            <AttentionBar message={snapshot.attention} onOpenLog={() => setLogOpen(true)} />
+            <AttentionBar attention={snapshot.attention} onOpenLog={() => setLogOpen(true)} />
           )}
           <KpiGrid kpis={snapshot.kpis} windowLabel={ended ? "Whole run" : "Over last 30m"} />
           <div className={styles.tabs} role="tablist" aria-label="Run views">

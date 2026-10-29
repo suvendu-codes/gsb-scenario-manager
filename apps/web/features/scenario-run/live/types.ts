@@ -109,16 +109,19 @@ export type RunSnapshot = {
   bots: BotsLive;
   /** Events up to now, oldest first. */
   events: RunEvent[];
-  /** The most pressing thing to look at, or null when nothing needs attention. */
-  attention: string | null;
+  /** The most pressing thing to look at, and how pressing; null when nothing needs attention. */
+  attention: { text: string; severity: "info" | "warning" } | null;
   /** Warehouse events on the timeline (scripted incidents), as hour spans. */
   incidents: Array<{ fromH: number; toH: number; title: string }>;
 };
 
 /**
  * The events-and-metrics engine: given what the run is played from and what the user did, what
- * the screen shows. The mock below computes it in the browser; a real one would read a running
- * emulation. Swapping it changes nothing else.
+ * the screen shows. The mock computes it in the browser, synchronously, on each tick.
+ *
+ * A real emulation would be read asynchronously (polled or streamed), so this interface will
+ * change then, likely to a subscription that delivers snapshots. The screen already renders
+ * whatever snapshot it is given, so only how it gets one changes.
  */
 export type RunEngine = {
   snapshot(inputs: RunInputs, control: RunControl): RunSnapshot;

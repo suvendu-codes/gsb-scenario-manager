@@ -27,6 +27,14 @@ describe("run session clock", () => {
     expect(pause(s, sec(200))).toBe(s);
   });
 
+  it("keeps a fleet change within bounds and ignores one that isn't a number", () => {
+    const s = startSession("x", T0);
+    expect(addChange(s, { kind: "bots", bots: -3 }, 8, sec(30)).changes[0]).toMatchObject({
+      bots: 0,
+    });
+    expect(addChange(s, { kind: "bots", bots: Number.NaN }, 8, sec(30))).toBe(s);
+  });
+
   it("stamps live changes with the current hour", () => {
     const s = addChange(startSession("x", T0), { kind: "bots", bots: 22 }, 8, sec(30));
     expect(s.changes).toEqual([{ kind: "bots", bots: 22, atH: 0.5 }]);

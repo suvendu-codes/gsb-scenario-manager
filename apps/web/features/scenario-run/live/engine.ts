@@ -16,6 +16,7 @@ import type {
   RunEvent,
   RunInputs,
   RunPhase,
+  RunSnapshot,
   StationLive,
   StationState,
 } from "./types";
@@ -67,23 +68,69 @@ function stationOn(changes: LiveChange[], id: string, atH: number): boolean {
 }
 
 /** The fleet size at an hour. */
+/** Most bots a fleet can have; a live change is kept within 0 and this. */
+export const MAX_BOTS = 500;
+
+/** A bot count as a whole number between 0 and `MAX_BOTS`, or null when it isn't a number. */
+export function validBots(value: number): number | null {
+  return Number.isFinite(value) ? Math.min(MAX_BOTS, Math.max(0, Math.round(value))) : null;
+}
+
 function botsAt(inputs: RunInputs, changes: LiveChange[], atH: number): number {
-  let bots = inputs.bots;
-  for (const change of changes) if (change.kind === "bots" && change.atH <= atH) bots = change.bots;
+  let bots = validBots(inputs.bots) ?? 0;
+  for (const change of changes) {
+    if (change.kind === "bots" && change.atH <= atH) bots = validBots(change.bots) ?? bots;
+  }
   return bots;
 }
 
 type Station = RunInputs["stations"][number];
+type Plan = {
+  segments: ReturnType<typeof laneSegments>;
+  marks: ReturnType<typeof breakMarks>;
+};
+
+/**
+ * Each station's blocks and break marks, worked out once per set of inputs: they depend only on
+ * the schedule, and the engine reads them for every five-minute step.
+ */
+const plans = new WeakMap<RunInputs, Plan[]>();
+function planOf(inputs: RunInputs, index: number): Plan {
+  let all = plans.get(inputs);
+  if (!all) {
+    all = inputs.stations.map((station, i) => ({
+      segments: laneSegments(station.schedule, inputs.runHours),
+      marks: breakMarks(station.schedule, inputs.runHours, {
+        id: station.id,
+        index: i,
+        count: inputs.stations.length,
+      }),
+    }));
+    plans.set(inputs, all);
+  }
+  return all[index];
+}
 
 /** What a station does at an hour, from its schedule and breaks alone. */
-function scheduled(inputs: RunInputs, station: Station, index: number, atH: number) {
-  const segments = laneSegments(station.schedule, inputs.runHours);
+function scheduled(inputs: RunInputs, index: number, atH: number) {
+  const { segments, marks } = planOf(inputs, index);
   const block = segments.find((s) => atH >= s.from && atH < s.from + s.hours) ?? null;
-  const place = { id: station.id, index, count: inputs.stations.length };
-  const onBreak = breakMarks(station.schedule, inputs.runHours, place).some(
-    (mark) => atH >= mark.at && atH < mark.at + mark.duration,
-  );
+  const onBreak = marks.some((mark) => atH >= mark.at && atH < mark.at + mark.duration);
   return { segments, block, onBreak };
+}
+
+/** Units all stations would handle over the whole run, as planned (no live changes). */
+const planned = new WeakMap<RunInputs, number>();
+function plannedUnits(inputs: RunInputs): number {
+  let units = planned.get(inputs);
+  if (units === undefined) {
+    units = inputs.stations.reduce(
+      (sum, s, i) => sum + workingHours(inputs, s, i, 0, inputs.runHours, []) * stationRate(s.id),
+      0,
+    );
+    planned.set(inputs, units);
+  }
+  return units;
 }
 
 /** A station's share of the standard rate, between 0.9 and 1.1. */
@@ -101,7 +148,7 @@ function workingHours(
   let hours = 0;
   for (let t = fromH; t < toH - 1e-9; t += STEP_H) {
     const at = Math.min(t + STEP_H / 2, toH);
-    const { block, onBreak } = scheduled(inputs, station, index, at);
+    const { block, onBreak } = scheduled(inputs, index, at);
     if (block && !onBreak && stationOn(changes, station.id, at)) hours += Math.min(STEP_H, toH - t);
   }
   return hours;
@@ -115,7 +162,7 @@ function stationLive(
   index: number,
 ): StationLive {
   const now = control.nowH;
-  const { segments, block, onBreak } = scheduled(inputs, station, index, now);
+  const { segments, block, onBreak } = scheduled(inputs, index, now);
   const turnedOff = !stationOn(control.changes, station.id, now);
   const slot = Math.floor(now * 6);
   const queueFull = noise(`queue-full|${station.id}|${slot}`) < 0.08;
@@ -185,7 +232,8 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
     ppf: "Picks per face",
     tasks: "Tasks per station",
   };
-  if (phase === "warming-up") {
+  // Still warming up, or stopped before measures filled in: nothing to show yet.
+  if (phase === "warming-up" || control.nowH < WARMUP_H) {
     return ids.map((id) => ({
       id,
       label: labels[id],
@@ -199,10 +247,7 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
   const ended = phase === "stopped" || phase === "completed";
   const now = control.nowH;
   const slot = ended ? "end" : String(Math.floor(now * 2));
-  const planned = inputs.stations.reduce(
-    (sum, s, i) => sum + workingHours(inputs, s, i, 0, inputs.runHours, []) * stationRate(s.id),
-    0,
-  );
+  const planned = plannedUnits(inputs);
   let done = 0;
   let stationHours = 0;
   inputs.stations.forEach((s, i) => {
@@ -215,7 +260,7 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
   const pbt = 0.5 + 0.8 * noise(`pbt|${inputs.scenarioId}|${slot}`);
   const owt = 3.4 + 1.2 * noise(`owt|${inputs.scenarioId}|${slot}`);
   const status = (watch: boolean): KpiStatus => (watch ? "watch" : "ok");
-  const window = ended ? "Run average" : "This window";
+  const windowLabel = ended ? "Run average" : "This window";
 
   return [
     {
@@ -261,7 +306,7 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
       value: `${owt.toFixed(1)} s`,
       unit: "per task",
       detail: ended
-        ? window
+        ? windowLabel
         : owt > 4.5
           ? "Operators are waiting on work"
           : "Operators are not the constraint",
@@ -272,7 +317,7 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
       label: labels.rtr,
       value: `${(4 + 0.6 * noise(`rtr|${slot}`)).toFixed(1)} s`,
       unit: "per face",
-      detail: ended ? window : "Travel between presentations",
+      detail: ended ? windowLabel : "Travel between presentations",
       status: "ok",
     },
     {
@@ -280,7 +325,7 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
       label: labels.ppf,
       value: String(15 + Math.round(4 * noise(`ppf|${slot}`))),
       unit: "picks",
-      detail: window,
+      detail: windowLabel,
       status: "ok",
     },
     {
@@ -288,7 +333,7 @@ function kpis(inputs: RunInputs, control: RunControl, phase: RunPhase): Kpi[] {
       label: labels.tasks,
       value: String(5 + Math.round(3 * noise(`tasks|${slot}`))),
       unit: "open",
-      detail: ended ? window : "Across working stations",
+      detail: ended ? windowLabel : "Across working stations",
       status: "ok",
     },
   ];
@@ -394,10 +439,16 @@ function events(inputs: RunInputs, control: RunControl, phase: RunPhase): RunEve
       severity: "warning",
     });
 
-  return list
-    .filter((event) => event.atH <= control.nowH + 1e-9)
-    .sort((a, b) => a.atH - b.atH)
-    .map((event, i) => ({ ...event, id: `e${i}` }));
+  return (
+    list
+      .filter((event) => event.atH <= control.nowH + 1e-9)
+      .sort((a, b) => a.atH - b.atH)
+      // Ids from what the event is, so they stay put when an earlier event is added.
+      .map((event) => ({
+        ...event,
+        id: `${event.type}-${Math.round(event.atH * 3600)}-${hashString(event.title)}`,
+      }))
+  );
 }
 
 /** The mock engine. */
@@ -408,17 +459,20 @@ export const mockRunEngine: RunEngine = {
       ...control,
       nowH: Math.min(stoppedAt ?? control.nowH, inputs.runHours),
     };
-    const phase = phaseOf(inputs, { ...effective, stoppedAtH: stoppedAt });
+    const phase = phaseOf(inputs, effective);
     const stations = inputs.stations.map((s, i) => stationLive(inputs, effective, phase, s, i));
     const fleet = bots(inputs, effective, phase);
     const queueFull = stations.filter((s) => s.state === "queue-full");
-    const attention =
+    const attention: RunSnapshot["attention"] =
       phase === "warming-up"
-        ? "Warming up. Measures fill in after the first few minutes."
+        ? { text: "Warming up. Measures fill in after the first few minutes.", severity: "info" }
         : fleet.error > 0
-          ? `${fleet.error} bot in error. It is being recovered.`
+          ? { text: `${fleet.error} bot in error. It is being recovered.`, severity: "warning" }
           : queueFull.length > 0 && phase === "running"
-            ? `${queueFull.map((s) => s.label).join(", ")}: queue full. Carriers are waiting.`
+            ? {
+                text: `${queueFull.map((s) => s.label).join(", ")}: queue full. Carriers are waiting.`,
+                severity: "warning",
+              }
             : null;
     return {
       phase,

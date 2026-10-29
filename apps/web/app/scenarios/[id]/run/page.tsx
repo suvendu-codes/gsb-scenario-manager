@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
+
 import { RunScreen } from "@/features/scenario-run/components/RunScreen";
+
+export const metadata: Metadata = {
+  title: "Live run · Scenario Manager",
+  description: "The scenario's emulation as it runs.",
+};
 
 /**
  * Live emulation page (`/scenarios/[id]/run`): the run of a scenario as it plays. Entirely

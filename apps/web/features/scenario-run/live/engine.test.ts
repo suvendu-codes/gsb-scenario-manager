@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { formatHM, mockRunEngine, WARMUP_H } from "./engine";
+import { hashString } from "@/features/scenario-config/timeline/station-lane";
+
+import { formatHM, MAX_BOTS, mockRunEngine, validBots, WARMUP_H } from "./engine";
 import type { RunControl, RunInputs } from "./types";
 
 const inputs: RunInputs = {
@@ -44,7 +46,10 @@ describe("mock run engine", () => {
     expect(s.kpis.every((k) => k.status === "waiting" && k.value === null)).toBe(true);
     expect(s.stations.map((st) => st.state)).toEqual(["starting", "starting"]);
     expect(s.bots).toEqual({ total: 20, working: 0, ready: 20, error: 0 });
-    expect(s.attention).toMatch(/^Warming up/);
+    expect(s.attention).toEqual({
+      text: "Warming up. Measures fill in after the first few minutes.",
+      severity: "info",
+    });
   });
 
   it("follows each station's schedule: blocks, breaks and stations off shift", () => {
@@ -70,7 +75,10 @@ describe("mock run engine", () => {
   it("plays the scripted bot fault: one bot in error, a warning and attention", () => {
     const s = snap(at(3.1));
     expect(s.bots.error).toBe(1);
-    expect(s.attention).toBe("1 bot in error. It is being recovered.");
+    expect(s.attention).toEqual({
+      text: "1 bot in error. It is being recovered.",
+      severity: "warning",
+    });
     expect(s.events.some((e) => e.type === "warehouse" && e.severity === "warning")).toBe(true);
     expect(snap(at(3.5)).bots.error).toBe(0);
   });
@@ -108,6 +116,38 @@ describe("mock run engine", () => {
       status: "done",
       detail: "Up to 2h 30m, when it stopped",
     });
+  });
+
+  it("shows measures as waiting when stopped during the warm-up (review of #52)", () => {
+    const s = snap(at(1, { stoppedAtH: WARMUP_H / 2 }));
+    expect(s.phase).toBe("stopped");
+    expect(s.kpis.every((k) => k.status === "waiting")).toBe(true);
+  });
+
+  it("keeps the fleet size a whole number within bounds, and ignores one that isn't a number", () => {
+    const fleet = (bots: number) =>
+      snap(at(2, { changes: [{ kind: "bots", atH: 1, bots }] })).bots.total;
+    expect(fleet(-5)).toBe(0);
+    expect(fleet(9999)).toBe(MAX_BOTS);
+    expect(fleet(21.6)).toBe(22);
+    expect(fleet(Number.NaN)).toBe(20);
+    expect(validBots(Number.POSITIVE_INFINITY)).toBeNull();
+  });
+
+  it("gives events ids that don't change when an earlier event is added", () => {
+    const ids = (control: RunControl) => new Map(snap(control).events.map((e) => [e.title, e.id]));
+    const before = ids(at(6.5));
+    const after = ids(
+      at(6.5, { changes: [{ kind: "station", atH: 0.5, stationId: "1", on: false }] }),
+    );
+    for (const [title, id] of before) expect(after.get(title)).toBe(id);
+    expect(new Set(after.values()).size).toBe(after.size);
+  });
+
+  it("never draws negative values: the hash behind them is never negative", () => {
+    for (let i = 0; i < 2000; i++)
+      expect(hashString(`key-${i}-${i * 7919}`)).toBeGreaterThanOrEqual(0);
+    expect(hashString("\uffff".repeat(50))).toBeGreaterThanOrEqual(0);
   });
 
   it("is deterministic and pauses", () => {

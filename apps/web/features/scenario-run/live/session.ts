@@ -1,3 +1,4 @@
+import { validBots } from "./engine";
 import type { LiveChange, RunControl } from "./types";
 
 /**
@@ -69,6 +70,13 @@ export function addChange(
   now: number,
 ): RunSession {
   const atH = hoursAt(session, runHours, now);
+  if (change.kind === "bots") {
+    // A fleet size that isn't a number is ignored; others are kept within 0 and MAX_BOTS.
+    const bots = validBots(change.bots);
+    return bots === null
+      ? session
+      : { ...session, changes: [...session.changes, { ...change, bots, atH }] };
+  }
   return { ...session, changes: [...session.changes, { ...change, atH }] };
 }
 
