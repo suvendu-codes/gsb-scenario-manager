@@ -10,11 +10,12 @@ vi.mock('@opentelemetry/api', () => ({
 
 import { JsonLogger } from './json-logger.js';
 
-function setup(level?: string) {
+function setup(level?: string, service = '') {
   const out: string[] = [];
   const err: string[] = [];
   const logger = new JsonLogger({
     level,
+    service,
     stdout: (l) => out.push(l),
     stderr: (l) => err.push(l),
     now: () => new Date('2026-01-02T03:04:05.000Z'),
@@ -30,10 +31,23 @@ describe('JsonLogger', () => {
     expect(out[0]!.endsWith('\n')).toBe(true);
     expect(JSON.parse(out[0]!)).toEqual({
       timestamp: '2026-01-02T03:04:05.000Z',
-      level: 'log',
+      level: 'info',
       context: 'Bootstrap',
       message: 'hello',
     });
+  });
+
+  it('adds the service name when configured', () => {
+    const { logger, out } = setup(undefined, 'scenario-manager-api');
+    logger.log('hello');
+    expect(JSON.parse(out[0]!).service).toBe('scenario-manager-api');
+  });
+
+  it('accepts log as an alias of info for LOG_LEVEL', () => {
+    const { logger, out } = setup('log');
+    logger.log('kept');
+    logger.debug('skipped');
+    expect(out).toHaveLength(1);
   });
 
   it('spreads object messages into top-level fields', () => {

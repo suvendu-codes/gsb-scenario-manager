@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../db/db.constants.js';
 import type { DrizzleDB } from '../../db/db.module.js';
 import { TRIGGER_UNDELIVERABLE, type RunCommand, type RunEngine } from '../../runs/domain/run.js';
-import type { ClaimOptions, OutboxStore } from '../application/ports.js';
+import type { ClaimOptions, OutboxStats, OutboxStore } from '../application/ports.js';
 import type { OutboxMessage } from '../domain/outbox-message.js';
 
 type ClaimedRow = {
@@ -127,6 +127,25 @@ export class DrizzleOutboxStore implements OutboxStore {
       SET locked_by = NULL, locked_until = NULL, attempts = GREATEST(attempts - 1, 0)
       WHERE id = ${id} AND locked_by = ${workerId} AND status = 'pending'
     `);
+  }
+
+  /**
+   * Cheap backlog snapshot: only touches pending rows, which the partial index run_outbox_due_idx
+   * covers, so the table of published rows is never scanned. Dead rows are intentionally not
+   * counted here (no index); the outbox_message_dead log and outbox.messages metric cover them.
+   */
+  async stats(): Promise<OutboxStats> {
+    const result = await this.db.execute<{ pending: string | number; oldest_age_s: string | number | null }>(sql`
+      SELECT count(*) AS pending,
+             COALESCE(EXTRACT(EPOCH FROM (now() - min(created_at))), 0) AS oldest_age_s
+      FROM run_outbox
+      WHERE status = 'pending'
+    `);
+    const row = result.rows[0];
+    return {
+      pending: Number(row?.pending ?? 0),
+      oldestPendingAgeSeconds: Math.max(0, Number(row?.oldest_age_s ?? 0)),
+    };
   }
 
   private async affected(query: ReturnType<typeof sql>) {

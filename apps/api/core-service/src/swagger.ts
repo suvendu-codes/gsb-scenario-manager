@@ -25,5 +25,5 @@ export function setupSwagger(app: INestApplication): void {
   const document = cleanupOpenApiDoc(rawDocument);
   SwaggerModule.setup(path, app, document);
 
-  new Logger('Swagger').log(`Docs available at /${path}`);
+  new Logger('Swagger').log({ event: 'swagger_docs_available', path: `/${path}` });
 }

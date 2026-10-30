@@ -10,6 +10,8 @@
  *   OTEL_SERVICE_NAME            e.g. scenario-manager-api / scenario-manager-status-worker
  *   OTEL_EXPORTER_OTLP_ENDPOINT  collector address; if unset, the SDK is not started
  *   OTEL_SDK_DISABLED=true       force-disable
+ *   OTEL_METRICS_EXPORTER        defaults to otlp here; set to none to turn metrics off
+ *   OTEL_METRIC_EXPORT_INTERVAL  ms between metric exports (SDK default 60000)
  *   OTEL_RESOURCE_ATTRIBUTES     e.g. deployment.environment=qa
  *
  * With no endpoint configured (local dev, tests) this file does nothing.
@@ -24,6 +26,10 @@ const endpoint =
   process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
 
 if (!disabled && endpoint) {
+  // NodeSDK only creates a metric reader when OTEL_METRICS_EXPORTER is set (traces default to
+  // otlp, metrics do not), so without this no metrics would ever be exported.
+  process.env.OTEL_METRICS_EXPORTER ??= 'otlp';
+
   const sdk = new NodeSDK({
     instrumentations: [
       getNodeAutoInstrumentations({

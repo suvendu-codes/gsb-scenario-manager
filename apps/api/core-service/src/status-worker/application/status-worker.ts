@@ -2,6 +2,14 @@ import { Inject, Injectable, Logger, type OnModuleInit, type BeforeApplicationSh
 import { EVENT_SOURCE, type EventDelivery, type EventSource } from './ports/event-source.js';
 import { ProcessRunEventUseCase } from './process-run-event.use-case.js';
 import { RunEventRejectedError } from '../domain/run-event-rejection.js';
+import {
+  elapsedSeconds,
+  statusEventFailures,
+  statusEventsAcknowledged,
+  statusEventsReceived,
+  statusHandlingDuration,
+  statusProcessingDuration,
+} from '../../telemetry/metrics.js';
 
 /**
  * The orchestrator: it connects "a message arrived" to "process it, then acknowledge it".
@@ -59,17 +67,21 @@ export class StatusWorker implements OnModuleInit, BeforeApplicationShutdown {
     const context = delivery.context;
     const started = performance.now();
     let stage: 'processing' | 'acknowledgement' = 'processing';
+    statusEventsReceived.add(1);
     this.logger.log({ ...context, event: 'run_event_received' });
     try {
       // Step A: validate and persist. Resolves 'updated' | 'ignored' | 'held' only AFTER the DB
       // transaction committed. Throws for anything we must not silently skip (bad JSON, unknown
       // run, identity mismatch, DB down, ...).
       const outcome = await this.processEvent.execute(delivery.body);
+      statusProcessingDuration.record(elapsedSeconds(started), { outcome });
       // Step B: the data is safe in PostgreSQL, so now it is OK to tell Kafka we are done.
       // If the process dies exactly here, Kafka redelivers and the duplicate is detected (no harm).
       // 'ignored' and 'held' outcomes are acknowledged too: they are intentional, durable results.
       stage = 'acknowledgement';
       await delivery.acknowledge();
+      statusEventsAcknowledged.add(1, { outcome });
+      statusHandlingDuration.record(elapsedSeconds(started), { outcome });
       this.logger.log({
         ...context, event: 'run_event_acknowledged', outcome,
         durationMs: Math.round(performance.now() - started),
@@ -88,6 +100,13 @@ export class StatusWorker implements OnModuleInit, BeforeApplicationShutdown {
       // aggregate engine-team reports by reason/engine where identity is trusted.
       // Log attempt/recovery references once available, not raw payloads. Alert
       // if the partition remains blocked; thresholds/routing await team review.
+      const rejected = stage === 'processing' && error instanceof RunEventRejectedError;
+      statusEventFailures.add(1, {
+        stage,
+        // rejected = bad input; infrastructure = DB/other while processing; commit = offset commit failed.
+        category: stage === 'acknowledgement' ? 'commit' : rejected ? 'rejected' : 'infrastructure',
+        ...(rejected ? { rejection_code: error.code } : {}),
+      });
       this.logger.error({ ...context, event: 'run_event_not_acknowledged', stage,
         ...(stage === 'processing' && error instanceof RunEventRejectedError ? { rejectionCode: error.code } : {}),
       });

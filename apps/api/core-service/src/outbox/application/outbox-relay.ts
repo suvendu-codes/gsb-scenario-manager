@@ -1,6 +1,12 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { decideOnFailure, describeError } from '../domain/retry-policy.js';
 import {
+  elapsedSeconds,
+  outboxDeliveryDelay,
+  outboxMessages,
+  outboxPublishDuration,
+} from '../../telemetry/metrics.js';
+import {
   EVENT_PUBLISHER,
   OUTBOX_STORE,
   OUTBOX_WORKER_ID,
@@ -67,13 +73,17 @@ export class OutboxRelay {
       // outlives its lease. If another worker already reclaimed the row, it is theirs: don't send.
       if (!(await this.store.renewLease(message.id, this.workerId, this.policy.leaseMs))) {
         result.leaseLost++;
+        outboxMessages.add(1, { outcome: 'lease_lost', command: message.commandId });
         this.logger.warn({ event: 'outbox_lease_lost_before_send', ...context });
         continue;
       }
 
+      const publishStartedAt = performance.now();
       try {
         await this.publisher.publish(message);
+        outboxPublishDuration.record(elapsedSeconds(publishStartedAt), { outcome: 'success' });
       } catch (error) {
+        outboxPublishDuration.record(elapsedSeconds(publishStartedAt), { outcome: 'failure' });
         const retriable = error instanceof PublishError ? error.retriable : true;
         const reason = describeError(error);
         const decision = decideOnFailure({
@@ -89,11 +99,13 @@ export class OutboxRelay {
           const ok = await this.store.markDead(message.id, this.workerId, reason);
           if (ok) result.dead++;
           else result.leaseLost++;
+          outboxMessages.add(1, { outcome: ok ? 'dead' : 'lease_lost', command: message.commandId });
           this.logger.error({ event: 'outbox_message_dead', ...context, retriable, error: reason });
         } else {
           const ok = await this.store.markRetry(message.id, this.workerId, reason, decision.delayMs);
           if (ok) result.retried++;
           else result.leaseLost++;
+          outboxMessages.add(1, { outcome: ok ? 'retried' : 'lease_lost', command: message.commandId });
           this.logger.warn({ event: 'outbox_publish_failed', ...context, retry_in_ms: decision.delayMs, error: reason });
         }
 
@@ -101,8 +113,10 @@ export class OutboxRelay {
         // batch back untouched instead of burning their attempts.
         if (retriable) {
           for (const rest of messages.slice(i + 1)) {
-            if (await this.store.release(rest.id, this.workerId)) result.released++;
+            const released = await this.store.release(rest.id, this.workerId);
+            if (released) result.released++;
             else result.leaseLost++;
+            outboxMessages.add(1, { outcome: released ? 'released' : 'lease_lost', command: rest.commandId });
           }
           break;
         }
@@ -112,10 +126,16 @@ export class OutboxRelay {
       const ok = await this.store.markPublished(message.id, this.workerId);
       if (ok) {
         result.published++;
+        outboxMessages.add(1, { outcome: 'published', command: message.commandId });
+        // Queued (run created) to broker-acknowledged: the user-visible latency of a trigger.
+        outboxDeliveryDelay.record(Math.max(0, (Date.now() - message.createdAt.getTime()) / 1000), {
+          command: message.commandId,
+        });
         this.logger.log({ event: 'outbox_message_published', ...context });
       } else {
         // Kafka has the record; another worker may re-send it after our lease expired.
         result.leaseLost++;
+        outboxMessages.add(1, { outcome: 'lease_lost', command: message.commandId });
         this.logger.warn({ event: 'outbox_lease_lost', ...context });
       }
     }

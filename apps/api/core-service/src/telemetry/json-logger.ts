@@ -1,16 +1,19 @@
 import type { LoggerService } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 
-type Level = 'fatal' | 'error' | 'warn' | 'log' | 'debug' | 'verbose';
+type Level = 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'verbose';
 
 const SEVERITY: Record<Level, number> = {
   fatal: 60,
   error: 50,
   warn: 40,
-  log: 30,
+  info: 30,
   debug: 20,
   verbose: 10,
 };
+
+/** Nest calls its info level `log`; it is emitted as `info`. LOG_LEVEL accepts either name. */
+const LEVEL_ALIASES: Record<string, Level> = { log: 'info' };
 
 type Write = (line: string) => void;
 
@@ -21,25 +24,30 @@ type Write = (line: string) => void;
  * searchable attributes in ClickStack. `trace_id` / `span_id` are added when a span is
  * active, which lets a log line be linked to its trace.
  *
- * Minimum level comes from LOG_LEVEL (fatal|error|warn|log|debug|verbose), default `log`.
+ * Minimum level comes from LOG_LEVEL (fatal|error|warn|info|debug|verbose), default `info`.
+ * Every line carries `service`, taken from OTEL_SERVICE_NAME.
  */
 export class JsonLogger implements LoggerService {
   private readonly minSeverity: number;
+  private readonly service: string | undefined;
 
   constructor(
     private readonly options: {
       level?: string;
+      service?: string;
       stdout?: Write;
       stderr?: Write;
       now?: () => Date;
     } = {},
   ) {
-    const level = (options.level ?? process.env.LOG_LEVEL ?? 'log').toLowerCase();
-    this.minSeverity = SEVERITY[level as Level] ?? SEVERITY.log;
+    const raw = (options.level ?? process.env.LOG_LEVEL ?? 'info').toLowerCase();
+    const level = LEVEL_ALIASES[raw] ?? (raw as Level);
+    this.minSeverity = SEVERITY[level] ?? SEVERITY.info;
+    this.service = options.service ?? process.env.OTEL_SERVICE_NAME;
   }
 
   log(message: unknown, ...optionalParams: unknown[]): void {
-    this.write('log', message, optionalParams);
+    this.write('info', message, optionalParams);
   }
 
   error(message: unknown, ...optionalParams: unknown[]): void {
@@ -79,6 +87,7 @@ export class JsonLogger implements LoggerService {
       timestamp: (this.options.now?.() ?? new Date()).toISOString(),
       level,
     };
+    if (this.service) entry.service = this.service;
     if (context) entry.context = context;
 
     if (message instanceof Error) {

@@ -37,7 +37,7 @@ async function bootstrap() {
   setupSwagger(app);
   const port = appConfig.port;
   await app.listen(port);
-  logger.log(`Listening on port ${port}`);
+  logger.log({ event: 'api_listening', port });
 }
 
 void bootstrap();

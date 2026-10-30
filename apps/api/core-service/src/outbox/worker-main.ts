@@ -14,12 +14,15 @@ async function bootstrap() {
     logger: new JsonLogger(),
   });
   app.enableShutdownHooks();
-  new Logger('OutboxWorkerMain').log('Outbox worker running');
+  new Logger('OutboxWorkerMain').log({ event: 'outbox_worker_ready' });
 }
 
 bootstrap().catch((error: unknown) => {
   new Logger('OutboxWorkerMain').error(
-    `Outbox worker failed to start: ${error instanceof Error ? error.message : String(error)}`,
+    {
+      event: 'outbox_worker_boot_failed',
+      message: error instanceof Error ? error.message : String(error),
+    },
     error instanceof Error ? error.stack : undefined,
   );
   process.exit(1);

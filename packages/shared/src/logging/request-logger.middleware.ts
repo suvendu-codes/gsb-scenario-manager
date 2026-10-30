@@ -47,11 +47,19 @@ export function requestLogger(
     // `user` is populated by auth guards, so read it at completion time.
     const userId = req.user?.id ?? "anonymous";
     const aborted = res.writableFinished === false;
-    const status = aborted ? "aborted" : res.statusCode;
-    const message = `[${requestId}] ${method} ${path} ${status} ${Math.round(performance.now() - startTime)}ms user=${userId}`;
-    if (!aborted && res.statusCode >= 500) logger.error(message);
-    else if (aborted || res.statusCode >= 400) logger.warn(message);
-    else logger.log(message);
+    // Structured fields (not one text line) so each value is filterable in the log viewer.
+    const entry = {
+      event: "http_request_completed",
+      message: `${method} ${path} ${aborted ? "aborted" : res.statusCode}`,
+      request_id: requestId,
+      http: { method, path, status_code: aborted ? undefined : res.statusCode },
+      aborted,
+      duration_ms: Math.round(performance.now() - startTime),
+      user_id: userId,
+    };
+    if (!aborted && res.statusCode >= 500) logger.error(entry);
+    else if (aborted || res.statusCode >= 400) logger.warn(entry);
+    else logger.log(entry);
   };
 
   res.on("finish", logCompletion);

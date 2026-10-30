@@ -13,6 +13,7 @@ import {
 } from './application/ports.js';
 import { DrizzleOutboxStore } from './infrastructure/drizzle-outbox.store.js';
 import { KafkaEventPublisher } from './infrastructure/kafka-event-publisher.js';
+import { OutboxBacklogMetrics } from './infrastructure/outbox-backlog-metrics.js';
 import { OUTBOX_WORKER_OPTIONS, OutboxWorker, type OutboxWorkerOptions } from './outbox.worker.js';
 
 export const defaultWorkerId = () => `${hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
@@ -46,28 +47,32 @@ export class OutboxWorkerModule {
     return {
       module: OutboxWorkerModule,
       imports: [DbModule],
-      providers: outboxWorkerProviders({
-        store: { provide: OUTBOX_STORE, useClass: DrizzleOutboxStore },
-        publisher: {
-          provide: EVENT_PUBLISHER,
-          useFactory: () =>
-            new KafkaEventPublisher({
-              brokers: kafka.brokers,
-              clientId: `${kafka.clientId}-outbox`,
-              ssl: kafka.ssl,
-              sasl: kafka.sasl,
-              sendTimeoutMs: outbox.sendTimeoutMs,
-            }),
-        },
-        policy: {
-          batchSize: outbox.batchSize,
-          leaseMs: outbox.leaseMs,
-          backoffBaseMs: outbox.backoffBaseMs,
-          backoffMaxMs: outbox.backoffMaxMs,
-          maxAttempts: outbox.maxAttempts,
-        },
-        worker: { pollIntervalMs: outbox.pollIntervalMs, autoStart: true },
-      }),
+      providers: [
+        // Registered here only (not in outboxWorkerProviders) so tests that swap the store stay isolated.
+        OutboxBacklogMetrics,
+        ...outboxWorkerProviders({
+          store: { provide: OUTBOX_STORE, useClass: DrizzleOutboxStore },
+          publisher: {
+            provide: EVENT_PUBLISHER,
+            useFactory: () =>
+              new KafkaEventPublisher({
+                brokers: kafka.brokers,
+                clientId: `${kafka.clientId}-outbox`,
+                ssl: kafka.ssl,
+                sasl: kafka.sasl,
+                sendTimeoutMs: outbox.sendTimeoutMs,
+              }),
+          },
+          policy: {
+            batchSize: outbox.batchSize,
+            leaseMs: outbox.leaseMs,
+            backoffBaseMs: outbox.backoffBaseMs,
+            backoffMaxMs: outbox.backoffMaxMs,
+            maxAttempts: outbox.maxAttempts,
+          },
+          worker: { pollIntervalMs: outbox.pollIntervalMs, autoStart: true },
+        }),
+      ],
       exports: [OutboxWorker],
     };
   }

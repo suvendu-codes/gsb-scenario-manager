@@ -9,6 +9,7 @@ import {
 import { OutboxRelay, type RelayResult } from './application/outbox-relay.js';
 import { EVENT_PUBLISHER, RELAY_POLICY, type EventPublisher, type RelayPolicy } from './application/ports.js';
 import { backoffDelayMs, describeError } from './domain/retry-policy.js';
+import { outboxLoopFailures } from '../telemetry/metrics.js';
 
 export interface OutboxWorkerOptions {
   pollIntervalMs: number;
@@ -65,6 +66,7 @@ export class OutboxWorker implements OnApplicationBootstrap, BeforeApplicationSh
     } catch (error) {
       // Typically the database is unavailable; nothing was leased or leases will expire.
       this.consecutiveErrors++;
+      outboxLoopFailures.add(1);
       const waitMs = backoffDelayMs(this.consecutiveErrors, this.policy.backoffBaseMs, this.policy.backoffMaxMs);
       this.logger.error({
         event: 'outbox_iteration_failed',
