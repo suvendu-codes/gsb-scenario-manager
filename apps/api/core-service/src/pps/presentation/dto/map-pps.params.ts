@@ -8,9 +8,9 @@ const MapPpsParamsSchema = z.object({
   projectId: z.string().min(1),
   mapId: z.string().min(1),
   // Strict digits only: rejects "1.5", "1e2", "0x10", " 1", "-1", "0" and "01" that coercion would let through.
-  map_version: z
+  mapVersion: z
     .string()
-    .regex(/^[1-9]\d*$/, 'map_version must be a positive integer')
+    .regex(/^[1-9]\d*$/, 'mapVersion must be a positive integer')
     .transform(Number)
     .pipe(z.int().max(MAX_MAP_VERSION)),
 });

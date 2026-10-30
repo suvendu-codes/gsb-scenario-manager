@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { MapPpsParams } from './map-pps.params.js';
 
-const parse = (map_version: unknown, mapId = 'm1') =>
-  MapPpsParams.schema.safeParse({ projectId: 'p1', mapId, map_version });
+const input = (mapVersion: unknown, mapId = 'm1') => ({ projectId: 'p1', mapId, mapVersion });
+const parse = (mapVersion: unknown, mapId?: string) =>
+  MapPpsParams.schema.safeParse(input(mapVersion, mapId));
 
 describe('MapPpsParams', () => {
   it.each([
     ['1', 1],
     ['12', 12],
     ['2147483647', 2147483647],
-  ])('parses map_version=%s to the integer %i', (input, expected) => {
-    const result = parse(input);
-    expect(result.success).toBe(true);
-    expect(result.data?.map_version).toBe(expected);
+  ])('parses mapVersion=%s to the integer %i', (value, expected) => {
+    // parse() throws on failure, so a rejected value fails the test before any data is read
+    expect(MapPpsParams.schema.parse(input(value)).mapVersion).toBe(expected);
   });
 
   it.each([
@@ -34,10 +34,10 @@ describe('MapPpsParams', () => {
   });
 
   it('leaves mapId untouched, whatever it looks like', () => {
-    const result = parse('2', '42ccc3dc-4fd7-42d4-af25-b23928cc450b');
-    expect(result.data).toMatchObject({
+    const data = MapPpsParams.schema.parse(input('2', '42ccc3dc-4fd7-42d4-af25-b23928cc450b'));
+    expect(data).toMatchObject({
       mapId: '42ccc3dc-4fd7-42d4-af25-b23928cc450b',
-      map_version: 2,
+      mapVersion: 2,
     });
   });
 });

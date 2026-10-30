@@ -56,6 +56,9 @@ const PPS_BY_VERSION = new Map<number, Pps[]>([
   [2, PPS_V2],
 ]);
 
+// TODO: the real adapter must honor the PpsRepository contract: resolve projectId and mapId
+// upstream and throw ProjectNotFoundError / MapNotFoundError. This mock ignores both and
+// only throws MapVersionNotFoundError.
 @Injectable()
 export class InMemoryPpsRepository implements PpsRepository {
   async findByMap(_projectId: string, mapId: string, mapVersion: number): Promise<MapPps> {

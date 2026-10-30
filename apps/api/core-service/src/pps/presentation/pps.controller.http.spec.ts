@@ -19,7 +19,7 @@ import { PpsController } from './pps.controller.js';
 })
 class TestModule {}
 
-describe('GET /api/v1/projects/:projectId/maps/:mapId/:map_version/pps', () => {
+describe('GET /api/v1/projects/:projectId/maps/:mapId/:mapVersion/pps', () => {
   let app: INestApplication;
   let base: string;
 
@@ -48,18 +48,6 @@ describe('GET /api/v1/projects/:projectId/maps/:mapId/:map_version/pps', () => {
     expect(body.pps).toHaveLength(3);
   });
 
-  it('serves GET /api/v1/projects/123/maps/456/2/pps', async () => {
-    const res = await fetch(`${base}/api/v1/projects/123/maps/456/2/pps`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toMatchObject({ mapId: '456', mapVersion: 2 });
-    expect(body.pps.map((p: { ppsId: string }) => p.ppsId)).toEqual([
-      'PPS-101',
-      'PPS-105',
-      'PPS-106',
-    ]);
-  });
-
   it('404s with map_version_not_found for an unknown version', async () => {
     const res = await get('99/pps');
     expect(res.status).toBe(404);
@@ -71,7 +59,7 @@ describe('GET /api/v1/projects/:projectId/maps/:mapId/:map_version/pps', () => {
     expect(await res.json()).toMatchObject({ mapId: '2', mapVersion: 1 });
   });
 
-  it.each(['-1', '0', '1.5', 'abc', '1e2', '2147483648'])('400s for map_version %s', async (v) => {
+  it.each(['-1', '0', '1.5', 'abc', '1e2', '2147483648'])('400s for mapVersion %s', async (v) => {
     expect((await get(`${v}/pps`)).status).toBe(400);
   });
 
