@@ -11,6 +11,9 @@
     "@nestjs/platform-express": "^12.1.2",
     "@nestjs/swagger": "^12.0.2",
     "@nestjs/throttler": "^6.7.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.62.0",
+    "@opentelemetry/sdk-node": "^0.203.0",
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.3",
     "kafkajs": "^2.2.4",
@@ -37,8 +40,10 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
+    "start": "node --import ./dist/telemetry/otel.js dist/main.js",
+    "worker:status": "node --import ./dist/telemetry/otel.js dist/status-worker/worker-main.js",
     "worker:mock": "pnpm run build:tools && node dist-tools/tools/local/mock-main.js",
     "test:outbox-module": "vitest run --config vitest.module.config.ts",
-    "worker:outbox": "node dist/outbox/worker-main.js"
+    "worker:outbox": "node --import ./dist/telemetry/otel.js dist/outbox/worker-main.js"
   }
 }

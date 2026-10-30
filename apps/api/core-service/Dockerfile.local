@@ -10,4 +10,4 @@ RUN pnpm install --frozen-lockfile --filter core-service... \
 WORKDIR /workspace/apps/api/core-service
 ENV NODE_ENV=development
 USER node
-CMD ["node", "dist/status-worker/worker-main.js"]
+CMD ["node", "--import", "./dist/telemetry/otel.js", "dist/status-worker/worker-main.js"]
