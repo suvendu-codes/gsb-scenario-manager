@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { DomainErrorFilter } from './common/presentation/http-exception.filter.js';
+import { BotsModule } from './bots/bots.module.js';
 import { DbModule } from './db/db.module.js';
 import { PpsModule } from './pps/pps.module.js';
 import { RunsModule } from './runs/runs.module.js';
