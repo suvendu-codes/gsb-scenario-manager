@@ -17,8 +17,8 @@ import { DrizzleScenarioRepository } from './scenarios/infrastructure/drizzle-sc
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DbModule,
-    ProjectsModule,
     PpsModule,
+    ProjectsModule,
     ScenariosModule.register({ repository: { useClass: DrizzleScenarioRepository } }),
     StatusWorkerModule.register({
       imports: [KafkaEventSourceModule],
