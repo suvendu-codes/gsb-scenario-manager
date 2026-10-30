@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { appConfig } from '../config.js';
 import * as schema from './schema/index.js';
 import { DRIZZLE, PG_POOL } from './db.constants.js';
+import { dbPoolConnections, dbPoolErrors, dbPoolPending, meter } from '../telemetry/metrics.js';
 
 export type DrizzleDB = NodePgDatabase<typeof schema>;
 
@@ -24,8 +25,21 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
         // dropped connection) is emitted as an unhandled 'error' event and
         // crashes the process. The pool discards the client and reconnects.
         pool.on('error', (err) => {
-          new Logger('DbPool').error(`Idle client error: ${err.message}`, err.stack);
+          dbPoolErrors.add(1);
+          new Logger('DbPool').error(
+            { event: 'db_pool_idle_client_error', message: err.message },
+            err.stack,
+          );
         });
+        meter.addBatchObservableCallback(
+          (result) => {
+            if (pool.ended) return;
+            result.observe(dbPoolConnections, pool.idleCount, { state: 'idle' });
+            result.observe(dbPoolConnections, pool.totalCount - pool.idleCount, { state: 'used' });
+            result.observe(dbPoolPending, pool.waitingCount);
+          },
+          [dbPoolConnections, dbPoolPending],
+        );
         return pool;
       },
     },

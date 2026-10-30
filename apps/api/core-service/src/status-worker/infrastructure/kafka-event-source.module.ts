@@ -39,10 +39,13 @@ import { KafkaEventSource, STATUS_CONSUMER } from './kafka-event-source.js';
         // this does not resolve existing run alerts or change execution state.
         // Surface fatal failures without logging connection details or payloads.
         consumer.on(consumer.events.CRASH, ({ payload }) => {
-          new Logger('KafkaStatusWorker').error(
-            payload.restart ? 'Kafka consumer crashed; restart scheduled' :
-              'Kafka consumer stopped; operator intervention required',
-          );
+          new Logger('KafkaStatusWorker').error({
+            event: payload.restart ? 'kafka_consumer_crashed' : 'kafka_consumer_stopped',
+            message: payload.restart
+              ? 'Kafka consumer crashed; restart scheduled'
+              : 'Kafka consumer stopped; operator intervention required',
+            restart_scheduled: payload.restart,
+          });
         });
         return consumer;
       },

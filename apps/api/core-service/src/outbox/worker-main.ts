@@ -2,6 +2,7 @@ import '../load-env.js';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { OutboxWorkerModule } from './outbox-worker.module.js';
+import { JsonLogger } from '../telemetry/json-logger.js';
 
 /**
  * Standalone outbox worker: `node dist/outbox/worker-main.js`.
@@ -10,15 +11,18 @@ import { OutboxWorkerModule } from './outbox-worker.module.js';
  */
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(OutboxWorkerModule.forRoot(), {
-    logger: ['error', 'warn', 'log'],
+    logger: new JsonLogger(),
   });
   app.enableShutdownHooks();
-  new Logger('OutboxWorkerMain').log('Outbox worker running');
+  new Logger('OutboxWorkerMain').log({ event: 'outbox_worker_ready' });
 }
 
 bootstrap().catch((error: unknown) => {
   new Logger('OutboxWorkerMain').error(
-    `Outbox worker failed to start: ${error instanceof Error ? error.message : String(error)}`,
+    {
+      event: 'outbox_worker_boot_failed',
+      message: error instanceof Error ? error.message : String(error),
+    },
     error instanceof Error ? error.stack : undefined,
   );
   process.exit(1);

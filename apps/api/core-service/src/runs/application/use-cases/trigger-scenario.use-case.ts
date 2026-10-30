@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createOutboxMessage } from '../../../outbox/domain/outbox-message.js';
+import { elapsedSeconds, errorCode, runTriggerDuration, runTriggers } from '../../../telemetry/metrics.js';
 import {
   SCENARIO_CONFIG_READER,
   type ScenarioConfigReader,
@@ -69,6 +70,8 @@ const defaultIds: IdGenerator = { uuid: () => randomUUID() };
  */
 @Injectable()
 export class TriggerScenarioUseCase {
+  private readonly logger = new Logger(TriggerScenarioUseCase.name);
+
   constructor(
     @Inject(RUN_TRIGGER_REPOSITORY) private readonly runs: RunTriggerRepository,
     @Inject(SCENARIO_CONFIG_READER) private readonly configs: ScenarioConfigReader,
@@ -81,7 +84,24 @@ export class TriggerScenarioUseCase {
     @Optional() @Inject(ID_GENERATOR) private readonly ids: IdGenerator = defaultIds,
   ) {}
 
-  async execute({ scenarioId, idempotencyKey, request, triggeredBy }: TriggerScenarioInput): Promise<TriggerScenarioResult> {
+  async execute(input: TriggerScenarioInput): Promise<TriggerScenarioResult> {
+    const startedAt = performance.now();
+    const { engine } = input.request;
+    try {
+      const result = await this.trigger(input);
+      const outcome = result.replayed ? 'replayed' : 'queued';
+      runTriggers.add(1, { engine, outcome });
+      runTriggerDuration.record(elapsedSeconds(startedAt), { outcome });
+      return result;
+    } catch (error) {
+      // `reason` is the bounded domain error code (e.g. scenario_invalid), never the message.
+      runTriggers.add(1, { engine, outcome: 'rejected', reason: errorCode(error) });
+      runTriggerDuration.record(elapsedSeconds(startedAt), { outcome: 'rejected' });
+      throw error;
+    }
+  }
+
+  private async trigger({ scenarioId, idempotencyKey, request, triggeredBy }: TriggerScenarioInput): Promise<TriggerScenarioResult> {
     const requestHash = hashTriggerRequest(scenarioId, request);
 
     const previous = await this.runs.findByIdempotencyKey(scenarioId, idempotencyKey);
@@ -156,11 +176,27 @@ export class TriggerScenarioUseCase {
     if (outcome.kind === 'changed') {
       throw new ScenarioNotTriggerableError(outcome.status, outcome.activeRunCorrelationId ?? undefined);
     }
+    this.logger.log({
+      event: 'run_trigger_queued',
+      scenario_id: scenarioId,
+      run_id: outcome.run.id,
+      correlation_id: outcome.run.correlationId,
+      engine: request.engine,
+      priority: request.priority,
+      retry_of_run_id: outcome.run.retryOfRunId ?? undefined,
+      triggered_by: triggeredBy,
+    });
     return { run: outcome.run, replayed: false };
   }
 
   private replay(run: Run, requestHash: string): TriggerScenarioResult {
     if (run.requestHash !== requestHash) throw new IdempotencyKeyReuseError();
+    this.logger.log({
+      event: 'run_trigger_replayed',
+      scenario_id: run.scenarioId,
+      run_id: run.id,
+      correlation_id: run.correlationId,
+    });
     return { run, replayed: true };
   }
 

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ScenarioConfigNotFoundError, ScenarioNotFoundError } from '../../domain/errors.js';
 import { applyConfigPatch } from '../apply-config-patch.js';
 import {
@@ -6,6 +6,7 @@ import {
   type ScenarioConfigReader,
 } from '../ports/scenario-config.reader.js';
 import { SCENARIO_REPOSITORY, type ScenarioRepository } from '../ports/scenario.repository.js';
+import { scenarioOperations } from '../../../telemetry/metrics.js';
 
 export interface UpdateScenarioInput {
   id: string;
@@ -18,6 +19,8 @@ export interface UpdateScenarioInput {
 
 @Injectable()
 export class UpdateScenarioUseCase {
+  private readonly logger = new Logger(UpdateScenarioUseCase.name);
+
   constructor(
     @Inject(SCENARIO_REPOSITORY) private readonly scenarios: ScenarioRepository,
     @Inject(SCENARIO_CONFIG_READER) private readonly configs: ScenarioConfigReader,
@@ -49,6 +52,15 @@ export class UpdateScenarioUseCase {
           }
         : undefined,
       updatedBy: input.updatedBy,
+    });
+    scenarioOperations.add(1, { operation: 'update' });
+    this.logger.log({
+      event: 'scenario_updated',
+      scenario_id: input.id,
+      updated_by: input.updatedBy,
+      renamed: input.name !== undefined,
+      config_repointed: repointed,
+      config_changes: patched?.changes.length ?? 0,
     });
     return { scenario: updated, changes: patched?.changes ?? [], modules: patched?.modules ?? [] };
   }

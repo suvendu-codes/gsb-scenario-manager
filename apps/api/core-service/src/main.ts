@@ -5,11 +5,13 @@ import { requestLogger } from 'shared';
 import { appConfig } from './config.js';
 import { AppModule } from './app.module.js';
 import { setupSwagger } from './swagger.js';
+import { JsonLogger } from './telemetry/json-logger.js';
 
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    // One JSON line per log on stdout; picked up by the cluster OTel collector.
+    logger: new JsonLogger(),
   });
   const logger = new Logger('Bootstrap');
   app.setGlobalPrefix('api');
@@ -35,7 +37,7 @@ async function bootstrap() {
   setupSwagger(app);
   const port = appConfig.port;
   await app.listen(port);
-  logger.log(`Listening on port ${port}`);
+  logger.log({ event: 'api_listening', port });
 }
 
 void bootstrap();

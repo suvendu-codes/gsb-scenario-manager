@@ -7,6 +7,7 @@ import { StatusWorkerModule } from './status-worker.module.js';
 import { KafkaEventSourceModule } from './infrastructure/kafka-event-source.module.js';
 import { KafkaEventSource } from './infrastructure/kafka-event-source.js';
 import { DrizzleRunEventRepository } from './infrastructure/drizzle-run-event.repository.js';
+import { JsonLogger } from '../telemetry/json-logger.js';
 
 /*
  * ENTRY POINT of the STANDALONE worker (a separate process with no HTTP server).
@@ -43,7 +44,9 @@ class WorkerApplicationModule {}
 async function bootstrap() {
   // "Application context" = start Nest's object container WITHOUT an HTTP server. Creating it
   // builds every provider and runs lifecycle hooks, i.e. StatusWorker.onModuleInit() => Kafka subscribe.
-  const app = await NestFactory.createApplicationContext(WorkerApplicationModule);
+  const app = await NestFactory.createApplicationContext(WorkerApplicationModule, {
+    logger: new JsonLogger(),
+  });
   // On SIGTERM/SIGINT (deploy, Ctrl+C) Nest calls StatusWorker.beforeApplicationShutdown(),
   // which stops Kafka consumption cleanly so the in-flight message finishes first.
   app.enableShutdownHooks();

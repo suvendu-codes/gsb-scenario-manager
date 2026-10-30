@@ -35,6 +35,15 @@ export interface OutboxStore {
   markDead(id: string, workerId: string, error: string): Promise<boolean>;
   /** Releases a lease without consuming an attempt (claimed but not tried). */
   release(id: string, workerId: string): Promise<boolean>;
+  /** Backlog snapshot for metrics. Optional: stores that cannot answer cheaply omit it. */
+  stats?(): Promise<OutboxStats>;
+}
+
+export interface OutboxStats {
+  /** Rows waiting for delivery (status pending, including ones backing off or leased). */
+  pending: number;
+  /** Age in seconds of the oldest pending row; 0 when there is none. */
+  oldestPendingAgeSeconds: number;
 }
 export const OUTBOX_STORE = Symbol('OUTBOX_STORE');
 
